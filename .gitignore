@@ -9,6 +9,7 @@ npm-debug.log*
 backend/.env
 backend/mykey.py
 backend/mykey.json
+backend/assets/tmwd_cdp_bridge/bridge_token.json
 
 backend/temp/
 backend/logs/

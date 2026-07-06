@@ -1,8 +1,5 @@
 ;(function(){ if (/streamlit/i.test(document.title)) return;
 
-// Remove meta CSP tags
-document.querySelectorAll('meta[http-equiv="Content-Security-Policy"]').forEach(e => e.remove());
-
 // Indicator badge at bottom-right (userscript style)
 (function(){
   if(window.self!==window.top)return;

@@ -1,18 +1,6 @@
 // background.js - Cookie + CDP Bridge
 chrome.runtime.onInstalled.addListener(() => {
   console.log('CDP Bridge installed');
-  // Strip CSP headers to allow eval/inline scripts
-  chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [9999],
-    addRules: [{
-      id: 9999, priority: 1,
-      action: { type: 'modifyHeaders', responseHeaders: [
-        { header: 'content-security-policy', operation: 'remove' },
-        { header: 'content-security-policy-report-only', operation: 'remove' }
-      ]},
-      condition: { urlFilter: '*', resourceTypes: ['main_frame', 'sub_frame'] }
-    }]
-  });
 });
 
 async function handleExtMessage(msg, sender) {
@@ -30,27 +18,6 @@ async function handleExtMessage(msg, sender) {
         const data = tabs.map(t => ({ id: t.id, url: t.url, title: t.title, active: t.active, windowId: t.windowId }));
         return { ok: true, data };
       }
-    } catch (e) { return { ok: false, error: e.message }; }
-  }
-  if (msg.cmd === 'management') {
-    try {
-      if (msg.method === 'list') {
-        const all = await chrome.management.getAll();
-        return { ok: true, data: all.map(e => ({ id: e.id, name: e.name, enabled: e.enabled, type: e.type, version: e.version })) };
-      }
-      if (msg.method === 'reload') {
-        chrome.alarms.create('tmwd-self-reload', { when: Date.now() + 200 });
-        return { ok: true };
-      }
-      if (msg.method === 'disable') {
-        await chrome.management.setEnabled(msg.extId, false);
-        return { ok: true };
-      }
-      if (msg.method === 'enable') {
-        await chrome.management.setEnabled(msg.extId, true);
-        return { ok: true };
-      }
-      return { ok: false, error: 'Unknown method: ' + msg.method };
     } catch (e) { return { ok: false, error: e.message }; }
   }
   return { ok: false, error: 'Unknown cmd: ' + msg.cmd };
@@ -190,6 +157,32 @@ function buildCdpScript(code) {
 // --- WebSocket Client for TMWebDriver ---
 let ws = null;
 const WS_URL = 'ws://127.0.0.1:18765';
+const HTTP_BASE = 'http://127.0.0.1:18766';
+let bridgeToken = null;
+
+async function readBridgeToken(url) {
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return '';
+    const data = await res.json();
+    return typeof data.token === 'string' ? data.token : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function getBridgeToken() {
+  if (bridgeToken) return bridgeToken;
+  bridgeToken = await readBridgeToken(chrome.runtime.getURL('bridge_token.json'));
+  if (!bridgeToken) bridgeToken = await readBridgeToken(`${HTTP_BASE}/api/bridge-token`);
+  return bridgeToken;
+}
+
+function sendAuthed(payload) {
+  if (!ws || ws.readyState !== WebSocket.OPEN || !bridgeToken) return false;
+  ws.send(JSON.stringify({ ...payload, token: bridgeToken }));
+  return true;
+}
 
 function scheduleProbe() {
   // Use chrome.alarms to survive MV3 service worker suspension
@@ -205,7 +198,7 @@ async function isServerAlive() {
   try {
     const ctrl = new AbortController();
     setTimeout(() => ctrl.abort(), 2000);
-    await fetch('http://127.0.0.1:18765', { signal: ctrl.signal });
+    await fetch(`${HTTP_BASE}/api/bridge-token`, { signal: ctrl.signal, cache: 'no-store' });
     return true; // Got HTTP response → port is listening
   } catch (e) {
     return false; // Network error (connection refused) or timeout → server not alive
@@ -220,7 +213,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'tmwd-ws-keepalive') {
     // Keepalive: ping to keep SW alive + detect dead connections
     if (ws && ws.readyState === WebSocket.OPEN) {
-      try { ws.send('{"type":"ping"}'); } catch (_) {}
+      try { sendAuthed({ type: 'ping' }); } catch (_) {}
       scheduleKeepalive();
     } else {
       // Connection lost, switch to probe mode
@@ -242,9 +235,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 async function handleWsExec(data) {
   const tabId = data.tabId;
   console.log('[TMWD-WS] Exec request', data.id, 'on tab', tabId);
-  ws.send(JSON.stringify({ type: 'ack', id: data.id }));
+  sendAuthed({ type: 'ack', id: data.id });
   if (!tabId) {
-    ws.send(JSON.stringify({ type: 'error', id: data.id, error: 'No tabId provided' }));
+    sendAuthed({ type: 'error', id: data.id, error: 'No tabId provided' });
     return;
   }
   // Use onCreated listener to reliably capture new tabs (avoids race condition with query-diff)
@@ -299,13 +292,13 @@ async function handleWsExec(data) {
       try { const t = await chrome.tabs.get(id); newTabs.push({id: t.id, url: t.url, title: t.title}); } catch (_) {}
     }
     if (res?.ok) {
-      ws.send(JSON.stringify({ type: 'result', id: data.id, result: res.data, newTabs }));
+      sendAuthed({ type: 'result', id: data.id, result: res.data, newTabs });
     } else {
       console.log(res);
-      ws.send(JSON.stringify({ type: 'error', id: data.id, error: res?.error || 'Unknown error', newTabs }));
+      sendAuthed({ type: 'error', id: data.id, error: res?.error || 'Unknown error', newTabs });
     }
   } catch (e) {
-    ws.send(JSON.stringify({ type: 'error', id: data.id, error: { name: e.name || 'Error', message: e.message || String(e), stack: e.stack || '' } }));
+    sendAuthed({ type: 'error', id: data.id, error: { name: e.name || 'Error', message: e.message || String(e), stack: e.stack || '' } });
   } finally {
     chrome.tabs.onCreated.removeListener(onCreated);
   }
@@ -325,17 +318,26 @@ function connectWS() {
   }
   ws.onopen = async () => {
     console.log('[TMWD-WS] Connected!');
+    if (!await getBridgeToken()) {
+      console.warn('[TMWD-WS] Missing bridge token; closing unauthenticated connection');
+      ws.close();
+      return;
+    }
     scheduleKeepalive(); // Keep SW alive while connected
     const tabs = (await chrome.tabs.query({})).filter(t => isScriptable(t.url));
-    ws.send(JSON.stringify({
+    sendAuthed({
       type: 'ext_ready',
       tabs: tabs.map(t => ({ id: t.id, url: t.url, title: t.title }))
-    }));
+    });
     console.log('[TMWD-WS] Sent ext_ready with', tabs.length, 'tabs');
   };
   ws.onmessage = async (event) => {
     try {
       const data = JSON.parse(event.data);
+      if (!await getBridgeToken() || data.token !== bridgeToken) {
+        console.warn('[TMWD-WS] Ignored unauthenticated command');
+        return;
+      }
       if (data.id && data.code) {
         let code = data.code;
         // If code is a JSON string representing an object, parse it
@@ -346,7 +348,7 @@ function connectWS() {
           // Custom protocol message → route to handleExtMessage
           if (code.tabId === undefined && data.tabId !== undefined) code.tabId = data.tabId;
           const res = await handleExtMessage(code, {});
-          ws.send(JSON.stringify({ type: res.ok ? 'result' : 'error', id: data.id, result: res.data ?? res.results ?? res, error: res.error }));
+          sendAuthed({ type: res.ok ? 'result' : 'error', id: data.id, result: res.data ?? res.results ?? res, error: res.error });
         } else if (typeof code === 'string') {
           // Plain JS code
           await handleWsExec(data);
@@ -354,7 +356,7 @@ function connectWS() {
           // Object without cmd → legacy extension message
           const msg = code.tabId === undefined && data.tabId !== undefined ? { ...code, tabId: data.tabId } : code;
           const res = await handleExtMessage(msg, {});
-          ws.send(JSON.stringify({ type: res.ok ? 'result' : 'error', id: data.id, result: res.data ?? res.results ?? res, error: res.error }));
+          sendAuthed({ type: res.ok ? 'result' : 'error', id: data.id, result: res.data ?? res.results ?? res, error: res.error });
         }
       }
     } catch (e) {
@@ -381,10 +383,10 @@ chrome.runtime.onInstalled.addListener(() => connectWS());
 async function sendTabsUpdate() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const tabs = (await chrome.tabs.query({})).filter(t => isScriptable(t.url) && !/streamlit/i.test(t.title));
-  ws.send(JSON.stringify({
+  sendAuthed({
     type: 'tabs_update',
     tabs: tabs.map(t => ({ id: t.id, url: t.url, title: t.title }))
-  }));
+  });
 }
 chrome.tabs.onUpdated.addListener((_, changeInfo) => {
   if (changeInfo.status === 'complete') sendTabsUpdate();

@@ -9,9 +9,7 @@
     "activeTab",
     "debugger",
     "scripting",
-    "alarms",
-    "declarativeNetRequest",
-    "management"
+    "alarms"
   ],
   "host_permissions": ["<all_urls>"],
   "background": {

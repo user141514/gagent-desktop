@@ -1,9 +1,52 @@
-import json, threading, time, uuid, queue, socket, requests, traceback
+import hmac, json, os, secrets, threading, time, uuid, queue, socket, requests, traceback
 from typing import Dict, Any, Optional, List  
 from simple_websocket_server import WebSocketServer, WebSocket  
 from bs4 import BeautifulSoup  
 import bottle, random
 from bottle import route, template, request, response
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BRIDGE_TOKEN_FILENAME = "bridge_token.json"
+BRIDGE_TOKEN_ENV = "GENERIC_AGENT_TMWD_BRIDGE_TOKEN"
+BRIDGE_TOKEN_FILE_ENV = "GENERIC_AGENT_TMWD_BRIDGE_TOKEN_FILE"
+
+
+def _default_bridge_token_path():
+    return os.environ.get(BRIDGE_TOKEN_FILE_ENV) or os.path.join(
+        PROJECT_ROOT, "assets", "tmwd_cdp_bridge", BRIDGE_TOKEN_FILENAME
+    )
+
+
+def _read_bridge_token(path):
+    try:
+        with open(path, "r", encoding="utf-8") as token_file:
+            data = json.load(token_file)
+        token = data.get("token", "")
+        return token if isinstance(token, str) and token else ""
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+
+def _ensure_bridge_token():
+    env_token = os.environ.get(BRIDGE_TOKEN_ENV, "").strip()
+    if env_token:
+        return env_token
+    token_path = _default_bridge_token_path()
+    token = _read_bridge_token(token_path)
+    if token:
+        return token
+    token = secrets.token_urlsafe(32)
+    try:
+        os.makedirs(os.path.dirname(token_path), exist_ok=True)
+        with open(token_path, "w", encoding="utf-8") as token_file:
+            json.dump({"token": token}, token_file)
+        try:
+            os.chmod(token_path, 0o600)
+        except OSError:
+            pass
+    except OSError as exc:
+        print(f"[TMWebDriver] bridge token file unavailable, using in-memory token: {exc}")
+    return token
 
 class Session:
     def __init__(self, session_id, info, client=None):
@@ -40,19 +83,57 @@ class TMWebDriver:
         self.sessions, self.results, self.acks = {}, {}, {}
         self.default_session_id = None  
         self.latest_session_id = None  
+        self.bridge_token = _ensure_bridge_token()
+        self.remote_token = None
         self.is_remote = socket.socket().connect_ex((host, port+1)) == 0
         if not self.is_remote:  
             self.start_ws_server()  
             self.start_http_server()
         else:
             self.remote = f'http://{self.host}:{self.port+1}/link'
+            self.remote_token = self._fetch_remote_token()
+
+    def _valid_token(self, token) -> bool:
+        return bool(token) and hmac.compare_digest(str(token), self.bridge_token)
+
+    def _request_token(self, data=None):
+        data = data if isinstance(data, dict) else {}
+        return request.headers.get("X-TMWD-Token") or data.get("token")
+
+    def _unauthorized(self):
+        response.status = 401
+        response.content_type = "application/json"
+        return json.dumps({"error": "unauthorized"})
+
+    def _request_json(self):
+        try:
+            data = request.json
+        except Exception:
+            data = None
+        return data if isinstance(data, dict) else {}
+
+    def _fetch_remote_token(self):
+        try:
+            reply = requests.get(f"http://{self.host}:{self.port+1}/api/bridge-token", timeout=2)
+            if reply.status_code == 200:
+                token = reply.json().get("token", "")
+                return token if isinstance(token, str) else ""
+        except Exception:
+            return ""
+        return ""
 
     def start_http_server(self):
         self.app = app = bottle.Bottle()
 
+        @app.route('/api/bridge-token', method=['GET'])
+        def bridge_token():
+            response.content_type = "application/json"
+            return json.dumps({"token": self.bridge_token})
+
         @app.route('/api/longpoll', method=['GET', 'POST'])
         def long_poll():
-            data = request.json
+            data = self._request_json()
+            if not self._valid_token(self._request_token(data)): return self._unauthorized()
             session_id = data.get('sessionId')  
             session_info = {'url': data.get('url'), 'title': data.get('title', ''), 'type': 'http'}  
             if session_id not in self.sessions: 
@@ -76,7 +157,8 @@ class TMWebDriver:
 
         @app.route('/api/result', method=['GET','POST'])
         def result():
-            data = request.json
+            data = self._request_json()
+            if not self._valid_token(self._request_token(data)): return self._unauthorized()
             if data.get('type') == 'result':  
                 self.results[data.get('id')] = {'success': True, 'data': data.get('result'), 'newTabs': data.get('newTabs', [])}  
             elif data.get('type') == 'error':  
@@ -85,7 +167,8 @@ class TMWebDriver:
 
         @app.route('/link', method=['GET','POST'])
         def link():
-            data = request.json
+            data = self._request_json()
+            if not self._valid_token(self._request_token(data)): return self._unauthorized()
             if data.get('cmd') == 'get_all_sessions': return json.dumps({'r': self.get_all_sessions()}, ensure_ascii=False)  
             if data.get('cmd') == 'find_session': 
                 url_pattern = data.get('url_pattern', '')
@@ -124,6 +207,10 @@ class TMWebDriver:
             def handle(self) -> None:  
                 try:  
                     data = json.loads(self.data)  
+                    if not driver._valid_token(data.get('token')):
+                        print(f"Rejected unauthenticated WS message from {self.address}")
+                        self.close()
+                        return
                     if data.get('type') == 'ready':  
                         session_id = data.get('sessionId')  
                         session_info = {'url': data.get('url'), 'title': data.get('title', ''),
@@ -151,7 +238,11 @@ class TMWebDriver:
                 except Exception as e:  
                     print(f"Error handling message: {e}")  
                     if hasattr(self, 'data'): print(self.data)  
-            def connected(self): (f"New connection from {self.address}")  
+            def connected(self):
+                origin = self.request.headers.get('Origin', '') if self.request else ''
+                if origin and not origin.startswith('chrome-extension://'):
+                    print(f"Rejected WS origin: {origin}")
+                    self.close()
             def handle_close(self): 
                 print(f"WS Connection closed: {self.address}")
                 driver._unregister_client(self)  
@@ -206,7 +297,7 @@ class TMWebDriver:
         tp = session.type
         assert tp in ['ws', 'http', 'ext_ws'], f"Unsupported session type: {tp}"
         exec_id = str(uuid.uuid4())  
-        payload_dict = {'id': exec_id, 'code': code}
+        payload_dict = {'id': exec_id, 'code': code, 'token': self.bridge_token}
         if tp == 'ext_ws': payload_dict['tabId'] = int(session.id)
         payload = json.dumps(payload_dict)
 
@@ -243,7 +334,14 @@ class TMWebDriver:
         return rr
     
     def _remote_cmd(self, cmd):
-        return requests.post(self.remote, headers={"Content-Type": "application/json"}, json=cmd).json()
+        token = self.remote_token or self._fetch_remote_token()
+        if token:
+            self.remote_token = token
+            cmd = {**cmd, "token": token}
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["X-TMWD-Token"] = token
+        return requests.post(self.remote, headers=headers, json=cmd).json()
 
     def get_all_sessions(self):  
         if self.is_remote:
