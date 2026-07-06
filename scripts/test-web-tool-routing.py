@@ -89,12 +89,18 @@ def test_powershell_transport_fetches_local_http():
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            url = f"http://127.0.0.1:{server.server_address[1]}/"
+            url = f"http://127.0.0.1:{server.server_address[1]}/?q=agent&hl=en"
             text = ga._powershell_web_request_text(url, 5)
             assert "powershell transport ok" in text, text
         finally:
             server.shutdown()
             thread.join(timeout=5)
+
+
+def test_baidu_subdomains_are_not_search_results():
+    assert ga._is_forbidden_search_result_url("https://baidu.com/")
+    assert ga._is_forbidden_search_result_url("https://baike.baidu.com/item/OpenAI/19758408")
+    assert not ga._is_forbidden_search_result_url("https://openai.com/api/")
 
 
 def test_inline_js_is_not_treated_as_a_file_path():
@@ -114,5 +120,6 @@ if __name__ == "__main__":
     test_default_search_uses_http_fallback()
     test_powershell_transport_can_be_first()
     test_powershell_transport_fetches_local_http()
+    test_baidu_subdomains_are_not_search_results()
     test_inline_js_is_not_treated_as_a_file_path()
     print("[test-web-tool-routing] ok")

@@ -43,6 +43,7 @@ GENERIC_AGENT_WEB_SEARCH_TRANSPORT=powershell,python
 Rules:
 
 - Do not use Baidu as a search backend.
+- Do not return `baidu.com` or its subdomains as successful source results.
 - Do not use the current browser tab as a search source unless the user explicitly asks for rendered-page behavior.
 - Do not use `web_scan` as a fallback for ordinary search failure.
 - Do not use `browser_agent` as a fallback for ordinary search failure.
@@ -97,6 +98,7 @@ A compliant `web_search` implementation must:
 - Return `status`, `query`, `engine`, `search_url`, `result_count`, and `results` on success.
 - Return structured `status='error'`, `engine`, `msg`, and optional `attempts` on failure.
 - Never silently return Baidu homepage links as if they were search results.
+- Never return Baidu subdomains as successful source results.
 - Reject unsupported or browser-backed engine values instead of opening a browser tab.
 
 A compliant `web_scan` implementation must:

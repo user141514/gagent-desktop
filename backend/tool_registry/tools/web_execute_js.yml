@@ -1,36 +1,44 @@
 name: web_execute_js
-owner_layer: Layer 1 capability contract
-capability_class: current_tab_javascript
-summary: Execute precise JavaScript in the current browser tab for known DOM/page actions.
-implementation:
-  - backend/core/ga.py:web_execute_js
-handler:
-  - backend/core/ga.py:ClassicToolHandler.do_web_execute_js
-schema:
-  - backend/assets/tools_schema.json
-  - backend/assets/tools_schema_cn.json
-sop:
-  - backend/memory/web_search_tool_sop.md
-  - backend/memory/tmwebdriver_sop.md
-prompt_summary:
-  - backend/assets/sys_prompt.txt
-  - backend/assets/sys_prompt_en.txt
-parameters:
-  - script
-  - save_to_file
-  - no_monitor
-  - switch_tab_id
-required: []
-returns:
+layer_owner: Layer 1 capability contract
+purpose: Execute precise JavaScript in the current browser tab for known DOM, page-state, or navigation actions.
+does:
+  - run caller-provided JavaScript in the current or selected tab
+  - support script file input only when the input clearly names a local script path
+  - handle navigation scripts through the browser bridge reconnect path
+  - optionally save long JavaScript returns to a file
+does_not_do:
+  - perform ordinary web search
+  - choose a search backend
+  - replace browser_agent for autonomous multi-step browsing
+  - infer selectors without page context
+inputs:
+  - script: JavaScript code or local script path
+  - save_to_file: optional output file for long results
+  - no_monitor: optional monitor bypass
+  - switch_tab_id: optional current-tab selector
+outputs:
   - status
   - js_return
   - navigated
   - new_url
-does_not:
-  - perform general web search
-  - choose selectors without page context
-  - replace browser_agent for multi-step autonomous workflows
+  - tab_id
+success_contract: Returns structured JavaScript result or navigation metadata without treating navigation unload as failure.
+failure_contract: Returns status=error or status=timeout with browser bridge/session details.
 fallback_policy:
-  - inspect web_scan state before broad DOM actions
+  - inspect current page with web_scan before broad DOM actions
   - treat bridge/session errors as browser setup problems
-  - use browser_agent only when repeated rendered reasoning is needed
+  - use browser_agent only when repeated rendered reasoning is required
+forbidden_behaviors:
+  - ordinary web search
+  - Baidu search fallback
+  - silent browser_agent escalation
+  - treating inline JavaScript as a blocked local path
+smoke_tests:
+  - python backend/tool_registry/tests/smoke_web_tools.py
+  - navigation script does not trigger set.get or path-guard bugs
+source_files:
+  - backend/core/ga.py:web_execute_js
+generated_artifacts:
+  - backend/assets/tools_schema.json
+  - backend/assets/tools_schema_cn.json
+  - backend/memory/web_search_tool_sop.md

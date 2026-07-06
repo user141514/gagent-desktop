@@ -1,34 +1,41 @@
 name: web_scan
-owner_layer: Layer 1 capability contract
-capability_class: rendered_page_inspection
-summary: Inspect the current rendered browser tab/page state and tab metadata.
-implementation:
-  - backend/core/ga.py:web_scan
-handler:
-  - backend/core/ga.py:ClassicToolHandler.do_web_scan
-schema:
-  - backend/assets/tools_schema.json
-  - backend/assets/tools_schema_cn.json
-sop:
-  - backend/memory/web_search_tool_sop.md
-  - backend/memory/tmwebdriver_sop.md
-prompt_summary:
-  - backend/assets/sys_prompt.txt
-  - backend/assets/sys_prompt_en.txt
-parameters:
-  - tabs_only
-  - switch_tab_id
-  - text_only
-required: []
-returns:
+layer_owner: Layer 1 capability contract
+purpose: Inspect current rendered browser tab state and tab metadata through the local browser bridge.
+does:
+  - read current tab metadata
+  - optionally switch to a known tab id before inspection
+  - optionally return simplified current-page content
+  - expose browser bridge or session failures as structured errors
+does_not_do:
+  - search the web
+  - open search engines
+  - execute arbitrary page JavaScript
+  - decide general web_search fallback policy
+inputs:
+  - tabs_only: optional metadata-only mode
+  - switch_tab_id: optional current-tab selector
+  - text_only: optional text output mode
+outputs:
   - status
   - metadata
   - content
-does_not:
-  - perform web search
-  - execute arbitrary page JavaScript
-  - own browser fallback policy
+success_contract: Returns status=success with current tab metadata and optional current-page content.
+failure_contract: Returns status=error with browser bridge/session error details; failure is not a search failure.
 fallback_policy:
-  - treat failure as browser bridge or session state
-  - use web_search only when the task is actually search-like
+  - treat unavailable sessions as browser bridge state
+  - use web_search only when the task is actually source discovery
   - use browser_agent only for complex rendered workflows
+forbidden_behaviors:
+  - performing a search query
+  - using Baidu or any search backend
+  - navigating to a new search result page
+  - masking browser bridge failure as search failure
+smoke_tests:
+  - python backend/tool_registry/tests/smoke_web_tools.py
+  - web_scan fake current tab returns metadata without search_url or query
+source_files:
+  - backend/core/ga.py:web_scan
+generated_artifacts:
+  - backend/assets/tools_schema.json
+  - backend/assets/tools_schema_cn.json
+  - backend/memory/web_search_tool_sop.md

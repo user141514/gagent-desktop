@@ -284,6 +284,17 @@ def _search_result_matches_query(query, title, url, snippet=""):
     return any(term in haystack for term in terms)
 
 
+def _is_forbidden_search_result_url(url):
+    try:
+        host = urlparse(str(url or "")).netloc.lower()
+    except Exception:
+        return True
+    host = host[4:] if host.startswith("www.") else host
+    if host == "baidu.com" or host.endswith(".baidu.com"):
+        return True
+    return False
+
+
 def _unwrap_duckduckgo_url(url):
     url = urljoin("https://duckduckgo.com/", str(url or ""))
     try:
@@ -379,6 +390,8 @@ class _GenericSearchResultParser(HTMLParser):
             return False
         if not title or len(title) < 3:
             return False
+        if _is_forbidden_search_result_url(url):
+            return False
         try:
             parsed = urlparse(url)
             host = parsed.netloc.lower().replace("www.", "")
@@ -424,7 +437,7 @@ class _DuckDuckGoResultParser(HTMLParser):
             title = _clean_search_text("".join(self._link_parts))
             url = _unwrap_duckduckgo_url(self._link_href)
             key = url.split("#", 1)[0]
-            if title and url and key not in self._seen and len(self.results) < self.max_results:
+            if title and url and not _is_forbidden_search_result_url(url) and key not in self._seen and len(self.results) < self.max_results:
                 self._seen.add(key)
                 self.results.append({"rank": len(self.results) + 1, "title": title, "url": url, "snippet": ""})
             self._in_link = False
@@ -514,20 +527,24 @@ def _powershell_web_request_text(url, timeout):
     if os.name != "nt":
         raise RuntimeError("PowerShell web transport is only enabled on Windows")
     script = (
-        "& { param($url, $timeoutSec) "
         "$ProgressPreference='SilentlyContinue';"
         "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);"
+        "$url=$env:GENERIC_AGENT_WEB_SEARCH_URL;"
+        "$timeoutSec=$env:GENERIC_AGENT_WEB_SEARCH_TIMEOUT;"
         "$headers=@{'User-Agent'='Mozilla/5.0 GenericAgent-WebSearch/1.0'};"
         "$r=Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec ([int]$timeoutSec) -Headers $headers;"
         "[Console]::Write($r.Content)"
-        " }"
     )
+    env = os.environ.copy()
+    env["GENERIC_AGENT_WEB_SEARCH_URL"] = str(url)
+    env["GENERIC_AGENT_WEB_SEARCH_TIMEOUT"] = str(timeout)
     proc = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script, url, str(timeout)],
+        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         encoding="utf-8",
         errors="replace",
+        env=env,
         timeout=max(int(timeout or 18) + 5, 8),
     )
     if proc.returncode != 0:
@@ -571,6 +588,8 @@ def _generic_http_search(query, engine="bing", max_results=8, timeout=18):
             title = _clean_search_text(re.sub(r"<[^>]+>", " ", raw_title))
             url = _unwrap_http_search_url(href, search_url)
             if not url.startswith(("http://", "https://")) or not title:
+                continue
+            if _is_forbidden_search_result_url(url):
                 continue
             if not _search_result_matches_query(query, title, url):
                 continue

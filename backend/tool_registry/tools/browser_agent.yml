@@ -1,34 +1,42 @@
 name: browser_agent
-owner_layer: Layer 1 capability contract
-capability_class: autonomous_browser_workflow
-summary: Expensive multi-step rendered browser workflow using an independent Playwright/browser-use agent.
-implementation:
-  - backend/core/browser_agent.py:run_browser_agent
-handler:
-  - backend/core/ga.py:ClassicToolHandler.do_browser_agent
-schema:
-  - backend/assets/tools_schema.json
-  - backend/assets/tools_schema_cn.json
-sop:
-  - backend/memory/web_search_tool_sop.md
-prompt_summary:
-  - backend/assets/sys_prompt.txt
-  - backend/assets/sys_prompt_en.txt
-parameters:
-  - task
-  - max_steps
-  - headless
-required:
-  - task
-returns:
+layer_owner: Layer 1 capability contract
+purpose: Expensive autonomous browser workflow for complex rendered tasks that need repeated observe-act loops.
+does:
+  - run multi-step rendered browser workflows in an independent browser agent
+  - handle login, form, upload, download, and multi-page navigation tasks when requested
+  - stop at max_steps or task completion
+  - report dependency, rate-limit, or browser-agent failures as blockers
+does_not_do:
+  - replace HTTP web_search source discovery
+  - replace simple web_scan page inspection
+  - replace precise web_execute_js DOM scripting
+  - run as fallback for ordinary search failure
+inputs:
+  - task: required natural-language browser workflow
+  - max_steps: optional step limit
+  - headless: optional browser visibility flag
+outputs:
   - success
   - result
   - steps_taken
-does_not:
-  - replace simple web_scan page inspection
-  - replace precise web_execute_js DOM scripting
-  - replace HTTP web_search source discovery
+success_contract: Returns success=true with result and steps_taken when the rendered browser workflow completes.
+failure_contract: Returns success=false with result describing dependency, timeout, or browser-agent failure.
 fallback_policy:
   - use only after cheaper rendered tools are insufficient
-  - report dependency/rate-limit failures as blockers
-  - fall back to web_search only for search-like tasks
+  - fall back to web_search only when the actual task is source discovery
+  - ask or stop when the blocker is credential, dependency, or rate-limit related
+forbidden_behaviors:
+  - ordinary web_search fallback
+  - Baidu search fallback
+  - simple current-tab inspection
+  - single-shot DOM scripting
+smoke_tests:
+  - python backend/tool_registry/tests/smoke_web_tools.py
+  - registry contract confirms browser_agent is complex rendered workflow only
+source_files:
+  - backend/core/browser_agent.py:run_browser_agent
+  - backend/core/ga.py:GenericAgentHandler.do_browser_agent
+generated_artifacts:
+  - backend/assets/tools_schema.json
+  - backend/assets/tools_schema_cn.json
+  - backend/memory/web_search_tool_sop.md

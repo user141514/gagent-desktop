@@ -149,7 +149,7 @@
     "type": "function",
     "function": {
       "name": "web_search",
-      "description": "执行确定性的 HTTP 网页搜索，不打开浏览器窗口，也不调用 LLM 浏览器代理。普通网页搜索默认使用 Bing HTTP，并以 Google / DuckDuckGo 作为后备；engine=github 直接调用 GitHub 公共仓库搜索 API。只有需要真实页面渲染或交互时才使用 web_scan / web_execute_js / browser_agent。禁止把百度作为搜索后端。" ,
+      "description": "执行确定性的 HTTP 网页搜索，不打开浏览器窗口，也不调用 LLM 浏览器代理。普通网页搜索默认使用 Bing HTTP，并以 Google / DuckDuckGo 作为后备；Windows 下优先使用 PowerShell Invoke-WebRequest，再退到 Python requests。engine=github 直接调用 GitHub 公共仓库搜索 API。普通搜索失败不得切换到 web_scan / web_execute_js / browser_agent；只有任务本身需要真实页面渲染或交互时才使用浏览器工具。禁止把百度作为搜索后端。" ,
       "parameters": {
         "type": "object",
         "properties": {
@@ -160,13 +160,14 @@
           "engine": {
             "type": "string",
             "enum": [
+              "auto",
               "duckduckgo",
               "github",
               "bing",
               "google",
               "scholar"
             ],
-            "description": "搜索后端。bing 是默认 HTTP 搜索路径，不打开浏览器；google/duckduckgo 是 HTTP 后备；github 直接调用 GitHub 仓库搜索 API。",
+            "description": "搜索后端。auto/bing 使用默认 HTTP fallback 顺序，不打开浏览器；google/duckduckgo 是 HTTP 后备；github 直接调用 GitHub 仓库搜索 API。",
             "default": "bing"
           },
           "max_results": {

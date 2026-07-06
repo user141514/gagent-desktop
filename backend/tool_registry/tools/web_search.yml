@@ -1,42 +1,55 @@
 name: web_search
-owner_layer: Layer 1 capability contract
-capability_class: http_source_discovery
-summary: Deterministic HTTP/source discovery. Does not inspect or depend on the current browser tab.
+layer_owner: Layer 1 capability contract
+purpose: Deterministic HTTP/source discovery. Does not open, inspect, or depend on the current browser tab.
 default_engine: bing
 preferred_windows_transport: powershell
-implementation:
-  - backend/core/ga.py:web_search
-handler:
-  - backend/core/ga.py:ClassicToolHandler.do_web_search
-schema:
-  - backend/assets/tools_schema.json
-  - backend/assets/tools_schema_cn.json
-sop:
-  - backend/memory/web_search_tool_sop.md
-prompt_summary:
-  - backend/assets/sys_prompt.txt
-  - backend/assets/sys_prompt_en.txt
-parameters:
-  - query
-  - engine
-  - max_results
-  - timeout
-required:
-  - query
-returns:
+does:
+  - run HTTP search against configured source engines
+  - return source candidates with title, url, snippet, rank, and metadata
+  - try same-capability HTTP fallback engines when ordinary search fails
+  - use PowerShell Invoke-WebRequest before Python requests on Windows
+does_not_do:
+  - open a browser window
+  - inspect current rendered tab state
+  - execute JavaScript
+  - use Baidu as a search backend
+  - delegate ordinary search failure to web_scan
+inputs:
+  - query: required search string
+  - engine: auto, bing, google, duckduckgo, github, or scholar
+  - max_results: optional result limit
+  - timeout: optional HTTP timeout
+outputs:
   - status
   - query
   - engine
   - search_url
+  - transport
   - result_count
   - results
-does_not:
-  - open a browser window by default
-  - inspect current rendered tab state
-  - use Baidu as a search backend
+  - attempts
+success_contract: Returns status=success with at least one non-search-engine source URL for general web queries.
+failure_contract: Returns status=error with msg and optional attempts; network failures remain structured failures.
 fallback_policy:
   - try configured HTTP engines in order
-  - on Windows, prefer PowerShell Invoke-WebRequest before Python requests
   - keep GitHub API failure within HTTP search paths first
-  - do not switch to web_scan for ordinary search failure
-  - do not switch to browser_agent for ordinary search failure
+  - never switch to web_scan for ordinary search failure
+  - never switch to browser_agent for ordinary search failure
+  - report network/proxy blockers instead of changing capability class
+forbidden_behaviors:
+  - Baidu search backend or Baidu homepage success result
+  - opening a browser window
+  - reading the current browser tab
+  - returning a search engine homepage as a successful source result
+  - fallback from ordinary web_search failure to web_scan
+smoke_tests:
+  - python backend/tool_registry/tests/smoke_web_tools.py
+  - web_search OpenAI API docs returns no baidu.com success URL
+  - web_search yobot GitHub code returns structured failure if network unavailable
+source_files:
+  - backend/core/ga.py:web_search
+  - backend/core/runtime/web_tool_errors.py
+generated_artifacts:
+  - backend/assets/tools_schema.json
+  - backend/assets/tools_schema_cn.json
+  - backend/memory/web_search_tool_sop.md
