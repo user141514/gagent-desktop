@@ -1,0 +1,32 @@
+name: file_read
+layer_owner: Layer 1 capability contract
+purpose: Read the current contents of a file with optional line numbers or keyword anchoring. Use before any edit, before quoting code, when checking configs/logs/README, or whenever you need repo ground truth. Prefer this over guessing or overusing code_run for simple file inspection. Read before modify so you act on the latest context.
+does:
+  - expose the file_read capability through the classic tool runtime
+  - return structured output or a clear error through its handler
+does_not_do:
+  - own unrelated tool behavior
+  - bypass path, memory, or runtime safety checks
+inputs:
+  - path: optional parameter
+  - start: optional parameter
+  - count: optional parameter
+  - keyword: optional parameter
+  - show_linenos: optional parameter
+outputs:
+  - structured tool result
+success_contract: Completes the declared file_read capability and returns structured result data.
+failure_contract: Returns a structured error or user-facing blocker without silently switching capability class.
+fallback_policy:
+  - do not change capability class silently
+  - report blockers when required inputs, paths, or permissions are missing
+forbidden_behaviors:
+  - mutating unrelated files or state
+  - acting as source of truth for another tool
+smoke_tests:
+  - python backend/tool_registry/validate_tool_registry.py
+source_files:
+  - backend/core/ga.py:GenericAgentHandler.do_file_read
+generated_artifacts:
+  - backend/assets/tools_schema.json
+  - backend/assets/tools_schema_cn.json

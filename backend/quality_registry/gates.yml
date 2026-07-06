@@ -1,0 +1,142 @@
+name: answer_quality_context
+default_enabled: true
+env_var: GENERIC_AGENT_ANSWER_QUALITY
+trigger: architecture-quality, roadmap, planning, and capability-evaluation prompts
+injected_role: user
+max_chars: module_default
+owner: Layer 4 quality gates
+enforcement_level: advisory_context
+source_files:
+  - backend/core/quality/answer_quality_context.py
+generated_artifacts:
+  - backend/core/openai_agentmain.py runtime metadata
+---
+name: problem_framing
+default_enabled: true
+env_var: GENERIC_AGENT_PROBLEM_FRAMING
+trigger: ambiguous problem statements or requests needing problem decomposition
+injected_role: user
+max_chars: module_default
+owner: Layer 4 quality gates
+enforcement_level: advisory_context
+source_files:
+  - backend/core/quality/problem_framing.py
+generated_artifacts:
+  - backend/core/openai_agentmain.py runtime metadata
+---
+name: research_code_priority
+default_enabled: true
+env_var: GENERIC_AGENT_RESEARCH_CODE_PRIORITY
+trigger: research tasks where runnable code or experiments should precede prose
+injected_role: user
+max_chars: module_default
+owner: Layer 4 quality gates
+enforcement_level: advisory_context
+source_files:
+  - backend/core/quality/research_code_priority.py
+generated_artifacts:
+  - backend/core/openai_agentmain.py runtime metadata
+---
+name: research_workflow
+default_enabled: true
+env_var: GENERIC_AGENT_RESEARCH_WORKFLOW
+trigger: algorithm/research questions, experiments, or claims needing audit gates
+injected_role: user
+max_chars: GENERIC_AGENT_RESEARCH_WORKFLOW_MAX_CHARS
+owner: Layer 4 quality gates
+enforcement_level: audit_scoring
+source_files:
+  - backend/core/quality/research_workflow.py
+generated_artifacts:
+  - backend/core/openai_agentmain.py runtime metadata
+---
+name: research_workflow_repair
+default_enabled: false
+env_var: GENERIC_AGENT_RESEARCH_WORKFLOW_REPAIR
+trigger: final response repair after research workflow scoring
+injected_role: none
+max_chars: none
+owner: Layer 4 quality gates
+enforcement_level: repair
+source_files:
+  - backend/core/quality/research_workflow.py
+generated_artifacts:
+  - backend/core/openai_agentmain.py final response path
+---
+name: state_driven_thinking
+default_enabled: true
+env_var: GENERIC_AGENT_STATE_DRIVEN_THINKING
+trigger: multi-step tasks with state transitions or tool actions
+injected_role: user
+max_chars: module_default
+owner: Layer 4 quality gates
+enforcement_level: advisory_context
+source_files:
+  - backend/core/quality/state_driven_thinking.py
+generated_artifacts:
+  - backend/core/openai_agentmain.py runtime metadata
+---
+name: execution_honesty
+default_enabled: true
+env_var: GENERIC_AGENT_EXECUTION_HONESTY
+trigger: final answer claims about completed actions, verification, or state changes
+injected_role: none
+max_chars: none
+owner: Layer 4 quality gates
+enforcement_level: blocking_notice
+source_files:
+  - backend/core/quality/execution_honesty.py
+generated_artifacts:
+  - backend/core/openai_agentmain.py final response path
+---
+name: execution_honesty_repair
+default_enabled: false
+env_var: GENERIC_AGENT_EXECUTION_HONESTY_REPAIR
+trigger: automatic repair after execution honesty detects unsupported claims
+injected_role: none
+max_chars: none
+owner: Layer 4 quality gates
+enforcement_level: repair
+source_files:
+  - backend/core/quality/execution_honesty.py
+generated_artifacts:
+  - backend/core/openai_agentmain.py final response path
+---
+name: code_preflight
+default_enabled: true
+env_var: GENERIC_AGENT_CODE_PREFLIGHT
+trigger: code_run requests that need smoke-test or safety preflight
+injected_role: none
+max_chars: none
+owner: Layer 4 quality gates
+enforcement_level: runtime_guard
+source_files:
+  - backend/core/runtime/code_preflight.py
+generated_artifacts:
+  - backend/core/ga.py code_run path
+---
+name: tool_path_guard
+default_enabled: true
+env_var: GENERIC_AGENT_TOOL_PATH_GUARD
+trigger: file and script-path tool operations
+injected_role: none
+max_chars: none
+owner: Layer 4 quality gates
+enforcement_level: runtime_guard
+source_files:
+  - backend/core/runtime/path_safety.py
+generated_artifacts:
+  - backend/core/ga.py file and script path operations
+---
+name: clarification_gate
+default_enabled: false
+env_var: GENERIC_AGENT_CLARIFICATION_GATE
+trigger: ambiguous high-risk decisions where guessing would be unsafe
+injected_role: none
+max_chars: none
+owner: Layer 4 quality gates
+enforcement_level: runtime_guard
+source_files:
+  - backend/core/runtime/clarification_gate.py
+generated_artifacts:
+  - backend/core/ga.py ask_user path

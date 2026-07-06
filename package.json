@@ -50,6 +50,7 @@
     "test:web-tools": "python-runtime\\python.exe scripts\\test-web-tool-routing.py",
     "test:capture-experience": "python-runtime\\python.exe scripts\\test-capture-experience.py",
     "test:tool-registry": "python-runtime\\python.exe backend\\tool_registry\\validate_tool_registry.py",
+    "test:quality-registry": "python-runtime\\python.exe backend\\quality_registry\\validate_quality_registry.py",
     "test:web-tools:smoke": "python-runtime\\python.exe backend\\tool_registry\\tests\\smoke_web_tools.py",
     "pack:dry": "npm pack --dry-run",
     "pack:npm": "npm pack",

@@ -1,0 +1,28 @@
+name: start_long_term_update
+layer_owner: Layer 1 capability contract
+purpose: Start distilling verified, durable information into long-term memory. Use after long or tricky tasks when you have stable environment facts, user preferences, or hard-earned lessons worth keeping. Do not use for raw logs, transient reasoning, or unverified guesses. Must be considered when a task took 15+ turns or uncovered durable setup knowledge.
+does:
+  - expose the start_long_term_update capability through the classic tool runtime
+  - return structured output or a clear error through its handler
+does_not_do:
+  - own unrelated tool behavior
+  - bypass path, memory, or runtime safety checks
+inputs:
+  - none
+outputs:
+  - structured tool result
+success_contract: Completes the declared start_long_term_update capability and returns structured result data.
+failure_contract: Returns a structured error or user-facing blocker without silently switching capability class.
+fallback_policy:
+  - do not change capability class silently
+  - report blockers when required inputs, paths, or permissions are missing
+forbidden_behaviors:
+  - mutating unrelated files or state
+  - acting as source of truth for another tool
+smoke_tests:
+  - python backend/tool_registry/validate_tool_registry.py
+source_files:
+  - backend/core/ga.py:GenericAgentHandler.do_start_long_term_update
+generated_artifacts:
+  - backend/assets/tools_schema.json
+  - backend/assets/tools_schema_cn.json

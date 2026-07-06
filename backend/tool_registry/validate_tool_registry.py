@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Minimal registry lint for Layer 1 web tool contracts."""
+"""Minimal registry lint for Layer 1 tool contracts."""
 
 import argparse
 import json
@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOLS_DIR = ROOT / "backend" / "tool_registry" / "tools"
-REQUIRED_TOOLS = {"web_search", "web_scan", "web_execute_js", "browser_agent"}
+RUNTIME_FALLBACK_POLICY = ROOT / "backend" / "tool_registry" / "policies" / "runtime_fallback.yml"
 REQUIRED_FIELDS = [
     "name",
     "layer_owner",
@@ -82,11 +82,25 @@ def engine_meta(schema, name):
     return tool.get("parameters", {}).get("properties", {}).get("engine", {})
 
 
+def input_names(data):
+    names = []
+    for item in as_list(data.get("inputs")):
+        name = item.split(":", 1)[0].strip()
+        if name and name != "none":
+            names.append(name)
+    return sorted(names)
+
+
+def parameter_names(schema, name):
+    tool = schema_tool(schema, name)
+    return sorted((tool.get("parameters", {}).get("properties") or {}).keys())
+
+
 def fallback_points_to_web_scan(item):
     text = item.lower()
     if "web_scan" not in text:
         return False
-    if re.search(r"\b(do not|don't|never|forbid|forbidden)\b", text):
+    if re.search(r"\b(do not|don't|must not|never|forbid|forbidden)\b", text):
         return False
     return True
 
@@ -94,8 +108,16 @@ def fallback_points_to_web_scan(item):
 def validate():
     errors = []
     registries = {}
+    en_schema = read_schema("backend/assets/tools_schema.json")
+    cn_schema = read_schema("backend/assets/tools_schema_cn.json")
+    en_names = schema_names(en_schema)
+    cn_names = schema_names(cn_schema)
+    required_tools = en_names | cn_names
 
-    for name in REQUIRED_TOOLS:
+    if en_names != cn_names:
+        errors.append("EN/CN schema tool names differ: EN=%s CN=%s" % (sorted(en_names), sorted(cn_names)))
+
+    for name in sorted(required_tools):
         path = TOOLS_DIR / ("%s.yml" % name)
         if not path.exists():
             errors.append("%s is missing" % path.relative_to(ROOT))
@@ -113,21 +135,33 @@ def validate():
             errors.append("%s: does_not_do must not be empty" % path.relative_to(ROOT))
         if not as_list(data.get("smoke_tests")):
             errors.append("%s: smoke_tests must not be empty" % path.relative_to(ROOT))
+        expected_params = parameter_names(en_schema, name)
+        actual_inputs = input_names(data)
+        if actual_inputs != expected_params:
+            errors.append(
+                "%s: inputs %s must match schema params %s"
+                % (path.relative_to(ROOT), actual_inputs, expected_params)
+            )
+        if parameter_names(cn_schema, name) != expected_params:
+            errors.append("%s: EN/CN schema params differ" % name)
+        for source in as_list(data.get("source_files")):
+            source_path = ROOT / source.split(":", 1)[0]
+            if not source_path.exists():
+                errors.append("%s: source file missing: %s" % (name, source))
+        for artifact in as_list(data.get("generated_artifacts")):
+            artifact_path = ROOT / artifact.split(":", 1)[0]
+            if not artifact_path.exists():
+                errors.append("%s: generated artifact missing: %s" % (name, artifact))
 
-    en_schema = read_schema("backend/assets/tools_schema.json")
-    cn_schema = read_schema("backend/assets/tools_schema_cn.json")
-    en_names = schema_names(en_schema)
-    cn_names = schema_names(cn_schema)
-
-    for name in REQUIRED_TOOLS:
+    for name in required_tools:
         if name not in en_names:
             errors.append("tools_schema.json missing %s" % name)
         if name not in cn_names:
             errors.append("tools_schema_cn.json missing %s" % name)
         if name not in registries:
-            errors.append("registry missing schema web tool %s" % name)
+            errors.append("registry missing schema tool %s" % name)
 
-    for schema_name in sorted((en_names | cn_names) & REQUIRED_TOOLS):
+    for schema_name in sorted(en_names | cn_names):
         if schema_name not in registries:
             errors.append("schema tool %s has no registry file" % schema_name)
 
@@ -152,6 +186,18 @@ def validate():
         errors.append("EN web_search default engine is not in enum")
     if cn_engine.get("default") not in set(cn_engine.get("enum", [])):
         errors.append("CN web_search default engine is not in enum")
+
+    if not RUNTIME_FALLBACK_POLICY.exists():
+        errors.append("backend/tool_registry/policies/runtime_fallback.yml is missing")
+    else:
+        policy = parse_simple_yaml(RUNTIME_FALLBACK_POLICY)
+        rules = as_list(policy.get("rules"))
+        policy_text = "\n".join(rules).lower()
+        if "web_search" not in policy_text or "web_scan" not in policy_text:
+            errors.append("runtime fallback policy must mention web_search/web_scan boundary")
+        for rule in rules:
+            if "web_search" in rule.lower() and fallback_points_to_web_scan(rule):
+                errors.append("runtime fallback policy must not point web_search to web_scan: %s" % rule)
 
     return errors
 

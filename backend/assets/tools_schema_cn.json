@@ -116,6 +116,10 @@
             ],
             "description": "写入模式。overwrite 覆盖整个文件，append 追加到末尾，prepend 插入到开头。",
             "default": "append"
+          },
+          "content": {
+            "type": "string",
+            "description": "可选兜底写入内容。优先把精确内容放在回复正文的 <file_content>...</file_content> 中；只有正文格式不可靠时才使用 content。"
           }
         }
       }

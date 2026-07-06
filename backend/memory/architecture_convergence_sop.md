@@ -595,6 +595,12 @@ Create a table of:
 name, default_enabled, trigger, injected_role, max_chars, owner, enforcement_level
 ```
 
+Current source-of-truth file:
+
+```text
+backend/quality_registry/gates.yml
+```
+
 ### 3. Context assembly policy
 
 Define:
@@ -616,6 +622,12 @@ tool failure -> classify -> retry same class if safe -> switch same capability -
 ```
 
 No individual module should invent fallback chains independently.
+
+Current source-of-truth file:
+
+```text
+backend/tool_registry/policies/runtime_fallback.yml
+```
 
 ### 5. Port-back discipline
 

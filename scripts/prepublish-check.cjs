@@ -194,6 +194,13 @@ try {
 } catch (error) {
   fail(error.message || String(error));
 }
+const qualityRegistryResult = run(
+  path.join(packageRoot, "python-runtime", process.platform === "win32" ? "python.exe" : "bin/python"),
+  ["backend/quality_registry/validate_quality_registry.py"]
+);
+if (qualityRegistryResult.status !== 0) {
+  fail(`quality registry validation failed:\n${qualityRegistryResult.stderr || qualityRegistryResult.stdout}`);
+}
 checkDryRun();
 checkPackDryRun();
 checkEmbeddedPythonImports();

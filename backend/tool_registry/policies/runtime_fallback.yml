@@ -1,0 +1,18 @@
+name: runtime_fallback_policy
+layer_owner: Layer 3 runtime controller
+purpose: Central fallback rules for tool failures. Capability class must not change silently.
+rules:
+  - classify failure before retrying
+  - retry the same capability class only when retryable and inputs change or transport changes
+  - switch within the same capability before escalating to another capability
+  - web_search failure may try another HTTP engine or transport
+  - web_search failure must not fall back to web_scan, web_execute_js, or browser_agent for ordinary search
+  - web_scan and web_execute_js failure is browser bridge state, not search state
+  - browser_agent is only for complex rendered workflows, not ordinary source discovery
+  - if all online paths fail, report blocker before using local/offline evidence
+source_files:
+  - backend/core/runtime/web_tool_errors.py
+  - backend/core/ga.py
+generated_artifacts:
+  - backend/memory/web_search_tool_sop.md
+  - backend/tool_registry/tools/web_search.yml

@@ -74,6 +74,12 @@ Prompt text must not be the only place where tool behavior exists.
 
 ## 5. Quality Gate Change Flow
 
+Source of truth:
+
+```text
+backend/quality_registry/gates.yml
+```
+
 Source of truth must name:
 
 - trigger;

@@ -1,0 +1,32 @@
+name: code_run
+layer_owner: Layer 1 capability contract
+purpose: Execute code or shell commands and return the real output. Use when you need objective evidence: test results, stack traces, command output, runtime behavior, environment state, generated artifacts, or scripted inspection that file_read cannot do alone. Prefer file_read for simple inspection of existing files. NEVER call with empty arguments: either provide arguments.script, or place exactly one fenced code block immediately before the tool call. Default runtime cwd is ./temp; use cwd:'../' for the repo root/current project folder. Do not hardcode large data blobs when a file or script can generate them.  SAFETY RULES: - NEVER kill processes you did not start yourself. Inspect with tasklist(Windows)/ps(Linux), then ask_user before killing. - To detect zombie processes, use psutil.Process(pid).status()=='zombie', tasklist /V, or WMI Win32_Process. Do NOT use os.kill(pid,0) as a liveness check. - Irreversible operations (kill, rm, drop, format) require ask_user confirmation first.
+does:
+  - expose the code_run capability through the classic tool runtime
+  - return structured output or a clear error through its handler
+does_not_do:
+  - own unrelated tool behavior
+  - bypass path, memory, or runtime safety checks
+inputs:
+  - script: optional parameter
+  - type: optional parameter
+  - timeout: optional parameter
+  - cwd: optional parameter
+  - inline_eval: optional parameter
+outputs:
+  - structured tool result
+success_contract: Completes the declared code_run capability and returns structured result data.
+failure_contract: Returns a structured error or user-facing blocker without silently switching capability class.
+fallback_policy:
+  - do not change capability class silently
+  - report blockers when required inputs, paths, or permissions are missing
+forbidden_behaviors:
+  - mutating unrelated files or state
+  - acting as source of truth for another tool
+smoke_tests:
+  - python backend/tool_registry/validate_tool_registry.py
+source_files:
+  - backend/core/ga.py:GenericAgentHandler.do_code_run
+generated_artifacts:
+  - backend/assets/tools_schema.json
+  - backend/assets/tools_schema_cn.json
