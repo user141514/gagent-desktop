@@ -84,7 +84,7 @@ A compliant `web_search` implementation must:
 - Return `status`, `query`, `engine`, `search_url`, `result_count`, and `results` on success.
 - Return structured `status='error'`, `engine`, `msg`, and optional `attempts` on failure.
 - Never silently return Baidu homepage links as if they were search results.
-- Keep browser-backed search behind an explicit `browser_` engine prefix.
+- Reject unsupported or browser-backed engine values instead of opening a browser tab.
 
 A compliant `web_scan` implementation must:
 

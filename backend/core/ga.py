@@ -242,12 +242,6 @@ def first_init_driver():
         time.sleep(3)
 
 
-_SEARCH_ENGINES = {
-    "bing": "https://www.bing.com/search?q={query}",
-    "duckduckgo": "https://duckduckgo.com/?q={query}",
-    "google": "https://www.google.com/search?q={query}",
-    "scholar": "https://scholar.google.com/scholar?q={query}",
-}
 _BING_HTML_SEARCH_URL = "https://www.bing.com/search"
 _DUCKDUCKGO_HTML_SEARCH_URL = "https://duckduckgo.com/html/"
 _GOOGLE_HTML_SEARCH_URL = "https://www.google.com/search"
@@ -266,12 +260,6 @@ _GITHUB_ENGINE_ALIASES = {
     "github_repositories",
     "github-repositories",
 }
-
-
-def _web_search_url(query, engine="bing"):
-    engine_key = str(engine or "bing").strip().lower()
-    template = _SEARCH_ENGINES.get(engine_key, _SEARCH_ENGINES["bing"])
-    return template.format(query=quote_plus(str(query or "").strip()))
 
 
 def _clean_search_text(text):
@@ -615,80 +603,12 @@ def _github_api_search(query, max_results=8, timeout=18):
         }
 
 
-def _web_search_extract_script(max_results=8):
-    return f"""
-return (() => {{
-  const maxResults = {int(max(1, min(max_results, 20)))};
-  const badHosts = new Set([
-    "www.bing.com", "bing.com", "www.google.com", "google.com",
-    "duckduckgo.com", "www.duckduckgo.com", "scholar.google.com"
-  ]);
-  function normalizeText(text) {{
-    return String(text || "").replace(/\\s+/g, " ").trim();
-  }}
-  function absoluteHref(a) {{
-    try {{ return new URL(a.getAttribute("href") || a.href || "", location.href).href; }}
-    catch (_) {{ return ""; }}
-  }}
-  function unwrapUrl(url) {{
-    try {{
-      const u = new URL(url);
-      const q = u.searchParams.get("q") || u.searchParams.get("url");
-      if (q && /^https?:\\/\\//i.test(q)) return q;
-      const enc = u.searchParams.get("u");
-      if (enc && enc.startsWith("a1")) {{
-        try {{
-          const b64 = enc.slice(2).replace(/-/g, "+").replace(/_/g, "/");
-          const decoded = atob(b64);
-          if (/^https?:\\/\\//i.test(decoded)) return decoded;
-        }} catch (_) {{}}
-      }}
-    }} catch (_) {{}}
-    return url;
-  }}
-  function isUsable(url, title) {{
-    if (!/^https?:\\/\\//i.test(url)) return false;
-    if (!title || title.length < 3) return false;
-    try {{
-      const host = new URL(url).hostname.replace(/^www\\./, "");
-      if (badHosts.has(host) && /\\/(search|preferences|images|videos|maps)?/i.test(new URL(url).pathname)) return false;
-    }} catch (_) {{}}
-    return true;
-  }}
-  const seen = new Set();
-  const results = [];
-  for (const a of Array.from(document.querySelectorAll("a[href]"))) {{
-    let url = unwrapUrl(absoluteHref(a));
-    const title = normalizeText(a.innerText || a.textContent || a.getAttribute("aria-label"));
-    if (!isUsable(url, title)) continue;
-    const key = url.split("#")[0];
-    if (seen.has(key)) continue;
-    seen.add(key);
-    let container = a.closest("li, article, .result, .b_algo, .g, div") || a.parentElement;
-    let snippet = normalizeText(container ? container.innerText : "");
-    if (snippet.startsWith(title)) snippet = normalizeText(snippet.slice(title.length));
-    if (snippet.length > 320) snippet = snippet.slice(0, 320) + "...";
-    results.push({{ rank: results.length + 1, title, url, snippet }});
-    if (results.length >= maxResults) break;
-  }}
-  return {{
-    title: document.title,
-    url: location.href,
-    result_count: results.length,
-    results
-  }};
-}})();
-"""
-
-
-def web_search(query, engine="bing", max_results=8, timeout=18, switch_tab_id=None):
+def web_search(query, engine="bing", max_results=8, timeout=18):
     """Deterministic web search.
 
-    General web search uses DuckDuckGo's HTML endpoint over HTTP, so it does
-    not open a browser window. GitHub uses the public REST API. Prefix an
-    engine with browser_ to force the legacy browser-backed search path.
+    General web search uses HTTP endpoints and never opens browser tabs.
+    GitHub uses the public REST API.
     """
-    global driver
     query = str(query or "").strip()
     if not query:
         return {"status": "error", "msg": "query is empty"}
@@ -702,63 +622,11 @@ def web_search(query, engine="bing", max_results=8, timeout=18, switch_tab_id=No
             return _duckduckgo_html_search(query, max_results=max_results, timeout=timeout)
         if engine_key in {"bing", "google", "scholar"}:
             return _generic_http_search(query, engine=engine_key, max_results=max_results, timeout=timeout)
-        if engine_key.startswith("browser_"):
-            engine_key = engine_key[len("browser_"):]
-        if driver is None:
-            first_init_driver()
-        if driver is None or len(driver.get_all_sessions()) == 0:
-            return {
-                "status": "error",
-                "msg": "No available browser tabs; browser extension is not connected",
-            }
-        if switch_tab_id:
-            driver.default_session_id = switch_tab_id
-        elif not driver.default_session_id:
-            sessions = driver.get_all_sessions()
-            if sessions:
-                driver.default_session_id = sessions[0].get("id")
-
-        if engine_key not in _SEARCH_ENGINES:
-            engine_key = "bing"
-        search_url = _web_search_url(query, engine_key)
-
-        try:
-            driver.execute_js(f"window.location.href = {json.dumps(search_url)}; return location.href;", timeout=3)
-        except Exception:
-            pass
-
-        deadline = time.time() + max(3, min(int(timeout or 18), 60))
-        last_error = ""
-        payload = None
-        while time.time() < deadline:
-            time.sleep(1.0)
-            try:
-                raw = driver.execute_js(_web_search_extract_script(max_results), timeout=6)
-                payload = raw.get("data", raw) if isinstance(raw, dict) else raw
-                if isinstance(payload, dict) and payload.get("result_count", 0):
-                    break
-            except Exception as e:
-                last_error = str(e)
-                continue
-
-        if isinstance(payload, dict) and payload.get("result_count", 0):
-            return {
-                "status": "success",
-                "query": query,
-                "engine": engine_key,
-                "search_url": search_url,
-                "page_url": payload.get("url", ""),
-                "page_title": payload.get("title", ""),
-                "result_count": int(payload.get("result_count") or 0),
-                "results": list(payload.get("results") or [])[: int(max_results)],
-            }
         return {
             "status": "error",
             "query": query,
             "engine": engine_key,
-            "search_url": search_url,
-            "msg": "No search results extracted before timeout.",
-            "last_error": last_error,
+            "msg": "Unsupported web_search engine. Use bing, google, duckduckgo, scholar, github, or auto.",
         }
     except Exception as e:
         return {"status": "error", "query": query, "msg": format_error(e)}
@@ -1357,13 +1225,11 @@ class GenericAgentHandler(BaseHandler):
             timeout = int(args.get("timeout", 18) or 18)
         except (TypeError, ValueError):
             timeout = 18
-        switch_tab_id = args.get("switch_tab_id") or args.get("tab_id")
         result = web_search(
             query=query,
             engine=engine,
             max_results=max_results,
             timeout=timeout,
-            switch_tab_id=switch_tab_id,
         )
         result = enrich_web_tool_result("web_search", result)
         show = smart_format(json.dumps(result, ensure_ascii=False, indent=2, default=json_default), max_str_len=800)

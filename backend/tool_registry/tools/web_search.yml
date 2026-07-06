@@ -20,7 +20,6 @@ parameters:
   - engine
   - max_results
   - timeout
-  - switch_tab_id
 required:
   - query
 returns:

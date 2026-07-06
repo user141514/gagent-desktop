@@ -48,10 +48,9 @@
     "description": "Run deterministic HTTP web search without opening a browser window or using an LLM browser agent. General web search defaults to Bing HTTP with Google/DuckDuckGo fallback; engine=github uses the public GitHub repository search API. Use web_scan/web_execute_js/browser_agent only when real page rendering or interaction is required. Do not use Baidu as a search backend." ,
     "parameters": {"type": "object", "properties": {
       "query": {"type": "string", "description": "Search query. Keep it concise and source-oriented."},
-      "engine": {"type": "string", "enum": ["bing", "google", "duckduckgo", "github", "scholar"], "description": "Search backend. bing is the default HTTP search path and does not open a browser. google/duckduckgo are HTTP fallbacks. github uses the public GitHub repository search API. Prefix with browser_ only when a rendered browser search is explicitly required.", "default": "bing"},
+      "engine": {"type": "string", "enum": ["bing", "google", "duckduckgo", "github", "scholar"], "description": "Search backend. bing is the default HTTP search path and does not open a browser. google/duckduckgo are HTTP fallbacks. github uses the public GitHub repository search API.", "default": "bing"},
       "max_results": {"type": "integer", "description": "Maximum extracted result links. Keep small unless broader source scouting is needed.", "default": 8},
-      "timeout": {"type": "integer", "description": "Maximum seconds to wait for the HTTP request.", "default": 18},
-      "switch_tab_id": {"type": "string", "description": "[Optional] Switch to this tab before navigating to the search URL."}},
+      "timeout": {"type": "integer", "description": "Maximum seconds to wait for the HTTP request.", "default": 18}},
       "required": ["query"]}
   }},
   {"type": "function", "function": {

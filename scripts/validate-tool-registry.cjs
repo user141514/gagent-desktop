@@ -108,6 +108,26 @@ function validateToolRegistry(options = {}) {
   if (defaultEngine && !ga.includes(`args.get("engine", "${defaultEngine}")`)) {
     errors.push(`do_web_search handler default must be ${defaultEngine}`);
   }
+  const webSearchEn = enSchema.get("web_search");
+  const webSearchZh = zhSchema.get("web_search");
+  const webSearchParams = getList(webSearchRegistry, "parameters");
+  if (webSearchParams.includes("switch_tab_id")) errors.push("web_search registry must not expose switch_tab_id");
+  if (schemaParams(webSearchEn).includes("switch_tab_id")) errors.push("web_search English schema must not expose switch_tab_id");
+  if (schemaParams(webSearchZh).includes("switch_tab_id")) errors.push("web_search Chinese schema must not expose switch_tab_id");
+  const engineDescriptions = [
+    webSearchEn?.function?.parameters?.properties?.engine?.description || "",
+    webSearchZh?.function?.parameters?.properties?.engine?.description || "",
+  ];
+  if (engineDescriptions.some((description) => /browser_/i.test(description))) {
+    errors.push("web_search engine descriptions must not advertise browser_ search");
+  }
+  if (
+    ga.includes('engine_key.startswith("browser_")') ||
+    ga.includes("def _web_search_extract_script(") ||
+    ga.includes("driver.execute_js(_web_search_extract_script")
+  ) {
+    errors.push("web_search implementation must not include browser-backed search fallback");
+  }
 
   if (!read("backend/memory/architecture_convergence_sop.md").includes("backend/tool_registry/tools/<tool>.yml")) {
     errors.push("architecture_convergence_sop.md must document backend/tool_registry/tools/<tool>.yml");
