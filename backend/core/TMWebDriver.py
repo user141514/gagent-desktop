@@ -278,7 +278,7 @@ class TMWebDriver:
     
     def jump(self, url, timeout=10): self.execute_js(f"window.location.href='{url}'", timeout=timeout)
     def newtab(self, url=None):
-        if url is None: url = "http://www.baidu.com/robots.txt"
+        if url is None: url = "https://www.bing.com/robots.txt"
         return self.execute_js(f'GM_openInTab("{url}");')
     
 if __name__ == "__main__":
