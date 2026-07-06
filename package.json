@@ -44,6 +44,7 @@
     "test:update": "node scripts/test-cli-update.cjs",
     "test:update:cmd": "node scripts/test-cli-update-cmd.cjs",
     "test:linux-fallback": "node scripts/test-linux-fallback.cjs",
+    "test:tool-registry": "node scripts/validate-tool-registry.cjs",
     "pack:dry": "npm pack --dry-run",
     "pack:npm": "npm pack",
     "prepublishOnly": "node scripts/prepublish-check.cjs",

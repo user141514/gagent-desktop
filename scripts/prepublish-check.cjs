@@ -4,6 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { validateToolRegistry } = require("./validate-tool-registry.cjs");
 
 const packageRoot = path.resolve(__dirname, "..");
 const manifestPath = path.join(packageRoot, "package.json");
@@ -187,6 +188,11 @@ if (!exists("python-runtime/python.exe")) {
 }
 checkDistAssets();
 checkTmwdExtensionAssets();
+try {
+  validateToolRegistry({ quiet: true });
+} catch (error) {
+  fail(error.message || String(error));
+}
 checkDryRun();
 checkPackDryRun();
 checkEmbeddedPythonImports();

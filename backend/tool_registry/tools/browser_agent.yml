@@ -1,0 +1,34 @@
+name: browser_agent
+owner_layer: Layer 1 capability contract
+capability_class: autonomous_browser_workflow
+summary: Expensive multi-step rendered browser workflow using an independent Playwright/browser-use agent.
+implementation:
+  - backend/core/browser_agent.py:run_browser_agent
+handler:
+  - backend/core/ga.py:ClassicToolHandler.do_browser_agent
+schema:
+  - backend/assets/tools_schema.json
+  - backend/assets/tools_schema_cn.json
+sop:
+  - backend/memory/web_search_tool_sop.md
+prompt_summary:
+  - backend/assets/sys_prompt.txt
+  - backend/assets/sys_prompt_en.txt
+parameters:
+  - task
+  - max_steps
+  - headless
+required:
+  - task
+returns:
+  - success
+  - result
+  - steps_taken
+does_not:
+  - replace simple web_scan page inspection
+  - replace precise web_execute_js DOM scripting
+  - replace HTTP web_search source discovery
+fallback_policy:
+  - use only after cheaper rendered tools are insufficient
+  - report dependency/rate-limit failures as blockers
+  - fall back to web_search only for search-like tasks

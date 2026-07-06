@@ -681,7 +681,7 @@ return (() => {{
 """
 
 
-def web_search(query, engine="duckduckgo", max_results=8, timeout=18, switch_tab_id=None):
+def web_search(query, engine="bing", max_results=8, timeout=18, switch_tab_id=None):
     """Deterministic web search.
 
     General web search uses DuckDuckGo's HTML endpoint over HTTP, so it does
@@ -1348,7 +1348,7 @@ class GenericAgentHandler(BaseHandler):
         query = str(args.get("query") or "").strip()
         if not query:
             return StepOutcome({"status": "error", "msg": "query parameter cannot be empty"}, next_prompt="\n")
-        engine = args.get("engine", "duckduckgo")
+        engine = args.get("engine", "bing")
         try:
             max_results = int(args.get("max_results", 8) or 8)
         except (TypeError, ValueError):

@@ -2,6 +2,9 @@
 
 ## Purpose
 
+Source of truth: `backend/tool_registry/tools/*.yml`. This SOP is the operational
+summary for routing and recovery.
+
 This SOP separates three different capabilities that must not be conflated:
 
 1. `web_search`: deterministic HTTP search. It does not open or depend on a browser tab.
