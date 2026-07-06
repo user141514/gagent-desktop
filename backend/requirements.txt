@@ -1,0 +1,39 @@
+# Auto-generated requirements.txt
+# Generated: 2026-04-24
+
+Pillow
+PyMuPDF
+PySide6
+TMWebDriver
+beautifulsoup4
+bottle
+dingtalk-stream
+lark-oapi
+markdown
+numpy
+openai
+opencv-python
+pycryptodome
+pygetwindow
+pyperclip
+python-docx
+pywin32
+qq-botpy
+qrcode
+rapidocr-onnxruntime
+requests
+simple-websocket-server
+streamlit
+fastapi
+uvicorn
+uiautomator2
+ultralytics
+urllib3
+wecom-aibot-sdk
+yara-python
+
+# Development and security
+python-dotenv>=1.0
+pytest>=7.0
+pytest-cov>=4.0
+pytest-mock>=3.0

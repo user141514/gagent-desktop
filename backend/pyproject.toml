@@ -1,0 +1,26 @@
+[project]
+name = "generic-agent-workbench"
+version = "0.1.0"
+description = "GenericAgent Workbench -- AI agent orchestration, observation, memory, and skills framework"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "GenericAgent Workbench Contributors" },
+]
+
+[project.scripts]
+ga = "core.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+extend = "ruff.toml"

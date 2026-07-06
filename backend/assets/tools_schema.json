@@ -1,0 +1,94 @@
+[
+  {"type": "function", "function": {
+    "name": "code_run",
+    "description": "Execute code or shell commands and return the real output. Use when you need objective evidence: test results, stack traces, command output, runtime behavior, environment state, generated artifacts, or scripted inspection that file_read cannot do alone. Prefer file_read for simple inspection of existing files. NEVER call with empty arguments: either provide arguments.script, or place exactly one fenced code block immediately before the tool call. Default runtime cwd is ./temp; use cwd:'../' for the repo root/current project folder. Do not hardcode large data blobs when a file or script can generate them.\n\nSAFETY RULES:\n- NEVER kill processes you did not start yourself. Inspect with tasklist(Windows)/ps(Linux), then ask_user before killing.\n- To detect zombie processes, use psutil.Process(pid).status()=='zombie', tasklist /V, or WMI Win32_Process. Do NOT use os.kill(pid,0) as a liveness check.\n- Irreversible operations (kill, rm, drop, format) require ask_user confirmation first.",
+    "parameters": {"type": "object", "properties": {
+      "script": {"type": "string", "description": "Required unless the reply body contains exactly one fenced code block for this call. Put the full script or command here when not using a code block."},
+      "type": {"type": "string", "enum": ["python", "powershell"], "description": "Execution mode. Prefer python for scripted inspection, tests, and multi-step logic; use powershell only for genuine shell/system tasks.", "default": "python"},
+      "timeout": {"type": "integer", "description": "Execution timeout in seconds. Increase for installs, builds, or long tests; keep small for fast probes.", "default": 60},
+      "cwd": {"type": "string", "description": "Working directory. Default is runtime scratch cwd ./temp; use ../ for the repo root/current project folder or a specific subdirectory when context matters."},
+      "inline_eval": {"type": "boolean", "description": "DO NOT USE except explicitly specified."}}}
+  }},
+  {"type": "function", "function": {
+    "name": "file_read",
+    "description": "Read the current contents of a file with optional line numbers or keyword anchoring. Use before any edit, before quoting code, when checking configs/logs/README, or whenever you need repo ground truth. Prefer this over guessing or overusing code_run for simple file inspection. Read before modify so you act on the latest context.",
+    "parameters": {"type": "object", "properties": {
+      "path": {"type": "string", "description": "Relative or absolute file path. Use the exact file you need to inspect."},
+      "start": {"type": "integer", "description": "1-based start line. Use this to continue reading a file in chunks."},
+      "count": {"type": "integer", "description": "How many lines to read. Keep narrow for focused context; enlarge when you need broader structure.", "default": 200},
+      "keyword": {"type": "string", "description": "[Optional] Return the first case-insensitive match plus nearby context. Useful for locating symbols, config keys, or error text quickly."},
+      "show_linenos": {"type": "boolean", "description": "Show line numbers. Usually keep true when you may patch or reference exact lines next.", "default": true}}}
+  }},
+  {"type": "function", "function": {
+    "name": "file_patch",
+    "description": "Perform a surgical in-place edit by replacing one unique old_content block with new_content. Best for targeted fixes after file_read. Exact match is required, including whitespace and indentation; if matching fails, re-read the file and patch a narrower, fresher block instead of guessing. Prefer this over file_write for most normal code edits.",
+    "parameters": {"type": "object", "properties": {
+      "path": {"type": "string", "description": "Target file path."},
+      "old_content": {"type": "string", "description": "Original text block to replace. It must exist uniquely in the file and should come from a fresh file_read."},
+      "new_content": {"type": "string", "description": "Replacement content. Supports {{file:path:startLine:endLine}} references, which are auto-expanded before writing."}}}
+  }},
+  {"type": "function", "function": {
+    "name": "file_write",
+    "description": "Create, overwrite, append, or prepend file contents. Use only for full-file rewrites, large generated files, or bulk content updates that are awkward for file_patch. Do NOT use it for small edits. Place the exact payload inside <file_content>...</file_content> in the reply body BEFORE the file_write call. Supports {{file:path:startLine:endLine}} references, auto-expanded before writing.",
+    "parameters": {"type": "object", "properties": {
+      "path": {"type": "string", "description": "Target file path to create or modify."},
+      "mode": {"type": "string", "enum": ["overwrite", "append", "prepend"], "description": "Write mode. overwrite replaces the file, append adds to the end, prepend adds to the beginning.", "default": "append"},
+      "content": {"type": "string", "description": "Optional fallback payload. Prefer <file_content>...</file_content> in the reply body; use content only when the body format is unreliable."}}}
+  }},
+  {"type": "function", "function": {
+    "name": "web_scan",
+    "description": "Inspect the current browser ground truth: simplified visible HTML/text plus tab information. Use after navigation, after switching tabs, before choosing selectors, or when you need to understand what is actually visible on the page. Hidden/floating/covered noise is reduced so you can reason from the rendered state.",
+    "parameters": {"type": "object", "properties": {
+      "tabs_only": {"type": "boolean", "description": "Return only tab metadata, not page content. Use when deciding which tab to inspect next."},
+      "switch_tab_id": {"type": "string", "description": "[Optional] Switch to this tab before scanning."},
+      "text_only": {"type": "boolean", "description": "Return simplified plain text instead of HTML when structure is less important than visible content."}}}
+  }},
+  {"type": "function", "function": {
+    "name": "web_search",
+    "description": "Run deterministic HTTP web search without opening a browser window or using an LLM browser agent. General web search defaults to Bing HTTP with Google/DuckDuckGo fallback; engine=github uses the public GitHub repository search API. Use web_scan/web_execute_js/browser_agent only when real page rendering or interaction is required. Do not use Baidu as a search backend." ,
+    "parameters": {"type": "object", "properties": {
+      "query": {"type": "string", "description": "Search query. Keep it concise and source-oriented."},
+      "engine": {"type": "string", "enum": ["bing", "google", "duckduckgo", "github", "scholar"], "description": "Search backend. bing is the default HTTP search path and does not open a browser. google/duckduckgo are HTTP fallbacks. github uses the public GitHub repository search API. Prefix with browser_ only when a rendered browser search is explicitly required.", "default": "bing"},
+      "max_results": {"type": "integer", "description": "Maximum extracted result links. Keep small unless broader source scouting is needed.", "default": 8},
+      "timeout": {"type": "integer", "description": "Maximum seconds to wait for the HTTP request.", "default": 18},
+      "switch_tab_id": {"type": "string", "description": "[Optional] Switch to this tab before navigating to the search URL."}},
+      "required": ["query"]}
+  }},
+  {"type": "function", "function": {
+    "name": "web_execute_js",
+    "description": "Execute precise JavaScript in the current browser tab. Use when you already know what DOM element, value, selector, or page state you need to inspect or manipulate. Multi-call is fine with different switch_tab_id values. Prefer a ```javascript fenced block over escaped inline strings. Use this for single-page reads/actions; use browser_agent only when the workflow is multi-step, navigation-heavy, or requires autonomous page reasoning.",
+    "parameters": {"type": "object", "properties": {
+      "script": {"type": "string", "description": "[Mutually exclusive] JS code or script path. If you use a reply code block, do NOT also pass this argument."},
+      "save_to_file": {"type": "string", "description": "Optional file path for long return values or extracted page data."},
+      "no_monitor": {"type": "boolean", "description": "Skip page-change monitoring to save 2-3s. Use only for read-only JS, not for clicks/navigation/form actions."},
+      "switch_tab_id": {"type": "string", "description": "[Optional] Switch to this tab before executing."}}}
+  }},
+  {"type": "function", "function": {
+    "name": "update_working_checkpoint",
+    "description": "Update the short-term working checkpoint that is auto-injected on later turns. Use it to preserve critical constraints, discovered paths, validated findings, failure causes, and the next step during long or failure-prone tasks. Best moments: after reading SOP or memory, before context switches, after repeated failures, or when the user changes task scope. Skip it for simple 1-2 step tasks and for already-finished tasks.",
+    "parameters": {"type": "object", "properties": {
+      "key_info": {"type": "string", "description": "Replaces the current checkpoint (<200 tokens). Keep valid constraints, remove stale ones, and store only what future turns are likely to forget: pitfalls, user requirements, paths, validated findings, progress, and next steps."},
+      "related_sop": {"type": "string", "description": "Related SOP or memory file names worth re-reading later."}}}
+  }},
+  {"type": "function", "function": {
+    "name": "ask_user",
+    "description": "Interrupt the task to ask the user for a decision, missing credential, permission, clarification that cannot be inferred, or confirmation before an irreversible action. Do not use this for facts you can verify with tools. Keep the question concrete and scoped to the blocker.",
+    "parameters": {"type": "object", "properties": {
+      "question": {"type": "string", "description": "The exact question you need the user to answer in order to proceed."},
+      "candidates": {"type": "array", "items": {"type": "string"}, "description": "Optional quick-select choices when a short menu is better than a free-form answer."}}}
+  }},
+  {"type": "function", "function": {
+    "name": "start_long_term_update",
+    "description": "Start distilling verified, durable information into long-term memory. Use after long or tricky tasks when you have stable environment facts, user preferences, or hard-earned lessons worth keeping. Do not use for raw logs, transient reasoning, or unverified guesses. Must be considered when a task took 15+ turns or uncovered durable setup knowledge.",
+    "parameters": {"type": "object", "properties": {}}}
+  },
+  {"type": "function", "function": {
+    "name": "browser_agent",
+    "description": "Delegate a complex browser workflow to an autonomous sub-agent with its own Playwright browser. Use this for multi-step navigation, login flows, form filling, uploads/downloads, multi-page data collection, or tasks that require repeated screenshot-analyze-act loops. Do NOT use it for simple single-page inspection or precise DOM scripting; use web_scan / web_execute_js for those. The sub-agent opens an independent browser window and keeps acting until the task is complete or max_steps is reached.",
+    "parameters": {"type": "object", "properties": {
+      "task": {"type": "string", "description": "Natural-language workflow description. Be specific about the target site, goal, stopping condition, and required output."},
+      "max_steps": {"type": "integer", "description": "Maximum reasoning steps. Default 20 is fine for small workflows; complex multi-page tasks may need 40-50."},
+      "headless": {"type": "boolean", "description": "Run without a visible browser window when true. Set false only for visual debugging."}
+    }, "required": ["task"]}
+  }}
+]

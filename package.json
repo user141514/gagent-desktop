@@ -1,0 +1,122 @@
+{
+  "name": "gagent-desktop",
+  "version": "0.2.4",
+  "description": "GenericAgent desktop app with packaged React UI and sanitized local backend.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/user141514/gagent-desktop.git"
+  },
+  "type": "commonjs",
+  "main": "electron/main.cjs",
+  "bin": {
+    "gagent-desktop": "bin/gagent-desktop.js"
+  },
+  "files": [
+    "backend/**/*",
+    "!backend/**/__pycache__/**",
+    "!backend/**/*.pyc",
+    "!backend/**/*.pyo",
+    "!backend/**/*.backup*",
+    "!backend/**/*.bak*",
+    "!backend/**/*.tgz",
+    "!backend/.env",
+    "!backend/mykey.py",
+    "!backend/mykey.json",
+    "!backend/temp/**",
+    "!backend/logs/**",
+    "!backend/memory/global_mem.txt",
+    "!backend/memory/global_mem_insight.txt",
+    "bin/**/*",
+    "electron/**/*",
+    "scripts/**/*",
+    "dist/**/*",
+    "python-runtime/**/*",
+    "!python-runtime/**/__pycache__/**",
+    "!python-runtime/**/*.pyc",
+    "!python-runtime/**/*.pyo",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "dry-run": "node bin/gagent-desktop.js --dry-run --json",
+    "update": "node bin/gagent-desktop.js update",
+    "test:update": "node scripts/test-cli-update.cjs",
+    "test:update:cmd": "node scripts/test-cli-update-cmd.cjs",
+    "test:linux-fallback": "node scripts/test-linux-fallback.cjs",
+    "pack:dry": "npm pack --dry-run",
+    "pack:npm": "npm pack",
+    "prepublishOnly": "node scripts/prepublish-check.cjs",
+    "publish:dry": "npm publish --dry-run",
+    "publish:npm": "npm publish --access public",
+    "postinstall": "node scripts/postinstall.cjs",
+    "runtime:win": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\..\\tools\\prepare_gagent_desktop_windows_runtime.ps1",
+    "dist:dir": "node scripts/run-electron-builder.cjs --dir --win --x64",
+    "dist:win": "node scripts/run-electron-builder.cjs --win portable --x64"
+  },
+  "dependencies": {
+    "electron": "42.4.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "local.gagent.desktop",
+    "productName": "GenericAgent",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!**/*.pyo",
+          "!mykey.py",
+          "!mykey.json",
+          "!.env",
+          "!temp/**",
+          "!logs/**",
+          "!memory/global_mem.txt",
+          "!memory/global_mem_insight.txt"
+        ]
+      },
+      {
+        "from": "python-runtime",
+        "to": "python-runtime",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!**/*.pyo"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "backend/assets/icons/genericagent.ico",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "asar": true
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
