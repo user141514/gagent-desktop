@@ -3,6 +3,7 @@ owner_layer: Layer 1 capability contract
 capability_class: http_source_discovery
 summary: Deterministic HTTP/source discovery. Does not inspect or depend on the current browser tab.
 default_engine: bing
+preferred_windows_transport: powershell
 implementation:
   - backend/core/ga.py:web_search
 handler:
@@ -35,5 +36,7 @@ does_not:
   - use Baidu as a search backend
 fallback_policy:
   - try configured HTTP engines in order
+  - on Windows, prefer PowerShell Invoke-WebRequest before Python requests
   - keep GitHub API failure within HTTP search paths first
   - do not switch to web_scan for ordinary search failure
+  - do not switch to browser_agent for ordinary search failure

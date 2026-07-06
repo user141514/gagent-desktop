@@ -248,6 +248,7 @@ _GOOGLE_HTML_SEARCH_URL = "https://www.google.com/search"
 _GOOGLE_SCHOLAR_SEARCH_URL = "https://scholar.google.com/scholar"
 _HTTP_SEARCH_ALIASES = {"", "auto", "web", "http", "duckduckgo", "ddg", "bing", "google", "scholar"}
 _HTTP_SEARCH_DEFAULT_ORDER = ("bing", "google", "duckduckgo")
+_HTTP_SEARCH_TRANSPORTS = {"powershell", "python"}
 
 _GITHUB_ENGINE_ALIASES = {
     "github",
@@ -481,6 +482,72 @@ def _duckduckgo_html_search(query, max_results=8, timeout=18):
         }
 
 
+def _render_url(search_url, params):
+    return search_url + "?" + "&".join(f"{quote_plus(str(k))}={quote_plus(str(v))}" for k, v in params.items())
+
+
+def _web_search_transport_order():
+    raw = os.environ.get("GENERIC_AGENT_WEB_SEARCH_TRANSPORT", "")
+    parts = [p.strip().lower() for p in re.split(r"[,;\s]+", raw) if p.strip()]
+    aliases = {"ps": "powershell", "pwsh": "powershell", "requests": "python", "py": "python"}
+    order = []
+    for part in parts:
+        transport = aliases.get(part, part)
+        if transport in _HTTP_SEARCH_TRANSPORTS and transport not in order:
+            order.append(transport)
+    if order:
+        return order
+    return ["powershell", "python"] if os.name == "nt" else ["python"]
+
+
+def _requests_web_request_text(url, timeout):
+    response = requests.get(
+        url,
+        headers={"User-Agent": "Mozilla/5.0 GenericAgent-WebSearch/1.0"},
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    return response.text
+
+
+def _powershell_web_request_text(url, timeout):
+    if os.name != "nt":
+        raise RuntimeError("PowerShell web transport is only enabled on Windows")
+    script = (
+        "& { param($url, $timeoutSec) "
+        "$ProgressPreference='SilentlyContinue';"
+        "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);"
+        "$headers=@{'User-Agent'='Mozilla/5.0 GenericAgent-WebSearch/1.0'};"
+        "$r=Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec ([int]$timeoutSec) -Headers $headers;"
+        "[Console]::Write($r.Content)"
+        " }"
+    )
+    proc = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script, url, str(timeout)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        encoding="utf-8",
+        errors="replace",
+        timeout=max(int(timeout or 18) + 5, 8),
+    )
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout or "PowerShell Invoke-WebRequest failed").strip())
+    return proc.stdout
+
+
+def _fetch_web_search_text(url, timeout):
+    errors = []
+    for transport in _web_search_transport_order():
+        try:
+            if transport == "powershell":
+                return _powershell_web_request_text(url, timeout), transport
+            if transport == "python":
+                return _requests_web_request_text(url, timeout), transport
+        except Exception as e:
+            errors.append(f"{transport}: {e}")
+    raise RuntimeError("All HTTP transports failed: " + "; ".join(errors))
+
+
 def _generic_http_search(query, engine="bing", max_results=8, timeout=18):
     engine_key = str(engine or "bing").strip().lower()
     endpoints = {
@@ -494,14 +561,13 @@ def _generic_http_search(query, engine="bing", max_results=8, timeout=18):
         return _duckduckgo_html_search(query, max_results=max_results, timeout=timeout)
     search_url, params = endpoints.get(engine_key, endpoints["bing"])
     engine_key = engine_key if engine_key in endpoints else "bing"
-    rendered_url = search_url + "?" + "&".join(f"{quote_plus(str(k))}={quote_plus(str(v))}" for k, v in params.items())
+    rendered_url = _render_url(search_url, params)
     try:
         limit = max(1, min(int(max_results or 8), 20))
         request_timeout = max(3, min(int(timeout or 18), 60))
-        response = requests.get(search_url, params=params, headers={"User-Agent": "Mozilla/5.0 GenericAgent-WebSearch/1.0"}, timeout=request_timeout)
-        response.raise_for_status()
+        response_text, transport = _fetch_web_search_text(rendered_url, request_timeout)
         results, seen = [], set()
-        for href, raw_title in re.findall(r"<a[^>]+href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", response.text, re.I | re.S):
+        for href, raw_title in re.findall(r"<a[^>]+href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", response_text, re.I | re.S):
             title = _clean_search_text(re.sub(r"<[^>]+>", " ", raw_title))
             url = _unwrap_http_search_url(href, search_url)
             if not url.startswith(("http://", "https://")) or not title:
@@ -519,15 +585,23 @@ def _generic_http_search(query, engine="bing", max_results=8, timeout=18):
             if len(results) >= limit:
                 break
         if not results:
-            return {"status": "error", "query": query, "engine": engine_key, "search_url": rendered_url, "msg": "No HTTP search results parsed."}
-        return {"status": "success", "query": query, "engine": engine_key, "search_url": rendered_url, "result_count": len(results), "results": results}
+            return {"status": "error", "query": query, "engine": engine_key, "search_url": rendered_url, "transport": transport, "msg": "No HTTP search results parsed."}
+        return {"status": "success", "query": query, "engine": engine_key, "search_url": rendered_url, "transport": transport, "result_count": len(results), "results": results}
     except Exception as e:
         return {"status": "error", "query": query, "engine": engine_key, "search_url": rendered_url, "msg": format_error(e)}
 
 
 def _http_search_with_fallback(query, max_results=8, timeout=18):
     raw = os.environ.get("GENERIC_AGENT_WEB_SEARCH_ORDER", "")
-    order = [p.strip().lower() for p in re.split(r"[,;\s]+", raw) if p.strip()] or list(_HTTP_SEARCH_DEFAULT_ORDER)
+    requested = [p.strip().lower() for p in re.split(r"[,;\s]+", raw) if p.strip()]
+    order = []
+    for engine in requested:
+        if engine == "ddg":
+            engine = "duckduckgo"
+        if engine in _HTTP_SEARCH_DEFAULT_ORDER and engine not in order:
+            order.append(engine)
+    if not order:
+        order = list(_HTTP_SEARCH_DEFAULT_ORDER)
     attempts = []
     for engine in order:
         result = _generic_http_search(query, engine=engine, max_results=max_results, timeout=timeout)
@@ -616,7 +690,7 @@ def web_search(query, engine="bing", max_results=8, timeout=18):
         engine_key = str(engine or "bing").strip().lower()
         if engine_key in _GITHUB_ENGINE_ALIASES:
             return _github_api_search(query, max_results=max_results, timeout=timeout)
-        if engine_key in {"", "auto", "web", "http"}:
+        if engine_key in {"", "auto", "web", "http", "bing"}:
             return _http_search_with_fallback(query, max_results=max_results, timeout=timeout)
         if engine_key in {"duckduckgo", "ddg"}:
             return _duckduckgo_html_search(query, max_results=max_results, timeout=timeout)
@@ -630,6 +704,18 @@ def web_search(query, engine="bing", max_results=8, timeout=18):
         }
     except Exception as e:
         return {"status": "error", "query": query, "msg": format_error(e)}
+
+
+def _looks_like_script_path(script):
+    value = str(script or "").strip()
+    if not value or "\n" in value or ";" in value or "{" in value or "}" in value:
+        return False
+    lowered = value.lower()
+    if lowered.startswith(("http://", "https://")):
+        return False
+    if lowered.endswith((".js", ".mjs", ".cjs", ".txt")):
+        return True
+    return ("/" in value or "\\" in value) and not any(token in value for token in ("=>", "()", "document.", "window."))
 
 
 def web_scan(tabs_only=False, switch_tab_id=None, text_only=False):
@@ -1245,12 +1331,15 @@ class GenericAgentHandler(BaseHandler):
         if not script:
             _, script = self._extract_code_block(response, "javascript")
         if not script: return StepOutcome("[Error] Script missing. Use ```javascript block or 'script' arg.", next_prompt="\n")
-        path_result = self._resolve_tool_path(script.strip(), mode="read")
-        if not path_result.allowed:
-            yield f"[Path Guard] {path_result.message}\n"
-            return self._path_blocked_outcome(path_result)
-        if os.path.isfile(path_result.path):
-            with open(path_result.path, 'r', encoding='utf-8') as f: script = f.read()
+        if _looks_like_script_path(script):
+            path_result = self._resolve_tool_path(script.strip(), mode="read")
+            if not path_result.allowed:
+                yield f"[Path Guard] {path_result.message}\n"
+                return self._path_blocked_outcome(path_result)
+            if os.path.isfile(path_result.path):
+                with open(path_result.path, 'r', encoding='utf-8') as f: script = f.read()
+            else:
+                return StepOutcome({"status": "error", "msg": f"script file not found: {script}"}, next_prompt="\n")
         save_to_file = args.get("save_to_file", "")
         switch_tab_id = args.get("switch_tab_id") or args.get("tab_id")
         no_monitor = args.get("no_monitor", False)
@@ -1610,6 +1699,46 @@ class GenericAgentHandler(BaseHandler):
         if os.path.exists(path): result = file_read(path, show_linenos=False)
         else: result = "Memory Management SOP not found. Do not update memory."
         return StepOutcome(result, next_prompt=prompt)
+
+    def do_capture_experience(self, args, response):
+        """Capture a verified durable lesson through the memory distillation gate."""
+        summary = str(args.get("summary") or "").strip()
+        if not summary:
+            return StepOutcome({"status": "error", "msg": "summary is required"}, next_prompt="\n")
+
+        def _as_list(value):
+            if value is None:
+                return []
+            if isinstance(value, list):
+                return [str(item).strip() for item in value if str(item).strip()]
+            text = str(value).strip()
+            return [text] if text else []
+
+        try:
+            from .memory.distillation import build_verified_candidate, write_distillation_candidate
+
+            candidate = build_verified_candidate(
+                summary=summary,
+                source=str(args.get("source") or "agent_tool"),
+                run_id=str(getattr(self.parent, "_profile_run_id", "") or ""),
+                task=str(args.get("task") or getattr(self, "_last_user_input", "") or ""),
+                session=str(getattr(self.parent, "_runtime_session_id", "") or ""),
+                files_touched=_as_list(args.get("files_touched")) or list(self._execution_files_changed),
+                questions=_as_list(args.get("questions")),
+                tool_event_ledger=getattr(self, "_tool_event_ledger", None),
+            )
+            result = write_distillation_candidate(candidate, project_root=PROJECT_ROOT)
+            payload = {
+                "status": "success" if result.get("mode") != "off" else "skipped",
+                "mode": result.get("mode"),
+                "written": bool(result.get("written")),
+                "path": result.get("path", ""),
+                "reason": result.get("reason", ""),
+            }
+            yield f"[Experience] {payload['reason']}\n"
+            return StepOutcome(payload, next_prompt="\n")
+        except Exception as e:
+            return StepOutcome({"status": "error", "msg": format_error(e)}, next_prompt="\n")
 
     def _get_anchor_prompt(self, skip=False):
         if skip: return "\n"

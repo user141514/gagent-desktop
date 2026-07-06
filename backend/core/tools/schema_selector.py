@@ -24,11 +24,11 @@ class ToolSchemaSelector:
     WEB_SEARCH_TOOLS = {"web_search"}
     BROWSER_TOOLS = {"web_scan", "web_execute_js", "browser_agent"}
     WEB_TOOLS = WEB_SEARCH_TOOLS | BROWSER_TOOLS
-    MEMORY_HELPERS = {"update_working_checkpoint", "start_long_term_update"}
+    MEMORY_HELPERS = {"update_working_checkpoint", "capture_experience", "start_long_term_update"}
     MEMORY_QUERY_TOOLS = {"file_read", "code_run", "ask_user"}
-    REVIEW_BASE = {"file_read", "code_run", "ask_user", "update_working_checkpoint"}
-    CODE_BASE = {"file_read", "code_run", "file_patch", "file_write", "ask_user", "update_working_checkpoint"}
-    RESEARCH_BASE = {"file_read", "code_run", "ask_user", "web_search"}
+    REVIEW_BASE = {"file_read", "code_run", "ask_user", "update_working_checkpoint", "capture_experience"}
+    CODE_BASE = {"file_read", "code_run", "file_patch", "file_write", "ask_user", "update_working_checkpoint", "capture_experience"}
+    RESEARCH_BASE = {"file_read", "code_run", "ask_user", "web_search", "capture_experience"}
 
     READ_PATTERNS = (
         r"readme",
@@ -280,6 +280,7 @@ class ToolSchemaSelector:
 
         if memory_signal:
             selected_names.update(self.MEMORY_QUERY_TOOLS)
+            selected_names.update(self.MEMORY_HELPERS)
 
         if web_signal:
             selected_names.update(self.WEB_SEARCH_TOOLS)

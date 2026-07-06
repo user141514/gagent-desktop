@@ -42,8 +42,10 @@ def classify_web_tool_failure(error_text: Any, *, tool_name: str = "") -> WebToo
             action="repair_browser_bridge",
             retryable=False,
             recommended_next_tool=(
-                "browser_agent"
-                if tool_name in {"web_search", "web_scan", "web_execute_js"}
+                _alternate_tool(tool_name)
+                if tool_name == "web_search"
+                else "browser_agent"
+                if tool_name in {"web_scan", "web_execute_js"}
                 else _alternate_tool(tool_name)
             ),
             message=(
@@ -124,6 +126,9 @@ def web_tool_failure_prompt(tool_name: str, failure_or_result: WebToolFailure | 
         f"{failure.message}\n"
         f"Do not retry {tool_name} immediately with the same inputs. "
         f"Recommended next tool/path: {failure.recommended_next_tool}.\n"
+        "For ordinary web_search failures, do not switch to web_scan, "
+        "web_execute_js, or browser_agent unless the user asked for rendered "
+        "page state or interaction.\n"
         "If all online paths are unavailable, state the blocker explicitly and ask for "
         "permission to continue with local/offline evidence only."
     )
@@ -217,7 +222,7 @@ def _alternate_tool(tool_name: str) -> str:
     if tool_name == "browser_agent":
         return "web_search(engine='bing')"
     if tool_name == "web_search":
-        return "web_search(engine='bing' or engine='duckduckgo') / local-offline evidence"
+        return "web_search(engine='bing', 'google', 'duckduckgo', or 'auto') / PowerShell HTTP transport / local-offline evidence"
     if tool_name in {"web_scan", "web_execute_js"}:
         return "web_search(engine='bing') for search; browser_agent only for rendered workflows"
     return "local/offline evidence"

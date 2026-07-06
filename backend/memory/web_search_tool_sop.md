@@ -28,11 +28,24 @@ The order can be overridden with:
 GENERIC_AGENT_WEB_SEARCH_ORDER=bing,google,duckduckgo
 ```
 
+On Windows, HTTP fetch transport prefers:
+
+```text
+PowerShell Invoke-WebRequest -> Python requests
+```
+
+The transport order can be overridden with:
+
+```text
+GENERIC_AGENT_WEB_SEARCH_TRANSPORT=powershell,python
+```
+
 Rules:
 
 - Do not use Baidu as a search backend.
 - Do not use the current browser tab as a search source unless the user explicitly asks for rendered-page behavior.
 - Do not use `web_scan` as a fallback for ordinary search failure.
+- Do not use `browser_agent` as a fallback for ordinary search failure.
 - If `web_search(engine='github')` times out, retry with general `web_search(engine='bing')` using a GitHub-targeted query such as `site:github.com owner repo topic`, rather than jumping to browser automation.
 
 ## Tool selection
@@ -64,7 +77,7 @@ Rules:
 
 On `web_search` failure:
 
-1. Do not immediately switch to `web_scan`.
+1. Do not immediately switch to `web_scan`, `web_execute_js`, or `browser_agent`.
 2. Try another HTTP search engine in the configured order.
 3. If GitHub API fails, try a Bing query constrained to GitHub.
 4. If all HTTP search paths fail, report the network/proxy blocker and continue with local/offline evidence only after user approval.
@@ -95,4 +108,5 @@ A compliant `web_scan` implementation must:
 A compliant failure handler must:
 
 - Not recommend `web_scan` as the next step after ordinary `web_search` network failure.
+- Not recommend `browser_agent` as the next step after ordinary `web_search` network failure.
 - Recommend a different HTTP search engine or local/offline evidence first.

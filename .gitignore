@@ -15,6 +15,7 @@ backend/temp/
 backend/logs/
 backend/memory/global_mem.txt
 backend/memory/global_mem_insight.txt
+backend/memory/history_memory_inbox.md
 
 __pycache__/
 *.pyc

@@ -28,6 +28,7 @@
     "!backend/logs/**",
     "!backend/memory/global_mem.txt",
     "!backend/memory/global_mem_insight.txt",
+    "!backend/memory/history_memory_inbox.md",
     "bin/**/*",
     "electron/**/*",
     "scripts/**/*",
@@ -46,6 +47,8 @@
     "test:update:cmd": "node scripts/test-cli-update-cmd.cjs",
     "test:linux-fallback": "node scripts/test-linux-fallback.cjs",
     "test:tmwd-bridge": "node scripts/test-tmwd-bridge-token.cjs",
+    "test:web-tools": "python-runtime\\python.exe scripts\\test-web-tool-routing.py",
+    "test:capture-experience": "python-runtime\\python.exe scripts\\test-capture-experience.py",
     "test:tool-registry": "node scripts/validate-tool-registry.cjs",
     "pack:dry": "npm pack --dry-run",
     "pack:npm": "npm pack",
@@ -90,7 +93,8 @@
           "!temp/**",
           "!logs/**",
           "!memory/global_mem.txt",
-          "!memory/global_mem_insight.txt"
+          "!memory/global_mem_insight.txt",
+          "!memory/history_memory_inbox.md"
         ]
       },
       {

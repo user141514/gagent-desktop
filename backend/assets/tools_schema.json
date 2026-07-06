@@ -45,7 +45,7 @@
   }},
   {"type": "function", "function": {
     "name": "web_search",
-    "description": "Run deterministic HTTP web search without opening a browser window or using an LLM browser agent. General web search defaults to Bing HTTP with Google/DuckDuckGo fallback; engine=github uses the public GitHub repository search API. Use web_scan/web_execute_js/browser_agent only when real page rendering or interaction is required. Do not use Baidu as a search backend." ,
+    "description": "Run deterministic HTTP web search without opening a browser window or using an LLM browser agent. General web search defaults to Bing HTTP with Google/DuckDuckGo fallback and, on Windows, prefers PowerShell Invoke-WebRequest before Python requests. engine=github uses the public GitHub repository search API. Do not switch to web_scan/web_execute_js/browser_agent for ordinary search failure; use browser tools only when the task itself requires current rendered page state or interaction. Do not use Baidu as a search backend." ,
     "parameters": {"type": "object", "properties": {
       "query": {"type": "string", "description": "Search query. Keep it concise and source-oriented."},
       "engine": {"type": "string", "enum": ["bing", "google", "duckduckgo", "github", "scholar"], "description": "Search backend. bing is the default HTTP search path and does not open a browser. google/duckduckgo are HTTP fallbacks. github uses the public GitHub repository search API.", "default": "bing"},
@@ -68,6 +68,17 @@
     "parameters": {"type": "object", "properties": {
       "key_info": {"type": "string", "description": "Replaces the current checkpoint (<200 tokens). Keep valid constraints, remove stale ones, and store only what future turns are likely to forget: pitfalls, user requirements, paths, validated findings, progress, and next steps."},
       "related_sop": {"type": "string", "description": "Related SOP or memory file names worth re-reading later."}}}
+  }},
+  {"type": "function", "function": {
+    "name": "capture_experience",
+    "description": "Capture a verified, durable lesson as an agent memory candidate. Use after a fix or investigation proves a reusable fact, preference, workflow pitfall, or environment-specific path such as a successful fallback. Do not use for raw logs, guesses, temporary state, or ordinary summaries. The tool writes a preview by default and only appends to durable memory when GA_OPENAI_DISTILLATION=write.",
+    "parameters": {"type": "object", "properties": {
+      "summary": {"type": "string", "description": "The concise durable lesson. Include the verified condition, the working path, and when to reuse it."},
+      "task": {"type": "string", "description": "Optional task or problem this experience came from."},
+      "source": {"type": "string", "description": "Optional source label for traceability."},
+      "questions": {"type": "array", "items": {"type": "string"}, "description": "Optional user questions or problem statements this lesson answers."},
+      "files_touched": {"type": "array", "items": {"type": "string"}, "description": "Optional files changed or verified while proving the lesson."}},
+      "required": ["summary"]}
   }},
   {"type": "function", "function": {
     "name": "ask_user",

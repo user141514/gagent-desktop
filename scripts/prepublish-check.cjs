@@ -154,6 +154,7 @@ function checkPackDryRun() {
     "backend/mykey.json",
     "backend/memory/global_mem.txt",
     "backend/memory/global_mem_insight.txt",
+    "backend/memory/history_memory_inbox.md",
   ]) {
     if (paths.has(forbidden)) {
       fail(`npm pack output includes local runtime data: ${forbidden}`);

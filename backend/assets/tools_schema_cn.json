@@ -237,6 +237,47 @@
   {
     "type": "function",
     "function": {
+      "name": "capture_experience",
+      "description": "将已经验证、长期有效的经验沉淀为 agent 记忆候选。适用于修复或排查后确认了可复用事实、用户偏好、工作流坑点、环境特定路径或成功 fallback。不要用于原始日志、猜测、临时状态或普通总结。默认只写 preview；只有 GA_OPENAI_DISTILLATION=write 时才进入长期记忆 inbox。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string",
+            "description": "简洁的长期经验，说明已验证条件、可行路径，以及何时复用。"
+          },
+          "task": {
+            "type": "string",
+            "description": "可选：这条经验来自哪个任务或问题。"
+          },
+          "source": {
+            "type": "string",
+            "description": "可选：来源标签，用于追踪。"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "可选：这条经验回答了哪些用户问题或问题陈述。"
+          },
+          "files_touched": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "可选：证明这条经验时修改或验证过的文件。"
+          }
+        },
+        "required": [
+          "summary"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "ask_user",
       "description": "当任务需要用户决策、缺失凭据、额外权限、无法从现有上下文推断出的澄清，或在执行不可逆操作前需要确认时，使用此工具中断任务并提问。不要把它用于工具可以自行验证的事实问题。提问应具体、聚焦于当前阻塞点。",
       "parameters": {
