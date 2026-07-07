@@ -758,3 +758,39 @@ Status:
 ```text
 agent-loop structured failure eval applied; source port-back required
 ```
+
+---
+
+### OpenAI orchestrated optional e2e smoke
+
+Files changed:
+
+```text
+backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+```
+
+Reason:
+
+```text
+OpenAI orchestrated runtime_ledger coverage had helper-level smoke but no runnable full SDK path. The eval registry now has an opt-in e2e smoke that structured-skips by default and, when GAGENT_RUN_OPENAI_E2E=1 is set, starts OpenAIOrchestratedAgent, submits a run_id-tagged task, and verifies runtime_ledger run_started/run_finished.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py and remove the optional check references from README and convergence_checklist.md.
+```
+
+Status:
+
+```text
+OpenAI orchestrated optional e2e smoke applied; source port-back required
+```

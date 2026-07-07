@@ -33,10 +33,20 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
 ```
 
+Optional OpenAI orchestrated SDK smoke:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+```
+
+The first command must structured-skip without network/API access. The second command is the real e2e path and requires configured model variants, openai-agents SDK, and API/network access.
+
 Source of truth:
 
 ```text
 backend/eval_registry/cases/*.json
+backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 ```
 
 Runtime artifact:
