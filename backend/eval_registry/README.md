@@ -32,6 +32,7 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_reg
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh
 ```
 
 Optional OpenAI orchestrated SDK smoke:

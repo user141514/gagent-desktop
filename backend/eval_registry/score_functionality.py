@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Score current gagent-desktop functionality from eval reports.")
     parser.add_argument("--self-test", action="store_true", help="run small built-in scoring checks")
     parser.add_argument("--no-write", action="store_true", help="do not write latest_functionality_score.json")
+    parser.add_argument("--refresh", action="store_true", help="run eval/smoke report generators before scoring")
     args = parser.parse_args()
 
     if args.self_test:
@@ -27,7 +30,15 @@ def main() -> int:
         print("[score_functionality] self-test ok")
         return 0
 
+    if args.refresh:
+        try:
+            _refresh_reports()
+        except subprocess.CalledProcessError as exc:
+            print(f"[score_functionality] refresh failed: {' '.join(exc.cmd)}", file=sys.stderr)
+            return int(exc.returncode or 1)
+
     report = score_latest_reports()
+    report["refreshed"] = bool(args.refresh)
     if not args.no_write:
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         OUTPUT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -126,6 +137,19 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _refresh_reports() -> None:
+    for command in _refresh_commands():
+        subprocess.run(command, cwd=ROOT, check=True)
+
+
+def _refresh_commands() -> list[list[str]]:
+    return [
+        [sys.executable, str(ROOT / "backend" / "eval_registry" / "run_eval_cases.py")],
+        [sys.executable, str(ROOT / "backend" / "eval_registry" / "tests" / "smoke_openai_orchestrated_e2e.py")],
+        [sys.executable, str(ROOT / "backend" / "eval_registry" / "tests" / "smoke_browser_agent_e2e.py")],
+    ]
+
+
 def _self_test() -> None:
     passing_eval = {
         "results": [
@@ -151,6 +175,13 @@ def _self_test() -> None:
         {"status": "passed"},
     )
     assert "agents module missing" in startup_detail["blockers"]
+
+    refresh_targets = [Path(command[1]).name for command in _refresh_commands()]
+    assert refresh_targets == [
+        "run_eval_cases.py",
+        "smoke_openai_orchestrated_e2e.py",
+        "smoke_browser_agent_e2e.py",
+    ]
 
 
 if __name__ == "__main__":

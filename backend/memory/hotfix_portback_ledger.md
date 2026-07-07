@@ -953,3 +953,41 @@ Status:
 ```text
 OpenAI opt-in e2e passed; browser_agent opt-in e2e passed with DeepSeek browser model fallback; source port-back required
 ```
+
+---
+
+### Functionality score refresh
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+latest_functionality_score.json could be computed from stale latest_* reports. score_functionality.py now supports --refresh, which runs the eval report generators before scoring so the score can be tied to the current source state.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh
+```
+
+Rollback:
+
+```text
+Remove the --refresh argument and _refresh_reports/_refresh_commands helpers from score_functionality.py, then restore the old checklist command.
+```
+
+Status:
+
+```text
+functionality score refresh applied; source port-back required
+```
