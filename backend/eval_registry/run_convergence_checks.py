@@ -12,6 +12,11 @@ PYTHON = ROOT / "python-runtime" / ("python.exe" if os.name == "nt" else "bin/py
 
 
 def main() -> int:
+    if "--self-test" in sys.argv[1:]:
+        _self_test()
+        print("[run_convergence_checks] self-test ok")
+        return 0
+
     commands = [
         [str(PYTHON), "backend/tool_registry/validate_tool_registry.py"],
         [str(PYTHON), "backend/quality_registry/validate_quality_registry.py"],
@@ -42,8 +47,32 @@ def main() -> int:
                 print(result.stderr.strip(), file=sys.stderr)
             return int(result.returncode or 1)
         print(f"[run_convergence_checks] ok: {label}")
+        success_output = _success_output_for(command, result.stdout)
+        if success_output:
+            print(success_output)
     print("[run_convergence_checks] ok")
     return 0
+
+
+def _success_output_for(command: list[str], stdout: str) -> str:
+    if not _is_score_command(command):
+        return ""
+    return stdout.strip()
+
+
+def _is_score_command(command: list[str]) -> bool:
+    return len(command) > 1 and command[1].replace("\\", "/").endswith(
+        "backend/eval_registry/score_functionality.py"
+    )
+
+
+def _self_test() -> None:
+    score_command = [str(PYTHON), "backend/eval_registry/score_functionality.py", "--refresh"]
+    smoke_command = [str(PYTHON), "backend/eval_registry/tests/smoke_eval_registry.py"]
+    assert _is_score_command(score_command)
+    assert not _is_score_command(smoke_command)
+    assert _success_output_for(score_command, " {\"status\":\"needs_work\"}\n") == "{\"status\":\"needs_work\"}"
+    assert _success_output_for(smoke_command, "noisy child output") == ""
 
 
 if __name__ == "__main__":

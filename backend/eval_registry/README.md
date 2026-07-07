@@ -44,6 +44,7 @@ Use `--strict` when the command is acting as a completion gate; `needs_work` rem
 Use `--results-dir <dir> --no-write` to score isolated report fixtures without touching the default latest score artifact.
 `--results-dir` is intentionally incompatible with `--refresh`; refresh writes the default latest reports.
 Skipped optional OpenAI/browser_agent E2E reports count as `needs_work`; full completion requires enabling the opt-in E2E env vars before running `--refresh --strict`.
+`run_convergence_checks.py` prints the successful advisory score JSON so baseline runs expose current blockers instead of only saying `ok`.
 
 Optional OpenAI orchestrated SDK smoke:
 

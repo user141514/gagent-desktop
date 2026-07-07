@@ -1294,3 +1294,41 @@ Status:
 ```text
 baseline convergence runner applied; source port-back required
 ```
+
+---
+
+### Baseline convergence score visibility
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The baseline convergence runner executed score_functionality.py --refresh but hid its successful JSON output, so advisory needs_work/blocker details were not visible. The runner now prints successful score output while keeping other successful child logs quiet.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+```
+
+Rollback:
+
+```text
+Remove _success_output_for/_is_score_command/_self_test and the success-output print from run_convergence_checks.py.
+```
+
+Status:
+
+```text
+baseline convergence score visibility applied; source port-back required
+```
