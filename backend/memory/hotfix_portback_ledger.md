@@ -1600,3 +1600,41 @@ Status:
 ```text
 functionality score Git source fingerprint applied; source port-back required
 ```
+
+---
+
+### Convergence runner score component validation
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+run_convergence_checks.py validated score JSON and evidence, but not the score component contract. A future weight/name change could still print a 100/100-looking score. The runner now rejects score output unless the three expected components and weights are exactly internal_eval=70, openai_orchestrated_e2e=15, browser_agent_e2e=15.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove SCORE_COMPONENT_WEIGHTS, _validate_score_components, the component fixture fields, and the component rejection self-tests.
+```
+
+Status:
+
+```text
+convergence runner score component validation applied; source port-back required
+```

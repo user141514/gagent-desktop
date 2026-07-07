@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import argparse
-import os
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -21,6 +21,11 @@ SCORE_E2E_ENV_KEYS = [
     "GAGENT_RUN_OPENAI_E2E",
     "GAGENT_RUN_BROWSER_AGENT_E2E",
 ]
+SCORE_COMPONENT_WEIGHTS = {
+    "internal_eval": 70,
+    "openai_orchestrated_e2e": 15,
+    "browser_agent_e2e": 15,
+}
 
 
 def main() -> int:
@@ -92,6 +97,7 @@ def _success_output_for(command: list[str], stdout: str) -> str:
         raise ValueError(f"score_functionality output is not valid JSON: {exc}") from exc
     if not isinstance(score, dict):
         raise ValueError("score_functionality output is not a JSON object")
+    _validate_score_components(score)
     _validate_score_evidence(score)
     return json.dumps(score, indent=2, ensure_ascii=False)
 
@@ -100,6 +106,27 @@ def _is_score_command(command: list[str]) -> bool:
     return len(command) > 1 and command[1].replace("\\", "/").endswith(
         "backend/eval_registry/score_functionality.py"
     )
+
+
+def _validate_score_components(score: dict) -> None:
+    components = score.get("components")
+    if not isinstance(components, list):
+        raise ValueError("score_functionality components are missing")
+    if len(components) != len(SCORE_COMPONENT_WEIGHTS):
+        raise ValueError("score_functionality component count is invalid")
+
+    seen: set[str] = set()
+    for component in components:
+        if not isinstance(component, dict):
+            raise ValueError("score_functionality component is invalid")
+        name = component.get("name")
+        if not isinstance(name, str) or name not in SCORE_COMPONENT_WEIGHTS:
+            raise ValueError("score_functionality component name is invalid")
+        if name in seen:
+            raise ValueError(f"score_functionality component {name} is duplicated")
+        seen.add(name)
+        if component.get("weight") != SCORE_COMPONENT_WEIGHTS[name]:
+            raise ValueError(f"score_functionality component {name} weight is invalid")
 
 
 def _validate_score_evidence(score: dict) -> None:
@@ -163,18 +190,41 @@ def _self_test() -> None:
         assert "not valid JSON" in str(exc)
     else:
         raise AssertionError("noisy score output unexpectedly passed")
+    missing_evidence = json.loads(_score_output_fixture())
+    missing_evidence.pop("evidence")
     try:
-        _success_output_for(score_command, "{\"status\":\"needs_work\"}")
+        _success_output_for(score_command, json.dumps(missing_evidence))
     except ValueError as exc:
         assert "evidence is missing" in str(exc)
     else:
         raise AssertionError("score output without evidence unexpectedly passed")
+    bad_weight = json.loads(_score_output_fixture())
+    bad_weight["components"][0]["weight"] = 99
+    try:
+        _success_output_for(score_command, json.dumps(bad_weight))
+    except ValueError as exc:
+        assert "component" in str(exc)
+    else:
+        raise AssertionError("score output with wrong component weight unexpectedly passed")
+    bad_name = json.loads(_score_output_fixture())
+    bad_name["components"][0]["name"] = "surprise_score"
+    try:
+        _success_output_for(score_command, json.dumps(bad_name))
+    except ValueError as exc:
+        assert "component name" in str(exc)
+    else:
+        raise AssertionError("score output with wrong component name unexpectedly passed")
 
 
 def _score_output_fixture() -> str:
     return json.dumps(
         {
             "status": "needs_work",
+            "components": [
+                {"name": "internal_eval", "weight": 70, "score": 70},
+                {"name": "openai_orchestrated_e2e", "weight": 15, "score": 0},
+                {"name": "browser_agent_e2e", "weight": 15, "score": 0},
+            ],
             "evidence": {
                 "generated_at_utc": "2026-01-01T00:00:00Z",
                 "results_dir": "backend/eval_registry/results",
