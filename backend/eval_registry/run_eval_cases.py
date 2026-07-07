@@ -76,6 +76,12 @@ def _run_web_search_case(case: EvalCase) -> dict[str, Any]:
         "run_id": run_id,
         "target_tool": case.target_tool,
         "tool_status": str(tool_result.get("status") or ""),
+        "error_category": str(tool_result.get("error_category") or ""),
+        "attempt_engines": [
+            str(item.get("engine") or "")
+            for item in tool_result.get("attempts") or []
+            if isinstance(item, dict) and item.get("engine")
+        ],
         "ledger_event_count": len(ledger_events),
         "final_status": ledger_summary.get("final_status"),
         "forbidden_tools_used": forbidden_used,

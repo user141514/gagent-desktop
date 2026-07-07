@@ -63,6 +63,9 @@ def main() -> int:
                 raise AssertionError(f"{result.get('case_id')}: missing {key}")
         if result.get("target_tool") == "web_search" and int(result.get("ledger_event_count") or 0) <= 0:
             raise AssertionError(f"{result.get('case_id')}: missing ledger events")
+        if result.get("case_id") == "web_search_yobot_github_failure" and result.get("tool_status") != "success":
+            if "github" not in (result.get("attempt_engines") or []):
+                raise AssertionError("web_search_yobot_github_failure: missing github attempt in failure chain")
         if result.get("forbidden_tools_used"):
             raise AssertionError(f"{result.get('case_id')}: forbidden tool used: {result.get('forbidden_tools_used')}")
     if summary.get("case_count", 0) < 3:

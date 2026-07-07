@@ -124,6 +124,38 @@ def smoke_web_search_yobot():
     raise LogicFailure("web_search failure is not structured: %s" % result)
 
 
+def smoke_web_search_auto_github_prefers_api():
+    original_github = ga._github_api_search
+    original_http = ga._http_search_with_fallback
+    calls = []
+
+    def fake_github(query, max_results=8, timeout=18):
+        calls.append("github")
+        return {
+            "status": "success",
+            "query": query,
+            "engine": "github",
+            "result_count": 1,
+            "results": [{"rank": 1, "title": "owner/yobot", "url": "https://github.com/owner/yobot"}],
+        }
+
+    def fake_http(query, max_results=8, timeout=18):
+        calls.append("http")
+        return {"status": "error", "query": query, "engine": "http_fallback", "msg": "http should not be first"}
+
+    try:
+        ga._github_api_search = fake_github
+        ga._http_search_with_fallback = fake_http
+        result = ga.web_search("yobot GitHub code", engine="auto", max_results=2, timeout=4)
+    finally:
+        ga._github_api_search = original_github
+        ga._http_search_with_fallback = original_http
+
+    if calls[:1] != ["github"] or result.get("engine") != "github" or result.get("status") != "success":
+        raise LogicFailure("auto GitHub query did not prefer GitHub API: calls=%s result=%s" % (calls, result))
+    return {"status": "passed"}
+
+
 def smoke_web_scan_current_tab_only():
     original_driver = ga.driver
     try:
@@ -170,6 +202,7 @@ def main():
     checks = {
         "web_search_openai_docs": smoke_web_search_openai_docs,
         "web_search_yobot": smoke_web_search_yobot,
+        "web_search_auto_github_prefers_api": smoke_web_search_auto_github_prefers_api,
         "web_scan_current_tab_only": smoke_web_scan_current_tab_only,
         "web_execute_js_navigation": smoke_web_execute_js_navigation,
         "browser_agent_contract": smoke_browser_agent_contract,

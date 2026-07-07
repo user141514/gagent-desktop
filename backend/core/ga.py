@@ -263,6 +263,11 @@ _GITHUB_ENGINE_ALIASES = {
 }
 
 
+def _looks_like_github_search_query(query):
+    lowered = str(query or "").lower()
+    return "github" in lowered or "git hub" in lowered
+
+
 def _clean_search_text(text):
     return re.sub(r"\s+", " ", str(text or "")).strip()
 
@@ -631,6 +636,25 @@ def _http_search_with_fallback(query, max_results=8, timeout=18):
     return {"status": "error", "query": query, "engine": "http_fallback", "msg": "All configured HTTP search engines failed.", "attempts": attempts, "fallback_order": order}
 
 
+def _auto_web_search(query, max_results=8, timeout=18):
+    if not _looks_like_github_search_query(query):
+        return _http_search_with_fallback(query, max_results=max_results, timeout=timeout)
+
+    github_result = enrich_web_tool_result("web_search", _github_api_search(query, max_results=max_results, timeout=timeout))
+    if isinstance(github_result, dict) and github_result.get("status") == "success" and github_result.get("results"):
+        return github_result
+
+    http_result = _http_search_with_fallback(query, max_results=max_results, timeout=timeout)
+    if isinstance(http_result, dict) and http_result.get("status") == "success" and http_result.get("results"):
+        http_result = dict(http_result)
+        http_result["attempts"] = [{"engine": "github", "msg": github_result.get("msg") if isinstance(github_result, dict) else str(github_result)}] + list(http_result.get("attempts") or [])
+        return http_result
+
+    merged = dict(http_result) if isinstance(http_result, dict) else {"status": "error", "query": query, "engine": "http_fallback", "msg": str(http_result)}
+    merged["attempts"] = [{"engine": "github", "msg": github_result.get("msg") if isinstance(github_result, dict) else str(github_result), "error_category": github_result.get("error_category") if isinstance(github_result, dict) else ""}] + list(merged.get("attempts") or [])
+    return merged
+
+
 def _github_search_headers():
     headers = {
         "Accept": "application/vnd.github+json",
@@ -709,7 +733,9 @@ def web_search(query, engine="bing", max_results=8, timeout=18):
         engine_key = str(engine or "bing").strip().lower()
         if engine_key in _GITHUB_ENGINE_ALIASES:
             return enrich_web_tool_result("web_search", _github_api_search(query, max_results=max_results, timeout=timeout))
-        if engine_key in {"", "auto", "web", "http", "bing"}:
+        if engine_key in {"", "auto", "web", "http"}:
+            return enrich_web_tool_result("web_search", _auto_web_search(query, max_results=max_results, timeout=timeout))
+        if engine_key == "bing":
             return enrich_web_tool_result("web_search", _http_search_with_fallback(query, max_results=max_results, timeout=timeout))
         if engine_key in {"duckduckgo", "ddg"}:
             return enrich_web_tool_result("web_search", _duckduckgo_html_search(query, max_results=max_results, timeout=timeout))

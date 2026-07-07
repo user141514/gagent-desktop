@@ -43,6 +43,7 @@ GENERIC_AGENT_WEB_SEARCH_TRANSPORT=powershell,python
 Rules:
 
 - Do not use Baidu as a search backend.
+- For `engine='auto'` queries that explicitly mention GitHub, try GitHub API before generic HTTP engines.
 - Do not return `baidu.com` or its subdomains as successful source results.
 - Do not use the current browser tab as a search source unless the user explicitly asks for rendered-page behavior.
 - Do not use `web_scan` as a fallback for ordinary search failure.
@@ -79,9 +80,10 @@ Rules:
 On `web_search` failure:
 
 1. Do not immediately switch to `web_scan`, `web_execute_js`, or `browser_agent`.
-2. Try another HTTP search engine in the configured order.
-3. If GitHub API fails, try a Bing query constrained to GitHub.
-4. If all HTTP search paths fail, report the network/proxy blocker and continue with local/offline evidence only after user approval.
+2. If the query explicitly mentions GitHub, try GitHub API inside the web_search capability class.
+3. Try another HTTP search engine in the configured order.
+4. If GitHub API fails, try a Bing query constrained to GitHub.
+5. If all HTTP search paths fail, report the network/proxy blocker and continue with local/offline evidence only after user approval.
 
 On `web_scan` / `web_execute_js` failure:
 

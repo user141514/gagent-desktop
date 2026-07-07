@@ -247,3 +247,44 @@ Status:
 ```text
 web_search failure classification and eval scorer hardening applied; source port-back required
 ```
+
+---
+
+### Web search auto GitHub routing
+
+Files changed:
+
+```text
+backend/core/ga.py
+backend/tool_registry/tools/web_search.yml
+backend/tool_registry/tests/smoke_web_tools.py
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/memory/web_search_tool_sop.md
+```
+
+Reason:
+
+```text
+engine=auto GitHub queries should attempt GitHub API before generic HTTP search engines, and eval reports should expose attempt_engines so the failure chain is auditable.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/tests/smoke_web_tools.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Revert the listed files to the previous web_search eval hardening commit.
+```
+
+Status:
+
+```text
+auto GitHub routing and eval attempt visibility applied; source port-back required
+```
