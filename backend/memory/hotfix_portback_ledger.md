@@ -329,3 +329,42 @@ Status:
 ```text
 web_scan and web_execute_js boundary eval coverage applied; source port-back required
 ```
+
+---
+
+### Browser bridge handler ledger integration
+
+Files changed:
+
+```text
+backend/core/ga.py
+backend/eval_registry/README.md
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/runtime_ledger/README.md
+```
+
+Reason:
+
+```text
+web_scan and web_execute_js evals should exercise the real GenericAgentHandler methods and verify handler-level runtime_ledger events, instead of relying on eval harness event wrapping.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Revert handler ledger helpers and restore eval runner browser bridge event wrapping.
+```
+
+Status:
+
+```text
+web_scan and web_execute_js handler ledger integration applied; source port-back required
+```

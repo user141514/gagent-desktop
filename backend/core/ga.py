@@ -40,6 +40,63 @@ from .runtime.code_preflight import (
 from .runtime.path_safety import ToolPathResult, resolve_tool_path
 from .runtime.web_tool_errors import enrich_web_tool_result, web_tool_failure_prompt
 
+
+def _start_runtime_ledger(args, *, tool_name, task, call_args, scope):
+    ledger_enabled = os.environ.get("GENERIC_AGENT_RUNTIME_LEDGER", "1").strip().lower() not in {"0", "false", "no", "off"}
+    if not ledger_enabled:
+        return "", None, None
+    try:
+        from runtime_ledger import LedgerEvent as _LedgerEvent, new_run_id as _new_run_id, write_event as _write_event
+        run_id = str((args or {}).get("ledger_run_id") or _new_run_id(tool_name))
+        _write_event(_LedgerEvent(
+            run_id=run_id,
+            event_type="run_started",
+            task=str(task or ""),
+            owner_layer="Layer 1 capability contract",
+            metadata={"integration_scope": scope},
+        ))
+        _write_event(_LedgerEvent(
+            run_id=run_id,
+            event_type="tool_call",
+            task=str(task or ""),
+            owner_layer="Layer 1 capability contract",
+            tool=tool_name,
+            args=call_args,
+        ))
+        return run_id, _write_event, _LedgerEvent
+    except Exception:
+        return "", None, None
+
+
+def _finish_runtime_ledger(run_id, write_event_fn, LedgerEvent, *, tool_name, task, call_args, result):
+    if not run_id or write_event_fn is None or LedgerEvent is None:
+        return
+    try:
+        result_payload = result if isinstance(result, dict) else {"status": "unknown", "value": str(result)}
+        write_event_fn(LedgerEvent(
+            run_id=run_id,
+            event_type="tool_result",
+            task=str(task or ""),
+            owner_layer="Layer 1 capability contract",
+            tool=tool_name,
+            args=call_args,
+            result=result_payload,
+        ))
+        result_status = str(result_payload.get("status") or "unknown").lower()
+        final_status = "success" if result_status == "success" else "structured_failure"
+        write_event_fn(LedgerEvent(
+            run_id=run_id,
+            event_type="run_finished",
+            task=str(task or ""),
+            owner_layer="Layer 1 capability contract",
+            tool=tool_name,
+            final_status=final_status,
+            metadata={"result_status": result_status},
+        ))
+    except Exception:
+        pass
+
+
 def code_run(code, code_type="python", timeout=60, cwd=None, code_cwd=None, stop_signal=[]):
     """代码执行器
     python: 运行复杂的 .py 脚本（文件模式）
@@ -1334,8 +1391,28 @@ class GenericAgentHandler(BaseHandler):
         tabs_only = args.get("tabs_only", False)
         switch_tab_id = args.get("switch_tab_id", None)
         text_only = args.get("text_only", False)
+        call_args = {"tabs_only": bool(tabs_only), "switch_tab_id": switch_tab_id, "text_only": bool(text_only)}
+        ledger_run_id, ledger_write, LedgerEvent = _start_runtime_ledger(
+            args,
+            tool_name="web_scan",
+            task="inspect current browser tab",
+            call_args=call_args,
+            scope="web_scan_minimal",
+        )
         result = web_scan(tabs_only=tabs_only, switch_tab_id=switch_tab_id, text_only=text_only)
         result = enrich_web_tool_result("web_scan", result)
+        ledger_result = dict(result) if isinstance(result, dict) else result
+        if isinstance(ledger_result, dict) and "content" in ledger_result:
+            ledger_result["content"] = "[omitted]"
+        _finish_runtime_ledger(
+            ledger_run_id,
+            ledger_write,
+            LedgerEvent,
+            tool_name="web_scan",
+            task="inspect current browser tab",
+            call_args=call_args,
+            result=ledger_result,
+        )
         content = result.pop("content", None)
         yield f'[Info] {str(result)}\n'
         if content: result = json.dumps(result, ensure_ascii=False, default=json_default) + f"\n```html\n{content}\n```"
@@ -1459,6 +1536,19 @@ class GenericAgentHandler(BaseHandler):
         save_to_file = args.get("save_to_file", "")
         switch_tab_id = args.get("switch_tab_id") or args.get("tab_id")
         no_monitor = args.get("no_monitor", False)
+        call_args = {
+            "script": script,
+            "switch_tab_id": switch_tab_id,
+            "no_monitor": bool(no_monitor),
+            "save_to_file": save_to_file,
+        }
+        ledger_run_id, ledger_write, LedgerEvent = _start_runtime_ledger(
+            args,
+            tool_name="web_execute_js",
+            task="execute javascript in current browser tab",
+            call_args=call_args,
+            scope="web_execute_js_minimal",
+        )
         result = web_execute_js(script, switch_tab_id=switch_tab_id, no_monitor=no_monitor)
         result = enrich_web_tool_result("web_execute_js", result)
         if save_to_file and "js_return" in result:
@@ -1473,6 +1563,15 @@ class GenericAgentHandler(BaseHandler):
                     result["js_return"] += f"\n\n[已保存完整内容到 {path_result.path}]"
                 except OSError:
                     result['js_return'] += f"\n\n[保存失败，无法写入文件 {path_result.path}]"
+        _finish_runtime_ledger(
+            ledger_run_id,
+            ledger_write,
+            LedgerEvent,
+            tool_name="web_execute_js",
+            task="execute javascript in current browser tab",
+            call_args=call_args,
+            result=result,
+        )
         show = smart_format(json.dumps(result, ensure_ascii=False, indent=2, default=json_default), max_str_len=300)
         try: print("Web Execute JS Result:", show)
         except OSError: pass

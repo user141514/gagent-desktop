@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 
@@ -10,9 +11,16 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from eval_registry.registry import load_eval_cases  # noqa: E402
-from eval_registry.run_eval_cases import run_eval_cases  # noqa: E402
+from eval_registry.run_eval_cases import _FakeDriver, run_eval_cases  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
 from eval_registry.validate_eval_registry import validate  # noqa: E402
+from core import ga  # noqa: E402
+from core.agent_loop import exhaust  # noqa: E402
+from runtime_ledger import read_run_events  # noqa: E402
+
+
+class _DummyParent:
+    verbose = False
 
 
 def _assert_score_rejects_nested_baidu(cases) -> None:
@@ -39,6 +47,41 @@ def _assert_score_rejects_nested_baidu(cases) -> None:
         raise AssertionError("nested baidu success was not rejected")
 
 
+def _call_handler(value):
+    if hasattr(value, "__iter__") and not isinstance(value, (str, bytes, dict, list, tuple)):
+        return exhaust(value)
+    return value
+
+
+def _assert_handler_writes_browser_bridge_ledger() -> None:
+    original_driver = ga.driver
+    original_sleep = ga.time.sleep
+    try:
+        ga.driver = _FakeDriver()
+        ga.time.sleep = lambda _seconds: None
+        handler = ga.GenericAgentHandler(_DummyParent(), cwd=str(BACKEND.parent / "temp"))
+        checks = [
+            ("web_scan", handler.do_web_scan, {"tabs_only": True}),
+            (
+                "web_execute_js",
+                handler.do_web_execute_js,
+                {"script": "window.location.href = 'https://example.com/after-nav';"},
+            ),
+        ]
+        required = {"run_started", "tool_call", "tool_result", "run_finished"}
+        for tool_name, method, args in checks:
+            run_id = f"smoke_handler_{tool_name}_{time.time_ns()}"
+            tool_args = dict(args)
+            tool_args["ledger_run_id"] = run_id
+            _call_handler(method(tool_args, ""))
+            event_types = {event.get("event_type") for event in read_run_events(run_id)}
+            if not required.issubset(event_types):
+                raise AssertionError(f"{tool_name}: handler ledger events missing: {sorted(required - event_types)}")
+    finally:
+        ga.driver = original_driver
+        ga.time.sleep = original_sleep
+
+
 def main() -> int:
     cases = load_eval_cases()
     errors = validate()
@@ -49,6 +92,7 @@ def main() -> int:
         return 1
 
     _assert_score_rejects_nested_baidu(cases)
+    _assert_handler_writes_browser_bridge_ledger()
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []
     if len(cases) < 3:

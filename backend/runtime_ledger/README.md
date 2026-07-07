@@ -20,6 +20,14 @@ run_started, context_injected, tool_call, tool_result, decision,
 quality_gate, experience_candidate, smoke_test, file_change, run_finished
 ```
 
+Current direct handler integrations:
+
+```text
+GenericAgentHandler.do_web_search
+GenericAgentHandler.do_web_scan
+GenericAgentHandler.do_web_execute_js
+```
+
 Checks:
 
 ```text

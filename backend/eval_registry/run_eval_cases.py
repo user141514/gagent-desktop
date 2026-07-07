@@ -17,7 +17,7 @@ from core import ga  # noqa: E402
 from core.agent_loop import StepOutcome, exhaust  # noqa: E402
 from eval_registry.registry import EvalCase, load_eval_cases  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
-from runtime_ledger import LedgerEvent, read_run_events, summarize_run, write_event  # noqa: E402
+from runtime_ledger import read_run_events, summarize_run  # noqa: E402
 
 
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
@@ -117,43 +117,10 @@ def _run_web_search_case(case: EvalCase) -> dict[str, Any]:
 def _run_browser_bridge_case(case: EvalCase) -> dict[str, Any]:
     run_id = f"eval_{case.id}_{time.time_ns()}"
     args = dict(case.input)
-    write_event(LedgerEvent(
-        run_id=run_id,
-        event_type="run_started",
-        task=case.task,
-        owner_layer=case.owner_layer,
-        metadata={"integration_scope": "eval_harness_browser_bridge"},
-    ))
-    write_event(LedgerEvent(
-        run_id=run_id,
-        event_type="tool_call",
-        task=case.task,
-        owner_layer=case.owner_layer,
-        tool=case.target_tool,
-        args=args,
-    ))
+    args["ledger_run_id"] = run_id
     tool_result = _call_browser_bridge_tool(case.target_tool, args)
     if not isinstance(tool_result, dict):
         tool_result = {"status": "error", "msg": str(tool_result)}
-    write_event(LedgerEvent(
-        run_id=run_id,
-        event_type="tool_result",
-        task=case.task,
-        owner_layer=case.owner_layer,
-        tool=case.target_tool,
-        args=args,
-        result=tool_result,
-    ))
-    final_status = "success" if str(tool_result.get("status") or "").lower() == "success" else "structured_failure"
-    write_event(LedgerEvent(
-        run_id=run_id,
-        event_type="run_finished",
-        task=case.task,
-        owner_layer=case.owner_layer,
-        tool=case.target_tool,
-        final_status=final_status,
-        metadata={"result_status": str(tool_result.get("status") or "").lower()},
-    ))
     ledger_events = read_run_events(run_id)
     ledger_summary = summarize_run(run_id)
     score = score_case_result(case, tool_result, ledger_events, ledger_summary)
@@ -175,23 +142,30 @@ def _call_browser_bridge_tool(tool_name: str, args: dict[str, Any]) -> dict[str,
     original_sleep = ga.time.sleep
     try:
         ga.driver = _FakeDriver()
+        handler = ga.GenericAgentHandler(_DummyParent(), cwd=str(ROOT / "backend" / "temp"))
         if tool_name == "web_scan":
-            return ga.web_scan(
-                tabs_only=bool(args.get("tabs_only")),
-                switch_tab_id=args.get("switch_tab_id"),
-                text_only=bool(args.get("text_only")),
-            )
+            return _coerce_handler_result(_call_handler(handler.do_web_scan(args, "")))
         if tool_name == "web_execute_js":
             ga.time.sleep = lambda _seconds: None
-            return ga.web_execute_js(
-                str(args.get("script") or ""),
-                switch_tab_id=args.get("switch_tab_id"),
-                no_monitor=bool(args.get("no_monitor")),
-            )
+            return _coerce_handler_result(_call_handler(handler.do_web_execute_js(args, "")))
         return {"status": "error", "msg": f"unsupported browser bridge eval tool: {tool_name}"}
     finally:
         ga.driver = original_driver
         ga.time.sleep = original_sleep
+
+
+def _coerce_handler_result(outcome: Any) -> dict[str, Any]:
+    value = outcome.data if isinstance(outcome, StepOutcome) else outcome
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    return {"status": "error", "msg": str(value)}
 
 
 def _call_handler(value: Any) -> Any:
