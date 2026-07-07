@@ -16,6 +16,7 @@ if str(BACKEND) not in sys.path:
 from core import ga  # noqa: E402
 from core.agent_loop import StepOutcome, exhaust  # noqa: E402
 from eval_registry.registry import EvalCase, load_eval_cases  # noqa: E402
+from eval_registry.score_final_answer import make_default_final_answer, score_final_answer  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
 from runtime_ledger import LedgerEvent, read_run_events, summarize_run, write_event  # noqa: E402
 
@@ -115,7 +116,7 @@ def _run_web_search_case(case: EvalCase) -> dict[str, Any]:
         "final_status": ledger_summary.get("final_status"),
         "forbidden_tools_used": forbidden_used,
     })
-    return score
+    return _attach_final_answer_score(case, tool_result, score)
 
 
 def _run_contract_case(case: EvalCase) -> dict[str, Any]:
@@ -170,7 +171,7 @@ def _run_contract_case(case: EvalCase) -> dict[str, Any]:
         "final_status": ledger_summary.get("final_status"),
         "forbidden_tools_used": forbidden_used,
     })
-    return score
+    return _attach_final_answer_score(case, tool_result, score)
 
 
 def _check_registry_contract(case: EvalCase) -> dict[str, Any]:
@@ -220,7 +221,7 @@ def _run_browser_bridge_case(case: EvalCase) -> dict[str, Any]:
         "final_status": ledger_summary.get("final_status"),
         "forbidden_tools_used": forbidden_used,
     })
-    return score
+    return _attach_final_answer_score(case, tool_result, score)
 
 
 def _run_browser_agent_handler_case(case: EvalCase) -> dict[str, Any]:
@@ -249,6 +250,22 @@ def _run_browser_agent_handler_case(case: EvalCase) -> dict[str, Any]:
         "final_status": ledger_summary.get("final_status"),
         "forbidden_tools_used": forbidden_used,
     })
+    return _attach_final_answer_score(case, tool_result, score)
+
+
+def _attach_final_answer_score(case: EvalCase, tool_result: dict, score: dict[str, Any]) -> dict[str, Any]:
+    answer_text = make_default_final_answer(case, tool_result)
+    answer_score = score_final_answer(case, answer_text, tool_result)
+    score["final_answer"] = {
+        "text": answer_text,
+        "total": answer_score["total"],
+        "verdict": answer_score["verdict"],
+        "reasons": answer_score["reasons"],
+        "penalties": answer_score["penalties"],
+    }
+    if answer_score["verdict"] == "fail":
+        score["verdict"] = "fail"
+        score.setdefault("penalties", []).append("final answer score failed")
     return score
 
 

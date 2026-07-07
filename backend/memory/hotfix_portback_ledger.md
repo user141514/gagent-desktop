@@ -449,3 +449,41 @@ Status:
 ```text
 browser_agent handler-stub eval and runtime_ledger coverage applied; real browser-agent workflow eval remains intentionally disabled
 ```
+
+---
+
+### Final answer scoring prototype
+
+Files changed:
+
+```text
+backend/eval_registry/README.md
+backend/eval_registry/score_final_answer.py
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Reason:
+
+```text
+The eval harness should not score only tool JSON and ledger events. It must also reject final-answer hallucinations such as reporting a successful finding when the tool result is a structured failure.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry/score_final_answer.py and revert the eval runner/smoke/README changes.
+```
+
+Status:
+
+```text
+rule-based final-answer scoring applied; source port-back required
+```

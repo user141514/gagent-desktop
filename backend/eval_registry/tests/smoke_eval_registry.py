@@ -12,6 +12,7 @@ if str(BACKEND) not in sys.path:
 
 from eval_registry.registry import load_eval_cases  # noqa: E402
 from eval_registry.run_eval_cases import _FakeDriver, run_eval_cases  # noqa: E402
+from eval_registry.score_final_answer import score_final_answer  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
 from eval_registry.validate_eval_registry import validate  # noqa: E402
 from core import ga  # noqa: E402
@@ -82,6 +83,17 @@ def _assert_handler_writes_browser_bridge_ledger() -> None:
         ga.time.sleep = original_sleep
 
 
+def _assert_answer_score_rejects_false_success(cases) -> None:
+    case = next(item for item in cases if item.id == "web_search_yobot_github_failure")
+    score = score_final_answer(
+        case,
+        "I found the repository and here are the results.",
+        {"status": "error", "msg": "All configured HTTP search engines failed.", "error_category": "search_backend_unavailable"},
+    )
+    if score.get("verdict") != "fail":
+        raise AssertionError("final-answer score accepted a false success claim")
+
+
 def main() -> int:
     cases = load_eval_cases()
     errors = validate()
@@ -93,6 +105,7 @@ def main() -> int:
 
     _assert_score_rejects_nested_baidu(cases)
     _assert_handler_writes_browser_bridge_ledger()
+    _assert_answer_score_rejects_false_success(cases)
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []
     if len(cases) < 3:
@@ -114,6 +127,9 @@ def main() -> int:
         for key in ("total", "verdict", "reasons", "penalties"):
             if key not in result:
                 raise AssertionError(f"{result.get('case_id')}: missing {key}")
+        final_answer = result.get("final_answer") or {}
+        if final_answer.get("verdict") != "pass" or "total" not in final_answer:
+            raise AssertionError(f"{result.get('case_id')}: final_answer score missing or failed")
         if result.get("target_tool") == "web_search" and int(result.get("ledger_event_count") or 0) <= 0:
             raise AssertionError(f"{result.get('case_id')}: missing ledger events")
         if result.get("case_id") == "web_search_yobot_github_failure" and result.get("tool_status") != "success":
