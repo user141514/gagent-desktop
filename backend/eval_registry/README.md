@@ -46,6 +46,8 @@ GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=
 
 The default OpenAI/browser_agent commands must structured-skip without network/API access. The opt-in commands are real e2e paths and require their SDKs, browser/runtime dependencies, and API/network access.
 `GAGENT_E2E_DEPS` is explicit because the packaged Windows `python-runtime/python313._pth` ignores `PYTHONPATH`.
+`browser_agent` also requires browser LLM credentials such as `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` unless the handler supplies an API key.
+DeepSeek thinking variants are mapped to a browser-use-compatible DeepSeek chat model for `browser_agent` because the browser loop requires structured tool calls.
 
 Source of truth:
 

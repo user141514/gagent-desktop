@@ -23,8 +23,38 @@ from core.agent_loop import StepOutcome, exhaust  # noqa: E402
 from runtime_ledger import new_run_id, read_run_events, summarize_run  # noqa: E402
 
 
+class _OpenAIE2EBackend:
+    def __init__(self, cfg: dict[str, Any]) -> None:
+        self.cfg = cfg
+
+
+class _AnthropicE2EBackend:
+    def __init__(self, cfg: dict[str, Any]) -> None:
+        self.cfg = cfg
+
+
+class _DummyLLMClient:
+    def __init__(self, variant: dict[str, Any]) -> None:
+        cfg = {
+            "model": variant.get("model") or "",
+            "api_key": variant.get("api_key") or "",
+            "base_url": variant.get("base_url") or "",
+        }
+        backend_kind = str(variant.get("backend_kind") or variant.get("source") or "").lower()
+        self.backend = (
+            _AnthropicE2EBackend(cfg)
+            if "anthropic" in backend_kind or "claude" in backend_kind
+            else _OpenAIE2EBackend(cfg)
+        )
+
+
 class _DummyParent:
     verbose = False
+
+    def __init__(self) -> None:
+        variant = _load_first_model_variant()
+        if variant:
+            self.llmclient = _DummyLLMClient(variant)
 
 
 def main() -> int:
@@ -114,7 +144,19 @@ def _coerce_handler_result(outcome: Any) -> dict[str, Any]:
 
 def _classify_failure(text: str) -> str:
     lowered = text.lower()
-    if any(marker in lowered for marker in ("browser-use", "playwright", "chromium", "api key", "no module named")):
+    if any(
+        marker in lowered
+        for marker in (
+            "browser-use",
+            "playwright",
+            "chromium",
+            "api key",
+            "openai_api_key",
+            "anthropic_api_key",
+            "credentials",
+            "no module named",
+        )
+    ):
         return "readiness_failure"
     return "runtime_failure"
 
@@ -125,6 +167,16 @@ def _emit_report(report: dict[str, Any]) -> None:
         json.dumps(report, indent=2, ensure_ascii=False, default=str),
         encoding="utf-8",
     )
+
+
+def _load_first_model_variant() -> dict[str, Any]:
+    try:
+        from core.openai_runtime.model_variants import _resolve_model_variants
+
+        variants = _resolve_model_variants()
+    except Exception:
+        return {}
+    return variants[0] if variants else {}
 
 
 if __name__ == "__main__":

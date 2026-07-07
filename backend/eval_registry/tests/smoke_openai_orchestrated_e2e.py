@@ -75,7 +75,8 @@ def main() -> int:
         print(json.dumps(report, indent=2, ensure_ascii=False, default=str), file=sys.stderr)
         print("[smoke_openai_orchestrated_e2e] failed", file=sys.stderr)
         return 1
-    events = read_run_events(run_id)
+    required_events = {"run_started", "run_finished"}
+    events = _wait_for_events(run_id, required_events, timeout=5.0)
     ledger_summary = summarize_run(run_id)
     observability = summarize_observability(
         run_id,
@@ -89,7 +90,6 @@ def main() -> int:
         "observability": observability,
     }
     event_types = {str(event.get("event_type") or "") for event in events}
-    required_events = {"run_started", "run_finished"}
     if not required_events.issubset(event_types):
         result["status"] = "failed"
         result["reason"] = "runtime_ledger missing required OpenAI run events"
@@ -132,6 +132,17 @@ def _wait_for_done(output: "queue.Queue[dict[str, Any]]", timeout: float) -> dic
             if "done" in item:
                 return item
     raise TimeoutError(f"OpenAI orchestrated e2e smoke timed out after {timeout:g}s; last_item={last_item}")
+
+
+def _wait_for_events(run_id: str, required_events: set[str], timeout: float) -> list[dict[str, Any]]:
+    deadline = time.time() + timeout
+    events: list[dict[str, Any]] = []
+    while time.time() < deadline:
+        events = read_run_events(run_id)
+        if required_events.issubset({str(event.get("event_type") or "") for event in events}):
+            return events
+        time.sleep(0.1)
+    return events
 
 
 if __name__ == "__main__":

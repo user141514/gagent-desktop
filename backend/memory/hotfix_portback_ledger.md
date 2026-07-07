@@ -911,3 +911,45 @@ Status:
 ```text
 optional e2e dependency manifest applied; source port-back required
 ```
+
+---
+
+### Optional E2E readiness advancement
+
+Files changed:
+
+```text
+backend/core/browser_agent.py
+backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+backend/eval_registry/tests/smoke_browser_agent_e2e.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+OpenAI opt-in e2e could be misclassified because runtime_ledger run_finished may be written just after the smoke first reads events. browser_agent could also return success=true when browser-use stopped without a final result. The OpenAI smoke now waits briefly for required ledger events, and browser_agent now fails fast on missing browser LLM credentials and treats missing final result as failure.
+DeepSeek thinking variants are not compatible with browser-use structured tool_choice, so browser_agent maps DeepSeek browser runs to a compatible DeepSeek chat model and rewrites /anthropic base_url to /v1 for the browser-use DeepSeek adapter.
+```
+
+Verification:
+
+```text
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py
+```
+
+Rollback:
+
+```text
+Remove the OpenAI smoke event wait helper and browser_agent credential/final-result guards.
+```
+
+Status:
+
+```text
+OpenAI opt-in e2e passed; browser_agent opt-in e2e passed with DeepSeek browser model fallback; source port-back required
+```

@@ -1663,11 +1663,18 @@ class GenericAgentHandler(BaseHandler):
             backend = self.parent.llmclient.backend
             cfg = getattr(backend, "cfg", {}) or {}
             name = type(backend).__name__.lower()
-            provider = "anthropic" if "claude" in name or "anthropic" in name else "openai"
+            model = str(cfg.get("model", "") or "")
+            base_url = str(cfg.get("base_url", "") or "")
+            provider = (
+                "deepseek"
+                if "deepseek" in name or "deepseek" in model.lower() or "deepseek" in base_url.lower()
+                else "anthropic" if "claude" in name or "anthropic" in name else "openai"
+            )
             return {
                 "provider": provider,
-                "model": cfg.get("model", ""),
+                "model": model,
                 "api_key": cfg.get("api_key", ""),
+                "base_url": base_url,
             }
         except Exception:
             return {"provider": "openai"}  # let browser-use read OPENAI_API_KEY

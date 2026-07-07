@@ -48,7 +48,14 @@ def run_browser_agent(
 
     r = result_q.get_nowait()
     if r["ok"]:
-        return {"success": True, "result": r["data"]["result"], "steps_taken": r["data"]["steps_taken"]}
+        result_text = r["data"].get("result")
+        if not result_text:
+            return {
+                "success": False,
+                "result": "browser_agent completed without a final result",
+                "steps_taken": r["data"].get("steps_taken", 0),
+            }
+        return {"success": True, "result": result_text, "steps_taken": r["data"]["steps_taken"]}
     return {"success": False, "result": r["error"], "steps_taken": 0}
 
 
@@ -70,7 +77,7 @@ async def _async_run(task, llm_config, max_steps, headless, progress_cb):
     agent = Agent(task=task, llm=llm, browser=browser, max_steps=max_steps)
 
     # Progress callback (optional)
-    if progress_cb:
+    if progress_cb and hasattr(agent, "on"):
         @agent.on("step")
         def _on_step(step_info):
             progress_cb(f"Step {step_info.step_number}: {step_info.action}")
@@ -94,14 +101,52 @@ async def _async_run(task, llm_config, max_steps, headless, progress_cb):
 def _build_llm(cfg: dict):
     """Build a browser-use-compatible LLM object from llm_config."""
     provider = cfg.get("provider", "openai")
-    model = cfg.get("model", "gpt-4o")
+    model = _clean_model_name(cfg.get("model", "gpt-4o"))
+    base_url = cfg.get("base_url") or None
     api_key = cfg.get("api_key") or None  # None → let browser-use read env var
 
+    if provider == "deepseek" or "deepseek" in str(model).lower() or "deepseek" in str(base_url).lower():
+        api_key = api_key or os.environ.get("DEEPSEEK_API_KEY")
+        if not api_key:
+            raise RuntimeError("DEEPSEEK_API_KEY is required for browser_agent DeepSeek provider")
+        from browser_use.llm.deepseek.chat import ChatDeepSeek
+
+        return ChatDeepSeek(
+            model=_deepseek_browser_model(model),
+            api_key=api_key,
+            base_url=_deepseek_base_url(base_url),
+        )
+
     if provider == "anthropic":
+        if not api_key and not os.environ.get("ANTHROPIC_API_KEY"):
+            raise RuntimeError("ANTHROPIC_API_KEY is required for browser_agent Anthropic provider")
         from browser_use.llm.anthropic.chat import ChatAnthropic
 
-        return ChatAnthropic(model=model, api_key=api_key)
+        return ChatAnthropic(model=model, api_key=api_key, base_url=base_url)
     # Default: openai (compatible with gpt-4o, gpt-4.1, etc.)
+    if not api_key and not (os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_ADMIN_KEY")):
+        raise RuntimeError("OPENAI_API_KEY or OPENAI_ADMIN_KEY is required for browser_agent OpenAI provider")
     from browser_use.llm.openai.chat import ChatOpenAI
 
-    return ChatOpenAI(model=model, api_key=api_key)
+    return ChatOpenAI(model=model, api_key=api_key, base_url=base_url)
+
+
+def _clean_model_name(model: str | None) -> str:
+    text = str(model or "").strip()
+    return text.split("[", 1)[0] if "[" in text else text
+
+
+def _deepseek_base_url(base_url: str | None) -> str | None:
+    if not base_url:
+        return None
+    text = str(base_url).rstrip("/")
+    if text.endswith("/anthropic"):
+        return text[: -len("/anthropic")] + "/v1"
+    return text
+
+
+def _deepseek_browser_model(model: str) -> str:
+    text = str(model or "").strip()
+    if not text or "v4-pro" in text.lower():
+        return "deepseek-chat"
+    return text

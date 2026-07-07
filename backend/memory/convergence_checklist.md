@@ -39,6 +39,8 @@ Pass criteria:
 - OpenAI orchestrated e2e smoke may skip by default, but must fail when explicitly enabled and the real SDK/config/runtime path cannot complete.
 - browser_agent e2e smoke may skip by default, but must fail when explicitly enabled and browser-use/Playwright/LLM runtime cannot complete.
 - optional real e2e dependencies live in `backend/requirements-e2e.txt`; `GAGENT_E2E_DEPS` must point at the installed target because packaged Python ignores `PYTHONPATH`.
+- browser_agent must not report success when the underlying browser-use run has no final result.
+- DeepSeek thinking variants must use a browser-use-compatible chat model for browser_agent structured tool calls.
 
 This file is an operational checklist, not a source of truth. The source of truth remains:
 
