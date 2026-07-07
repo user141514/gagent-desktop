@@ -237,6 +237,16 @@ def _is_error_like_outcome(outcome: StepOutcome) -> bool:
     return any(token in result_text for token in ("traceback", "exception", '"status": "error"', "'status': 'error'"))
 
 
+def _is_error_like_final_result(final_result: dict) -> bool:
+    data = final_result.get("data") if isinstance(final_result, dict) else None
+    if isinstance(data, dict) and str(data.get("status") or "").strip().lower() in {"error", "failed", "blocked", "timeout"}:
+        return True
+    if isinstance(data, str):
+        lowered = data.strip().lower()
+        return lowered.startswith("error:") or '"status": "error"' in lowered or "'status': 'error'" in lowered
+    return False
+
+
 def _set_llm_audit_context(client, handler, turn, tools_schema):
     backend = getattr(client, "backend", None)
     parent = getattr(handler, "parent", None)
@@ -726,7 +736,12 @@ def agent_runner_loop(client, system_prompt, user_input, handler, tools_schema, 
                 )
             messages = [{"role": "user", "content": next_prompt, "tool_results": tool_results}]
     final_result = exit_reason or {"result": "MAX_TURNS_EXCEEDED"}
-    final_status = "max_turns_exceeded" if final_result.get("result") == "MAX_TURNS_EXCEEDED" else "success"
+    if final_result.get("result") == "MAX_TURNS_EXCEEDED":
+        final_status = "max_turns_exceeded"
+    elif _is_error_like_final_result(final_result):
+        final_status = "structured_failure"
+    else:
+        final_status = "success"
     if exit_reason:
         handler.turn_end_callback(response, tool_calls, tool_results, turn, "", exit_reason)
     _write_runtime_ledger("run_finished", final_status=final_status, result=final_result)

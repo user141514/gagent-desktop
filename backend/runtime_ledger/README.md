@@ -32,7 +32,7 @@ GenericAgentHandler.do_web_execute_js
 GenericAgentHandler.do_browser_agent
 ```
 
-`agent_runner_loop` integration is opt-in at the loop boundary. Classic `agentmain.py` passes its task `run_id`, so normal classic-agent runs record `run_started`, per-tool `tool_call`/`tool_result` with `turn`, and `run_finished`. OpenAI orchestrated runs write the same event family from their run and streamed tool-event lifecycle. The smoke test directly exercises the OpenAI helper write path; it does not run the full OpenAI SDK workflow.
+`agent_runner_loop` integration is opt-in at the loop boundary. Classic `agentmain.py` passes its task `run_id`, so normal classic-agent runs record `run_started`, per-tool `tool_call`/`tool_result` with `turn`, and `run_finished`. Structured tool failures finish with `final_status=structured_failure` instead of being reported as success. OpenAI orchestrated runs write the same event family from their run and streamed tool-event lifecycle. The smoke test directly exercises the OpenAI helper write path; it does not run the full OpenAI SDK workflow.
 
 `summarize_observability()` joins `runtime_ledger` events with RuntimeHost `events.jsonl` for one run id. It is a read-only view; it does not change either event format.
 

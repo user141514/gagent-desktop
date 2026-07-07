@@ -718,3 +718,43 @@ Status:
 ```text
 runtime observability join applied; source port-back required
 ```
+
+---
+
+### Agent-loop structured failure eval
+
+Files changed:
+
+```text
+backend/core/agent_loop.py
+backend/eval_registry/cases/agent_loop_runtime_mapper_web_search_failure.json
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/runtime_ledger/README.md
+```
+
+Reason:
+
+```text
+agent_loop runtime mapper eval covered only the success path. The eval registry now runs a deterministic structured web_search failure through the real agent_runner_loop, verifies a runtime_ledger decision, and requires run_finished.final_status=structured_failure.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Remove the new eval case, remove force_error handling from the fake eval handler, restore agent_loop final_status to success/max_turns only, and remove the smoke assertions.
+```
+
+Status:
+
+```text
+agent-loop structured failure eval applied; source port-back required
+```

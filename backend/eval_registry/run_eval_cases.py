@@ -96,18 +96,30 @@ class _FakeAgentLoopClient:
 
 
 class _AgentLoopEvalHandler(BaseHandler):
+    def __init__(self) -> None:
+        self.last_tool_result: dict[str, Any] = {}
+
     def do_web_search(self, args, response):
         yield "[eval] web_search stub\n"
+        if args.get("force_error"):
+            self.last_tool_result = {
+                "status": "error",
+                "msg": "All configured HTTP search engines failed.",
+                "error_category": "search_backend_unavailable",
+                "recommended_next_tool": "web_search",
+            }
+            return StepOutcome(self.last_tool_result, next_prompt=None)
+        self.last_tool_result = {
+            "status": "success",
+            "results": [
+                {
+                    "title": "OpenAI API docs",
+                    "url": "https://openai.com/docs",
+                }
+            ],
+        }
         return StepOutcome(
-            {
-                "status": "success",
-                "results": [
-                    {
-                        "title": "OpenAI API docs",
-                        "url": "https://openai.com/docs",
-                    }
-                ],
-            },
+            self.last_tool_result,
             next_prompt="Write the final answer from the web_search result.",
         )
 
@@ -246,6 +258,14 @@ def _exercise_agent_loop_runtime_mapper(case: EvalCase, run_id: str, args: dict[
             "runtime_started_turns": started_turns,
             "runtime_completed_turns": completed_turns,
             "missing_runtime_events": missing,
+        }
+    if str((handler.last_tool_result or {}).get("status") or "").lower() in {"error", "failed", "blocked", "timeout"}:
+        return {
+            **handler.last_tool_result,
+            "runtime_event_types": event_types,
+            "runtime_started_turns": started_turns,
+            "runtime_completed_turns": completed_turns,
+            "exit_result": exit_reason,
         }
     return {
         "status": "success",

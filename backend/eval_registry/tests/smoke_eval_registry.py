@@ -217,6 +217,17 @@ def main() -> int:
                 raise AssertionError("agent_loop_runtime_mapper_web_search: observability summary must include both ledgers")
             if aligned.get("runtime_session_matches_run_id") is not True:
                 raise AssertionError("agent_loop_runtime_mapper_web_search: RuntimeHost session must match ledger run_id")
+        if result.get("case_id") == "agent_loop_runtime_mapper_web_search_failure":
+            if result.get("tool_status") != "error":
+                raise AssertionError("agent_loop_runtime_mapper_web_search_failure: expected structured error")
+            if result.get("final_status") != "structured_failure":
+                raise AssertionError("agent_loop_runtime_mapper_web_search_failure: expected structured_failure final_status")
+            ledger = (result.get("observability") or {}).get("ledger") or {}
+            if not ledger.get("decisions"):
+                raise AssertionError("agent_loop_runtime_mapper_web_search_failure: expected failure decision")
+            final_answer = result.get("final_answer") or {}
+            if final_answer.get("verdict") != "pass" or "structured failure" not in str(final_answer.get("text") or ""):
+                raise AssertionError("agent_loop_runtime_mapper_web_search_failure: final answer must disclose failure")
         if result.get("forbidden_tools_used"):
             raise AssertionError(f"{result.get('case_id')}: forbidden tool used: {result.get('forbidden_tools_used')}")
     if summary.get("case_count", 0) < 3:
