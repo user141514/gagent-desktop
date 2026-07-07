@@ -991,3 +991,42 @@ Status:
 ```text
 functionality score refresh applied; source port-back required
 ```
+
+---
+
+### OpenAI E2E classic init noise
+
+Files changed:
+
+```text
+backend/core/openai_agentmain.py
+backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+OpenAI orchestrated E2E could pass while Classic GenericAgent optional initialization printed a GA_API_KEY traceback. Classic executor init failure is now stored on the agent and only returned if the classic executor path is actually used. The OpenAI smoke has an offline regression check for quiet classic init failure.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe -m py_compile backend/core/openai_agentmain.py backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+```
+
+Rollback:
+
+```text
+Restore direct traceback printing in _init_classic_executor and remove _self_test_classic_executor_init_quiet from the OpenAI smoke.
+```
+
+Status:
+
+```text
+OpenAI E2E classic init traceback suppression applied; source port-back required
+```

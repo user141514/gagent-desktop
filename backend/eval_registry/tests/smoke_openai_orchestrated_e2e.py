@@ -7,6 +7,9 @@ import queue
 import sys
 import threading
 import time
+import types
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +27,19 @@ from runtime_ledger import new_run_id, read_run_events, summarize_observability,
 
 
 def main() -> int:
+    try:
+        _self_test_classic_executor_init_quiet()
+    except Exception as exc:
+        report = {
+            "status": "failed",
+            "failure_class": "regression_failure",
+            "reason": str(exc),
+        }
+        _emit_report(report)
+        print(json.dumps(report, indent=2, ensure_ascii=False), file=sys.stderr)
+        print("[smoke_openai_orchestrated_e2e] failed", file=sys.stderr)
+        return 1
+
     if os.environ.get("GAGENT_RUN_OPENAI_E2E") != "1":
         report = {
             "status": "skipped",
@@ -143,6 +159,43 @@ def _wait_for_events(run_id: str, required_events: set[str], timeout: float) -> 
             return events
         time.sleep(0.1)
     return events
+
+
+def _self_test_classic_executor_init_quiet() -> None:
+    from core.openai_agentmain import OpenAIOrchestratedAgent
+
+    module_name = "core.agentmain"
+    previous = sys.modules.get(module_name)
+    fake_module = types.ModuleType(module_name)
+
+    class _BrokenGeneraticAgent:
+        def __init__(self) -> None:
+            raise RuntimeError("synthetic classic init failure")
+
+    fake_module.GeneraticAgent = _BrokenGeneraticAgent
+    sys.modules[module_name] = fake_module
+    stdout = StringIO()
+    stderr = StringIO()
+    try:
+        agent = OpenAIOrchestratedAgent.__new__(OpenAIOrchestratedAgent)
+        agent.verbose = True
+        agent._classic_executor = None
+        agent._classic_executor_error = None
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            agent._init_classic_executor()
+    finally:
+        if previous is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous
+
+    captured = stdout.getvalue() + stderr.getvalue()
+    assert "Traceback" not in captured
+    assert "synthetic classic init failure" not in captured
+    assert agent._classic_executor is None
+    assert "synthetic classic init failure" in str(agent._classic_executor_error or "")
+    unavailable = agent._run_classic_executor_task_once("task", "plan")
+    assert "synthetic classic init failure" in unavailable
 
 
 if __name__ == "__main__":

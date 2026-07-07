@@ -1215,6 +1215,7 @@ class OpenAIOrchestratedAgent(AgentBackend):
         self._active_stream_result: Any | None = None
         self._turn_end_hooks: dict[str, Any] = {}
         self._classic_executor: Any | None = None
+        self._classic_executor_error: str | None = None
         self.active_profiler: RuntimeProfiler | None = None
         self._profile_run_id: str | None = None
         self._profile_status = "success"
@@ -1403,6 +1404,7 @@ class OpenAIOrchestratedAgent(AgentBackend):
             os.environ["OPENAI_BASE_URL"] = variant["base_url"]
 
     def _init_classic_executor(self) -> None:
+        self._classic_executor_error = None
         try:
             from .agentmain import GeneraticAgent
             classic = GeneraticAgent()
@@ -1412,9 +1414,7 @@ class OpenAIOrchestratedAgent(AgentBackend):
                 self._sync_classic_executor_to_variant(self.llm_no)
             threading.Thread(target=classic.run, daemon=True).start()
         except Exception as e:
-            import traceback
-            print(f"[Executor Init] FAILED: {type(e).__name__}: {e}")
-            traceback.print_exc()
+            self._classic_executor_error = f"{type(e).__name__}: {e}"
             self._classic_executor = None
 
     def _reset_classic_executor(self) -> None:
@@ -1464,7 +1464,8 @@ class OpenAIOrchestratedAgent(AgentBackend):
         try:
             classic = self._classic_executor
             if classic is None:
-                return "[Executor Error] Classic GenericAgent executor is unavailable. Check _init_classic_executor logs."
+                detail = getattr(self, "_classic_executor_error", None) or "not initialized"
+                return f"[Executor Error] Classic GenericAgent executor is unavailable: {detail}"
             original_request = str(original_user_request or user_request or "").strip()
             # Build workspace context if store is available.
             workspace_block = ""
