@@ -1522,3 +1522,41 @@ Status:
 ```text
 functionality score evidence metadata applied; source port-back required
 ```
+
+---
+
+### Convergence runner score evidence validation
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+score_functionality.py emitted evidence metadata, but run_convergence_checks.py only verified that stdout was a JSON object. The convergence runner now rejects score output without required evidence fields, input report entries, E2E switch entries, and UTC timestamps.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove SCORE_INPUT_REPORTS, SCORE_E2E_ENV_KEYS, _validate_score_evidence, _score_output_fixture, and restore _self_test to the old minimal JSON object check.
+```
+
+Status:
+
+```text
+convergence runner score evidence validation applied; source port-back required
+```

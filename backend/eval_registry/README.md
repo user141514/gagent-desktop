@@ -47,7 +47,7 @@ Use `--results-dir <dir> --no-write` to score isolated report fixtures without t
 `--results-dir` is intentionally incompatible with `--refresh`; refresh writes the default latest reports.
 Score reports include an `evidence` object with the results directory, input report file status, Python executable, and non-secret E2E env switches.
 Skipped optional OpenAI/browser_agent E2E reports count as `needs_work`; full completion requires enabling the opt-in E2E env vars before running `--refresh --strict`.
-`run_convergence_checks.py` validates and prints the successful advisory score JSON so baseline runs expose current blockers instead of only saying `ok`; `--full` also runs the baseline validators before strict scoring.
+`run_convergence_checks.py` validates the score JSON plus required `evidence` fields and prints it on success so baseline runs expose current blockers instead of only saying `ok`; `--full` also runs the baseline validators before strict scoring.
 
 Optional OpenAI orchestrated SDK smoke:
 
