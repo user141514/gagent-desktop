@@ -831,3 +831,41 @@ Status:
 ```text
 browser_agent optional e2e smoke applied; source port-back required
 ```
+
+---
+
+### Functionality score report
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Internal eval reports can pass while optional real OpenAI/browser_agent e2e paths are still readiness failures. The eval registry now has a small stdlib-only score_functionality.py entrypoint that combines latest_eval_report.json, latest_openai_e2e_report.json, and latest_browser_agent_e2e_report.json into latest_functionality_score.json.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry/score_functionality.py and remove score_functionality.py references from README and convergence_checklist.md.
+```
+
+Status:
+
+```text
+functionality score report applied; source port-back required
+```

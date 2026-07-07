@@ -31,6 +31,7 @@ Run:
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py
 ```
 
 Optional OpenAI orchestrated SDK smoke:
@@ -50,6 +51,7 @@ Source of truth:
 backend/eval_registry/cases/*.json
 backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 backend/eval_registry/tests/smoke_browser_agent_e2e.py
+backend/eval_registry/score_functionality.py
 ```
 
 Runtime artifact:
@@ -58,4 +60,5 @@ Runtime artifact:
 backend/eval_registry/results/latest_eval_report.json
 backend/eval_registry/results/latest_openai_e2e_report.json
 backend/eval_registry/results/latest_browser_agent_e2e_report.json
+backend/eval_registry/results/latest_functionality_score.json
 ```
