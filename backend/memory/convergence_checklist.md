@@ -8,7 +8,7 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/quality_registry/validate_quali
 PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/tests/smoke_web_tools.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
-PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh --strict
 PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/validate_runtime_ledger.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/tests/smoke_runtime_ledger.py
 ```
@@ -30,7 +30,7 @@ Pass criteria:
 - web tool smoke exits 0;
 - eval registry validator exits 0;
 - eval registry smoke exits 0;
-- functionality score exits 0 after refreshing eval reports and reports optional e2e blockers instead of hiding them behind green internal evals;
+- strict functionality score exits 0 after refreshing eval reports; advisory non-strict mode may exit 0 with `needs_work`;
 - refreshed functionality score success output stays machine-readable as one JSON report; child stdout/stderr appears only on refresh failure;
 - functionality score self-test verifies refresh child failure captures stdout/stderr locally;
 - runtime ledger validator exits 0;

@@ -1105,3 +1105,41 @@ Status:
 ```text
 functionality score refresh failure self-test applied; source port-back required
 ```
+
+---
+
+### Functionality score strict gate
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+score_functionality.py could report needs_work while exiting 0, which is useful for advisory reports but too soft for completion gates. The command now supports --strict so needs_work exits non-zero while a complete 100/100 score exits 0.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh --strict
+```
+
+Rollback:
+
+```text
+Remove the --strict argument and _exit_code_for_report helper, then restore the checklist command to --refresh.
+```
+
+Status:
+
+```text
+functionality score strict gate applied; source port-back required
+```

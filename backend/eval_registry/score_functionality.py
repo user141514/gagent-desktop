@@ -23,6 +23,7 @@ def main() -> int:
     parser.add_argument("--self-test", action="store_true", help="run small built-in scoring checks")
     parser.add_argument("--no-write", action="store_true", help="do not write latest_functionality_score.json")
     parser.add_argument("--refresh", action="store_true", help="run eval/smoke report generators before scoring")
+    parser.add_argument("--strict", action="store_true", help="exit non-zero unless the score is complete")
     args = parser.parse_args()
 
     if args.self_test:
@@ -40,11 +41,12 @@ def main() -> int:
 
     report = score_latest_reports()
     report["refreshed"] = bool(args.refresh)
+    report["strict"] = bool(args.strict)
     if not args.no_write:
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         OUTPUT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     print(json.dumps(report, indent=2, ensure_ascii=False))
-    return 0 if report["status"] in {"ok", "needs_work"} else 1
+    return _exit_code_for_report(report, strict=bool(args.strict))
 
 
 def score_latest_reports(results_dir: str | Path | None = None) -> dict[str, Any]:
@@ -138,6 +140,15 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _exit_code_for_report(report: dict[str, Any], *, strict: bool) -> int:
+    status = str(report.get("status") or "")
+    if status == "ok":
+        return 0
+    if status == "needs_work" and not strict:
+        return 0
+    return 1
+
+
 def _refresh_reports() -> None:
     for command in _refresh_commands():
         _run_refresh_command(command)
@@ -190,6 +201,16 @@ def _self_test() -> None:
     passed = score_reports(passing_eval, {"status": "passed"}, {"status": "passed"})
     assert passed["status"] == "needs_work"
     assert passed["total"] == 93
+    assert _exit_code_for_report(passed, strict=False) == 0
+    assert _exit_code_for_report(passed, strict=True) == 1
+
+    complete = score_reports(
+        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        {"status": "passed"},
+        {"status": "passed"},
+    )
+    assert complete["status"] == "ok"
+    assert _exit_code_for_report(complete, strict=True) == 0
 
     failed_optional = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},

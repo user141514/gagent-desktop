@@ -33,10 +33,12 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh --strict
 ```
 
 `score_functionality.py --refresh` suppresses successful child-command logs and prints one JSON score report. If a refresh child command fails, its captured stdout/stderr is printed to stderr for debugging.
 `score_functionality.py --self-test` includes a local failing child command to verify that refresh failure output is retained.
+Use `--strict` when the command is acting as a completion gate; `needs_work` remains exit 0 without `--strict` for advisory reports.
 
 Optional OpenAI orchestrated SDK smoke:
 
