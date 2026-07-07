@@ -17,6 +17,50 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from runtime_ledger import LedgerEvent, new_run_id, read_run_events, summarize_run, write_event  # noqa: E402
+from runtime_ledger.ledger import event_path  # noqa: E402
+
+
+def _assert_openai_helper_writes_runtime_ledger() -> dict[str, object]:
+    from core.openai_agentmain import OpenAIOrchestratedAgent
+
+    run_id = new_run_id("smoke_openai")
+    path = event_path(run_id)
+    path.unlink(missing_ok=True)
+    agent = object.__new__(OpenAIOrchestratedAgent)
+    agent._profile_run_id = run_id
+    agent._runtime_session_id = None
+    try:
+        agent._write_runtime_ledger_event("run_started", task="openai helper smoke")
+        agent._write_runtime_ledger_event(
+            "tool_call",
+            task="openai helper smoke",
+            turn=1,
+            tool="run_genericagent_executor",
+            args={"event_name": "tool_called"},
+        )
+        agent._write_runtime_ledger_event(
+            "tool_result",
+            task="openai helper smoke",
+            turn=1,
+            tool="run_genericagent_executor",
+            result={"status": "success", "summary": "ok"},
+        )
+        agent._write_runtime_ledger_event(
+            "run_finished",
+            task="openai helper smoke",
+            final_status="success",
+            result={"status": "success"},
+        )
+        events = read_run_events(run_id)
+        summary = summarize_run(run_id)
+        event_types = [event.get("event_type") for event in events]
+        assert event_types == ["run_started", "tool_call", "tool_result", "run_finished"], event_types
+        assert [event.get("turn") for event in events if event.get("tool")] == [1, 1], events
+        assert summary["tools"].get("run_genericagent_executor") == 2, summary
+        assert summary["final_status"] == "success", summary
+        return {"run_id": run_id, "summary": summary}
+    finally:
+        path.unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -87,7 +131,13 @@ def main() -> int:
             '_write_runtime_ledger_event("run_finished"',
         ):
             assert marker in openai_agentmain, f"openai_agentmain runtime_ledger marker missing: {marker}"
-        print(json.dumps({"status": "passed", "run_id": run_id, "summary": summary}, indent=2, ensure_ascii=False))
+        openai_helper = _assert_openai_helper_writes_runtime_ledger()
+        print(json.dumps({
+            "status": "passed",
+            "run_id": run_id,
+            "summary": summary,
+            "openai_helper": openai_helper,
+        }, indent=2, ensure_ascii=False))
     print("[smoke_runtime_ledger] ok")
     return 0
 

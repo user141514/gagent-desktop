@@ -641,3 +641,38 @@ Status:
 ```text
 OpenAI orchestrated runtime_ledger wiring applied; source port-back required
 ```
+
+---
+
+### OpenAI runtime ledger helper smoke
+
+Files changed:
+
+```text
+backend/runtime_ledger/README.md
+backend/runtime_ledger/tests/smoke_runtime_ledger.py
+```
+
+Reason:
+
+```text
+The OpenAI orchestrated runtime_ledger smoke previously checked source markers only. It now instantiates OpenAIOrchestratedAgent without running the SDK loop, calls the runtime_ledger helper, and verifies the JSONL events can be read and summarized.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/tests/smoke_runtime_ledger.py
+```
+
+Rollback:
+
+```text
+Remove _assert_openai_helper_writes_runtime_ledger from backend/runtime_ledger/tests/smoke_runtime_ledger.py and remove the README note.
+```
+
+Status:
+
+```text
+OpenAI runtime_ledger helper smoke applied; source port-back required
+```
