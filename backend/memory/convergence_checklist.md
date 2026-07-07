@@ -32,4 +32,5 @@ This file is an operational checklist, not a source of truth. The source of trut
 - `backend/tool_registry/tools/*.yml`
 - `backend/quality_registry/gates.yml`
 - `backend/runtime_ledger/ledger.py`
+- `backend/runtime_ledger/observability.py`
 - `backend/eval_registry/cases/*.json`

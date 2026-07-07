@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from runtime_ledger import LedgerEvent, new_run_id, read_run_events, summarize_run, write_event  # noqa: E402
+from runtime_ledger import LedgerEvent, new_run_id, read_run_events, summarize_observability, summarize_run, write_event  # noqa: E402
 from runtime_ledger.ledger import event_path  # noqa: E402
 
 
@@ -61,6 +61,57 @@ def _assert_openai_helper_writes_runtime_ledger() -> dict[str, object]:
         return {"run_id": run_id, "summary": summary}
     finally:
         path.unlink(missing_ok=True)
+
+
+def _assert_runtime_host_and_ledger_join(ledger_dir: Path, runtime_logs_root: Path) -> dict[str, object]:
+    from core.runtime.host import RuntimeHost
+
+    run_id = new_run_id("smoke_join")
+    host = RuntimeHost(
+        project_root=str(ROOT.parent),
+        logs_root=str(runtime_logs_root),
+        session_db_path=str(runtime_logs_root / "sessions.sqlite"),
+        agent_name="smoke_runtime_host",
+    )
+    host.start_session(user_intent="join runtime host and ledger", source="smoke", session_id=run_id)
+    host.begin_llm_turn(1, selected_agent="smoke_agent")
+    host.request_tool("web_search", target="https://openai.com/docs")
+    host.complete_tool("web_search", result_summary="ok")
+    host.complete_llm_turn(1, selected_agent="smoke_agent", result_summary="ok")
+    host.complete_session(summary="ok")
+    write_event(LedgerEvent(run_id=run_id, event_type="run_started", task="join runtime host and ledger"), ledger_dir=ledger_dir)
+    write_event(
+        LedgerEvent(
+            run_id=run_id,
+            event_type="tool_call",
+            tool="web_search",
+            args={"query": "OpenAI API docs"},
+        ),
+        ledger_dir=ledger_dir,
+    )
+    write_event(
+        LedgerEvent(
+            run_id=run_id,
+            event_type="tool_result",
+            tool="web_search",
+            result={"status": "success", "results": [{"url": "https://openai.com/docs"}]},
+        ),
+        ledger_dir=ledger_dir,
+    )
+    write_event(LedgerEvent(run_id=run_id, event_type="run_finished", final_status="success"), ledger_dir=ledger_dir)
+    summary = summarize_observability(
+        run_id,
+        ledger_dir=ledger_dir,
+        runtime_host_logs_root=runtime_logs_root,
+    )
+    assert summary["run_id"] == run_id, summary
+    assert summary["aligned"]["has_ledger_events"] is True, summary
+    assert summary["aligned"]["has_runtime_host_events"] is True, summary
+    assert summary["aligned"]["runtime_session_matches_run_id"] is True, summary
+    assert summary["ledger"]["final_status"] == "success", summary
+    assert summary["runtime_host"]["event_count"] >= 8, summary
+    assert summary["runtime_host"]["tools"].get("web_search") >= 2, summary
+    return summary
 
 
 def main() -> int:
@@ -132,11 +183,13 @@ def main() -> int:
         ):
             assert marker in openai_agentmain, f"openai_agentmain runtime_ledger marker missing: {marker}"
         openai_helper = _assert_openai_helper_writes_runtime_ledger()
+        observability = _assert_runtime_host_and_ledger_join(ledger_dir, ledger_dir / "runtime_host_logs")
         print(json.dumps({
             "status": "passed",
             "run_id": run_id,
             "summary": summary,
             "openai_helper": openai_helper,
+            "observability": observability,
         }, indent=2, ensure_ascii=False))
     print("[smoke_runtime_ledger] ok")
     return 0

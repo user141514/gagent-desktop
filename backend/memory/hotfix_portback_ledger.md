@@ -676,3 +676,45 @@ Status:
 ```text
 OpenAI runtime_ledger helper smoke applied; source port-back required
 ```
+
+---
+
+### Runtime observability join
+
+Files changed:
+
+```text
+backend/runtime_ledger/observability.py
+backend/runtime_ledger/__init__.py
+backend/runtime_ledger/README.md
+backend/runtime_ledger/tests/smoke_runtime_ledger.py
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+```
+
+Reason:
+
+```text
+RuntimeHost events and runtime_ledger events were recorded in parallel but had no shared read view. runtime_ledger now exposes a read-only summarize_observability() helper that joins both trajectories for one run id, and eval reports include it for the agent-loop runtime mapper case.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/tests/smoke_runtime_ledger.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Remove backend/runtime_ledger/observability.py, its __init__.py exports, the smoke assertions, and the eval report observability field.
+```
+
+Status:
+
+```text
+runtime observability join applied; source port-back required
+```

@@ -211,6 +211,12 @@ def main() -> int:
                 raise AssertionError("agent_loop_runtime_mapper_web_search: runtime turn events are unbalanced")
             if not result.get("ledger_tool_turns") or any(turn is None for turn in result.get("ledger_tool_turns")):
                 raise AssertionError("agent_loop_runtime_mapper_web_search: runtime_ledger tool events must include turn")
+            observability = result.get("observability") or {}
+            aligned = observability.get("aligned") or {}
+            if aligned.get("has_ledger_events") is not True or aligned.get("has_runtime_host_events") is not True:
+                raise AssertionError("agent_loop_runtime_mapper_web_search: observability summary must include both ledgers")
+            if aligned.get("runtime_session_matches_run_id") is not True:
+                raise AssertionError("agent_loop_runtime_mapper_web_search: RuntimeHost session must match ledger run_id")
         if result.get("forbidden_tools_used"):
             raise AssertionError(f"{result.get('case_id')}: forbidden tool used: {result.get('forbidden_tools_used')}")
     if summary.get("case_count", 0) < 3:

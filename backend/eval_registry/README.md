@@ -21,6 +21,8 @@ Final-answer scoring is rule-based and deterministic. It checks that a successfu
 
 `agent_loop runtime mapper` is a local fake-client/fake-handler path through the real `agent_runner_loop`. It verifies that runtime mapper turn and tool events are emitted, started/completed LLM turns stay balanced, and `agent_runner_loop(runtime_ledger_run_id=...)` writes turn-tagged `runtime_ledger` tool events.
 
+Agent-loop eval reports also include a read-only `observability` summary that joins RuntimeHost events with `runtime_ledger` events for the same run id.
+
 It intentionally does not use an LLM judge, external benchmarks, CTest, PyYAML, SWE-bench, GAIA, Judgeval, Kiln, or frontend code.
 
 Run:

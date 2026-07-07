@@ -18,7 +18,7 @@ from core.agent_loop import BaseHandler, StepOutcome, agent_runner_loop, exhaust
 from eval_registry.registry import EvalCase, load_eval_cases  # noqa: E402
 from eval_registry.score_final_answer import make_default_final_answer, score_final_answer  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
-from runtime_ledger import LedgerEvent, read_run_events, summarize_run, write_event  # noqa: E402
+from runtime_ledger import LedgerEvent, read_run_events, summarize_observability, summarize_run, write_event  # noqa: E402
 
 
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
@@ -176,6 +176,7 @@ def _run_agent_loop_case(case: EvalCase) -> dict[str, Any]:
         ))
     ledger_events = read_run_events(run_id)
     ledger_summary = summarize_run(run_id)
+    observability = summarize_observability(run_id, runtime_host_logs_root=RESULTS_DIR / "runtime_host_logs")
     score = score_case_result(case, tool_result, ledger_events, ledger_summary)
     forbidden = set(str(x) for x in case.expected_tools.get("forbidden") or [])
     forbidden_used = sorted({str(event.get("tool") or "") for event in ledger_events} & forbidden)
@@ -191,6 +192,7 @@ def _run_agent_loop_case(case: EvalCase) -> dict[str, Any]:
             for event in ledger_events
             if event.get("event_type") in {"tool_call", "tool_result"}
         ],
+        "observability": observability,
         "ledger_event_count": len(ledger_events),
         "final_status": ledger_summary.get("final_status"),
         "forbidden_tools_used": forbidden_used,
