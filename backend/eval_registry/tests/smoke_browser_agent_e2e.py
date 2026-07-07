@@ -14,6 +14,9 @@ RESULTS_DIR = BACKEND / "eval_registry" / "results"
 PROJECT_ROOT = BACKEND.parent
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
+_e2e_deps = os.environ.get("GAGENT_E2E_DEPS")
+if _e2e_deps and Path(_e2e_deps).exists():
+    sys.path.insert(0, str(Path(_e2e_deps).resolve()))
 
 from core import ga  # noqa: E402
 from core.agent_loop import StepOutcome, exhaust  # noqa: E402

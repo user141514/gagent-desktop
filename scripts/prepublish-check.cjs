@@ -142,6 +142,7 @@ function checkPackDryRun() {
     "backend/core/api/server.py",
     "backend/assets/tmwd_cdp_bridge/manifest.json",
     "backend/requirements-desktop.txt",
+    "backend/requirements-e2e.txt",
     "python-runtime/python.exe",
   ]) {
     if (!paths.has(required)) {

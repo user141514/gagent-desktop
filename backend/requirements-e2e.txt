@@ -1,0 +1,5 @@
+# Optional dependencies for real opt-in E2E checks.
+# Keep separate from requirements-desktop.txt so normal packaged launches stay small.
+openai-agents
+browser-use
+playwright

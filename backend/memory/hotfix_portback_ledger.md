@@ -869,3 +869,45 @@ Status:
 ```text
 functionality score report applied; source port-back required
 ```
+
+---
+
+### Optional E2E dependency manifest
+
+Files changed:
+
+```text
+backend/requirements-e2e.txt
+backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+backend/eval_registry/tests/smoke_browser_agent_e2e.py
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The strict functionality score is blocked by missing openai-agents/browser-use/Playwright dependencies. Packaged Windows Python uses python313._pth and ignores PYTHONPATH, so opt-in e2e smoke tests now support an explicit GAGENT_E2E_DEPS target directory and the optional dependency list lives in backend/requirements-e2e.txt.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
+```
+
+Rollback:
+
+```text
+Remove backend/requirements-e2e.txt and remove GAGENT_E2E_DEPS path injection from the two optional e2e smoke scripts.
+```
+
+Status:
+
+```text
+optional e2e dependency manifest applied; source port-back required
+```

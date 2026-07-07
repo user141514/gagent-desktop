@@ -16,6 +16,9 @@ PROJECT_ROOT = BACKEND.parent
 RESULTS_DIR = BACKEND / "eval_registry" / "results"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
+_e2e_deps = os.environ.get("GAGENT_E2E_DEPS")
+if _e2e_deps and Path(_e2e_deps).exists():
+    sys.path.insert(0, str(Path(_e2e_deps).resolve()))
 
 from runtime_ledger import new_run_id, read_run_events, summarize_observability, summarize_run  # noqa: E402
 

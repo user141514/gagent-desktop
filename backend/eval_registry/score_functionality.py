@@ -100,7 +100,7 @@ def _score_optional_e2e(name: str, report: dict[str, Any] | None, weight: int, m
     status = str(report.get("status") or "unknown")
     if status == "passed":
         return _component(name, weight, weight, "passed", [])
-    reason = str(report.get("reason") or report.get("startup_error") or missing_msg)
+    reason = str(report.get("startup_error") or report.get("reason") or missing_msg)
     failure_class = str(report.get("failure_class") or status)
     return {
         **_component(name, weight, 0, failure_class, [reason]),
@@ -144,6 +144,13 @@ def _self_test() -> None:
     )
     assert failed_optional["total"] == 70
     assert len(failed_optional["blockers"]) == 2
+
+    startup_detail = score_reports(
+        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        {"status": "failed", "reason": "not ready", "startup_error": "agents module missing"},
+        {"status": "passed"},
+    )
+    assert "agents module missing" in startup_detail["blockers"]
 
 
 if __name__ == "__main__":

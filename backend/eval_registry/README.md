@@ -37,13 +37,15 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionali
 Optional OpenAI orchestrated SDK smoke:
 
 ```text
+PYTHONUTF8=1 ./python-runtime/python.exe -m pip install --target backend/temp/e2e_deps -r backend/requirements-e2e.txt
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
-GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
-GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
 ```
 
 The default OpenAI/browser_agent commands must structured-skip without network/API access. The opt-in commands are real e2e paths and require their SDKs, browser/runtime dependencies, and API/network access.
+`GAGENT_E2E_DEPS` is explicit because the packaged Windows `python-runtime/python313._pth` ignores `PYTHONPATH`.
 
 Source of truth:
 
@@ -52,6 +54,7 @@ backend/eval_registry/cases/*.json
 backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 backend/eval_registry/tests/smoke_browser_agent_e2e.py
 backend/eval_registry/score_functionality.py
+backend/requirements-e2e.txt
 ```
 
 Runtime artifact:
