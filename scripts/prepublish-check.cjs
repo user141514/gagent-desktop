@@ -155,9 +155,20 @@ function checkPackDryRun() {
     "backend/memory/global_mem.txt",
     "backend/memory/global_mem_insight.txt",
     "backend/memory/history_memory_inbox.md",
+    "backend/eval_registry/results/latest_eval_report.json",
   ]) {
     if (paths.has(forbidden)) {
       fail(`npm pack output includes local runtime data: ${forbidden}`);
+    }
+  }
+  for (const forbiddenPrefix of [
+    "backend/eval_registry/results/",
+    "backend/runtime_ledger/runs/",
+  ]) {
+    for (const packedPath of paths) {
+      if (packedPath.startsWith(forbiddenPrefix)) {
+        fail(`npm pack output includes local runtime data: ${packedPath}`);
+      }
     }
   }
 }
@@ -200,6 +211,13 @@ const qualityRegistryResult = run(
 );
 if (qualityRegistryResult.status !== 0) {
   fail(`quality registry validation failed:\n${qualityRegistryResult.stderr || qualityRegistryResult.stdout}`);
+}
+const evalRegistryResult = run(
+  path.join(packageRoot, "python-runtime", process.platform === "win32" ? "python.exe" : "bin/python"),
+  ["backend/eval_registry/validate_eval_registry.py"]
+);
+if (evalRegistryResult.status !== 0) {
+  fail(`eval registry validation failed:\n${evalRegistryResult.stderr || evalRegistryResult.stdout}`);
 }
 checkDryRun();
 checkPackDryRun();

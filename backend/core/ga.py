@@ -1330,6 +1330,35 @@ class GenericAgentHandler(BaseHandler):
             timeout = int(args.get("timeout", 18) or 18)
         except (TypeError, ValueError):
             timeout = 18
+        ledger_run_id = ""
+        ledger_write = None
+        LedgerEvent = None
+        ledger_enabled = os.environ.get("GENERIC_AGENT_RUNTIME_LEDGER", "1").strip().lower() not in {"0", "false", "no", "off"}
+        if ledger_enabled:
+            try:
+                from runtime_ledger import LedgerEvent as _LedgerEvent, new_run_id as _new_run_id, write_event as _write_event
+                LedgerEvent = _LedgerEvent
+                ledger_write = _write_event
+                ledger_run_id = str(args.get("ledger_run_id") or _new_run_id("web_search"))
+                ledger_write(LedgerEvent(
+                    run_id=ledger_run_id,
+                    event_type="run_started",
+                    task=query,
+                    owner_layer="Layer 1 capability contract",
+                    metadata={"integration_scope": "web_search_minimal"},
+                ))
+                ledger_write(LedgerEvent(
+                    run_id=ledger_run_id,
+                    event_type="tool_call",
+                    task=query,
+                    owner_layer="Layer 1 capability contract",
+                    tool="web_search",
+                    args={"query": query, "engine": engine, "max_results": max_results, "timeout": timeout},
+                ))
+            except Exception:
+                ledger_run_id = ""
+                ledger_write = None
+                LedgerEvent = None
         result = web_search(
             query=query,
             engine=engine,
@@ -1337,6 +1366,48 @@ class GenericAgentHandler(BaseHandler):
             timeout=timeout,
         )
         result = enrich_web_tool_result("web_search", result)
+        if ledger_run_id and ledger_write is not None and LedgerEvent is not None:
+            try:
+                call_args = {"query": query, "engine": engine, "max_results": max_results, "timeout": timeout}
+                ledger_write(LedgerEvent(
+                    run_id=ledger_run_id,
+                    event_type="tool_result",
+                    task=query,
+                    owner_layer="Layer 1 capability contract",
+                    tool="web_search",
+                    args=call_args,
+                    result=result if isinstance(result, dict) else {"status": "unknown", "value": str(result)},
+                ))
+                if isinstance(result, dict) and str(result.get("status") or "").lower() in {"error", "failed", "timeout", "blocked"}:
+                    recommended = str(result.get("recommended_next_tool") or "")
+                    same_capability = "web_search" in recommended
+                    decision = {
+                        "action": "switch_same_capability" if same_capability else "stop_with_blocker",
+                        "next_tool": "web_search" if same_capability else "",
+                        "recommended_next_tool": recommended,
+                        "forbidden_actions": ["web_scan", "web_execute_js", "browser_agent"],
+                    }
+                    ledger_write(LedgerEvent(
+                        run_id=ledger_run_id,
+                        event_type="decision",
+                        task=query,
+                        owner_layer="Layer 3 runtime controller",
+                        tool="web_search",
+                        decision=decision,
+                    ))
+                result_status = str(result.get("status") if isinstance(result, dict) else "unknown").lower()
+                final_status = "success" if result_status == "success" else "structured_failure"
+                ledger_write(LedgerEvent(
+                    run_id=ledger_run_id,
+                    event_type="run_finished",
+                    task=query,
+                    owner_layer="Layer 1 capability contract",
+                    tool="web_search",
+                    final_status=final_status,
+                    metadata={"result_status": result_status},
+                ))
+            except Exception:
+                pass
         show = smart_format(json.dumps(result, ensure_ascii=False, indent=2, default=json_default), max_str_len=800)
         yield f"[WebSearch] {show}\n"
         next_prompt = self._get_anchor_prompt(skip=args.get('_index', 0) > 0)

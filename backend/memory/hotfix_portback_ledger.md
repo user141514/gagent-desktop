@@ -1,0 +1,208 @@
+# Hotfix / Port-Back Ledger
+
+This ledger records changes applied directly to the installed npm package. These changes are not complete until they are ported back to the source repository.
+
+Runtime package path:
+
+```text
+C:\Users\Administrator\AppData\Roaming\npm\node_modules\gagent-desktop
+```
+
+## Active hotfixes to port back
+
+### 1. Web search / browser tool convergence
+
+Files changed:
+
+```text
+backend/core/ga.py
+backend/core/runtime/web_tool_errors.py
+backend/assets/tools_schema.json
+backend/assets/tools_schema_cn.json
+backend/memory/web_search_tool_sop.md
+backend/tool_registry/tools/web_search.yml
+backend/tool_registry/tools/web_scan.yml
+backend/tool_registry/tools/web_execute_js.yml
+backend/tool_registry/tools/browser_agent.yml
+backend/tool_registry/policies/runtime_fallback.yml
+backend/tool_registry/validate_tool_registry.py
+backend/tool_registry/tests/smoke_web_tools.py
+```
+
+Reason:
+
+```text
+web_search, web_scan, web_execute_js, and browser_agent had blurred boundaries. Search failures could route into rendered browser tools, and browser state could pollute search results. The new contract separates HTTP source discovery from rendered page inspection.
+```
+
+Port-back target:
+
+```text
+Source repo packages/gagent-desktop and backend source snapshot that produces this npm package.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/validate_tool_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/tests/smoke_web_tools.py
+```
+
+Rollback:
+
+```text
+Revert the changed files listed above to the published package version, then restart gagent-desktop.
+```
+
+Status:
+
+```text
+runtime hotfix applied; source port-back required
+```
+
+---
+
+### 2. Architecture convergence governance
+
+Files changed:
+
+```text
+backend/memory/architecture_convergence_sop.md
+backend/memory/development_workflow_sop.md
+backend/memory/convergence_checklist.md
+backend/quality_registry/gates.yml
+backend/quality_registry/validate_quality_registry.py
+backend/tool_registry/README.md
+backend/quality_registry/README.md
+```
+
+Reason:
+
+```text
+The project needed an owner-layer model to prevent prompt/schema/SOP/runtime/tool implementation drift. Future changes must classify the owner layer before editing.
+```
+
+Port-back target:
+
+```text
+Source repo backend/memory, backend/tool_registry, backend/quality_registry.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/quality_registry/validate_quality_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/validate_tool_registry.py
+```
+
+Rollback:
+
+```text
+Remove the added governance files and restore prior quality defaults if needed.
+```
+
+Status:
+
+```text
+runtime governance files applied; source port-back required
+```
+
+---
+
+### 3. Runtime ledger prototype
+
+Files changed:
+
+```text
+backend/runtime_ledger/__init__.py
+backend/runtime_ledger/ledger.py
+backend/runtime_ledger/validate_runtime_ledger.py
+backend/runtime_ledger/tests/smoke_runtime_ledger.py
+backend/runtime_ledger/README.md
+backend/memory/convergence_checklist.md
+```
+
+Reason:
+
+```text
+Mature Harness needs factual run trajectories before experience reuse, decision kernels, and capability acquisition can be reliable. Runtime Ledger records JSONL events for run_started, tool_call, tool_result, decision, smoke_test, and run_finished without relying on prompt obedience.
+```
+
+Port-back target:
+
+```text
+Source repo backend/runtime_ledger and backend/memory/convergence_checklist.md.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/validate_runtime_ledger.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/tests/smoke_runtime_ledger.py
+```
+
+Rollback:
+
+```text
+Remove backend/runtime_ledger and revert backend/memory/convergence_checklist.md.
+```
+
+Status:
+
+```text
+runtime ledger prototype applied; not yet wired into ga.py/openai_agentmain.py; source port-back required
+```
+
+---
+
+### Eval registry prototype
+
+Files changed:
+
+```text
+backend/eval_registry/__init__.py
+backend/eval_registry/README.md
+backend/eval_registry/cases/web_search_openai_docs.json
+backend/eval_registry/cases/web_search_yobot_github_failure.json
+backend/eval_registry/cases/web_search_tool_boundary.json
+backend/eval_registry/registry.py
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/score_eval_result.py
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/memory/convergence_checklist.md
+package.json
+scripts/prepublish-check.cjs
+.gitignore
+```
+
+Reason:
+
+```text
+Create the first internal evaluation harness for web_search tool behavior and runtime_ledger trajectory scoring without external benchmark platforms, LLM judges, PyYAML, CTest, or frontend changes.
+```
+
+Port-back target:
+
+```text
+Source repo backend/eval_registry, backend/memory/convergence_checklist.md, backend/memory/hotfix_portback_ledger.md, package.json, scripts/prepublish-check.cjs, and .gitignore.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry, remove backend/eval_registry/results from .gitignore, and remove eval_registry commands from backend/memory/convergence_checklist.md.
+```
+
+Status:
+
+```text
+runtime eval registry prototype applied; source port-back required
+```

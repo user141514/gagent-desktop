@@ -1,0 +1,33 @@
+{
+  "id": "web_search_openai_docs",
+  "version": 1,
+  "type": "tool_boundary_eval",
+  "task": "Search for OpenAI API docs using HTTP web_search. Do not open a browser, do not use web_scan, and report a structured network failure if online search is unavailable.",
+  "owner_layer": "Layer 1 capability contract",
+  "target_tool": "web_search",
+  "input": {
+    "query": "OpenAI API docs",
+    "engine": "auto",
+    "max_results": 3,
+    "timeout": 5
+  },
+  "expected_tools": {
+    "allowed": ["web_search"],
+    "forbidden": ["web_scan", "web_execute_js", "browser_agent"]
+  },
+  "expected_ledger": {
+    "required_events": ["run_started", "tool_call", "tool_result", "run_finished"],
+    "required_on_failure": ["decision"],
+    "required_decision_forbidden_actions": ["web_scan", "web_execute_js", "browser_agent"]
+  },
+  "expected_result": {
+    "allow_success": true,
+    "allow_structured_failure": true,
+    "forbid_baidu_success": true,
+    "forbid_search_homepage_success": true
+  },
+  "score": {
+    "answer_or_tool_behavior": 60,
+    "ledger": 40
+  }
+}

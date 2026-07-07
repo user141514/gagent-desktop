@@ -13,6 +13,8 @@ backend/assets/tmwd_cdp_bridge/bridge_token.json
 
 backend/temp/
 backend/logs/
+backend/eval_registry/results/
+backend/runtime_ledger/runs/
 backend/memory/global_mem.txt
 backend/memory/global_mem_insight.txt
 backend/memory/history_memory_inbox.md
