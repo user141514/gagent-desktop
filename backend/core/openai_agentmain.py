@@ -1354,6 +1354,38 @@ class OpenAIOrchestratedAgent(AgentBackend):
             **kwargs,
         )
 
+    def _write_runtime_ledger_event(
+        self,
+        event_type: str,
+        *,
+        task: str = "",
+        turn: int | None = None,
+        tool: str = "",
+        args: dict[str, Any] | None = None,
+        result: dict[str, Any] | None = None,
+        final_status: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        run_id = str(self._profile_run_id or self._runtime_session_id or "").strip()
+        if not run_id:
+            return
+        try:
+            from runtime_ledger import LedgerEvent, write_event
+            write_event(LedgerEvent(
+                run_id=run_id,
+                event_type=event_type,
+                turn=turn,
+                task=str(task or ""),
+                owner_layer="Layer 3 runtime controller",
+                tool=str(tool or ""),
+                args=dict(args or {}),
+                result=dict(result or {}),
+                final_status=final_status,
+                metadata=dict(metadata or {}),
+            ))
+        except Exception:
+            pass
+
     def _apply_variant(self, idx: int) -> None:
         variant = self.variants[idx]
         self.llm_no = idx
@@ -2041,7 +2073,20 @@ class OpenAIOrchestratedAgent(AgentBackend):
 
             def runtime_complete_active_tool(*, error: str | None = None, summary: str = "") -> None:
                 nonlocal active_tool_name
-                if runtime_host is None or not active_tool_name:
+                if not active_tool_name:
+                    return
+                self._write_runtime_ledger_event("tool_result",
+                    task=raw_query,
+                    turn=max(seen_turn, 1),
+                    tool=active_tool_name,
+                    result={
+                        "status": "error" if error else "success",
+                        "msg": str(error or ""),
+                        "summary": str(summary or ""),
+                    },
+                )
+                if runtime_host is None:
+                    active_tool_name = ""
                     return
                 try:
                     if error:
@@ -2886,6 +2931,12 @@ class OpenAIOrchestratedAgent(AgentBackend):
                             _stop_manual_span(active_tool_span)
                             tool_name = self._tool_name_from_item(event.item)
                             active_tool_name = tool_name
+                            self._write_runtime_ledger_event("tool_call",
+                                task=raw_query,
+                                turn=max(seen_turn, 1),
+                                tool=tool_name,
+                                args={"event_name": "tool_called", "attempt": attempt + 1},
+                            )
                             active_tool_span = _start_manual_span(
                                 profiler,
                                 f"tool_call:{tool_name}",
@@ -3349,6 +3400,10 @@ class OpenAIOrchestratedAgent(AgentBackend):
                 self._runtime_session_id = runtime_state.session_id
             except Exception as runtime_host_error:
                 print(f"[runtime_host] init failed: {runtime_host_error}")
+            self._write_runtime_ledger_event("run_started",
+                task=raw_query,
+                metadata={"integration_scope": "openai_orchestrated_agent", "source": source},
+            )
             try:
                 self._drain_task(raw_query, source, display_queue)
             except Exception as e:
@@ -3376,7 +3431,12 @@ class OpenAIOrchestratedAgent(AgentBackend):
                         print(f"[PROFILE] export failed: {profile_error}")
                     finally:
                         self.active_profiler = None
-                        self._profile_run_id = None
+                self._write_runtime_ledger_event("run_finished",
+                    task=raw_query,
+                    final_status=_profile_status_label(self._profile_status),
+                    result={"status": _profile_status_label(self._profile_status)},
+                )
+                self._profile_run_id = None
                 self._store_executor_result_state(None)
                 self._running = False
                 self.stop_sig = False

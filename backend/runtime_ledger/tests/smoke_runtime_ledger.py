@@ -79,6 +79,14 @@ def main() -> int:
         assert summary["smoke_tests"] == ["backend/tool_registry/tests/smoke_web_tools.py"], summary
         agentmain = (ROOT / "core" / "agentmain.py").read_text(encoding="utf-8")
         assert "runtime_ledger_run_id=run_id" in agentmain, "classic agentmain must pass run_id into agent_runner_loop runtime_ledger"
+        openai_agentmain = (ROOT / "core" / "openai_agentmain.py").read_text(encoding="utf-8")
+        for marker in (
+            '_write_runtime_ledger_event("run_started"',
+            '_write_runtime_ledger_event("tool_call"',
+            '_write_runtime_ledger_event("tool_result"',
+            '_write_runtime_ledger_event("run_finished"',
+        ):
+            assert marker in openai_agentmain, f"openai_agentmain runtime_ledger marker missing: {marker}"
         print(json.dumps({"status": "passed", "run_id": run_id, "summary": summary}, indent=2, ensure_ascii=False))
     print("[smoke_runtime_ledger] ok")
     return 0

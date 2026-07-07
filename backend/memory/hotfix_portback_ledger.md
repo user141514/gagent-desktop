@@ -604,3 +604,40 @@ Status:
 ```text
 classic agentmain runtime_ledger wiring applied; source port-back required
 ```
+
+---
+
+### OpenAI orchestrated runtime ledger wiring
+
+Files changed:
+
+```text
+backend/core/openai_agentmain.py
+backend/runtime_ledger/README.md
+backend/runtime_ledger/tests/smoke_runtime_ledger.py
+```
+
+Reason:
+
+```text
+The OpenAI orchestrated agent had RuntimeHost/profiler tracking but did not emit runtime_ledger JSONL events. It now writes run_started, streamed tool_call/tool_result, and run_finished under the existing profile run_id.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/tests/smoke_runtime_ledger.py
+PYTHONUTF8=1 ./python-runtime/python.exe -m py_compile backend/core/openai_agentmain.py
+```
+
+Rollback:
+
+```text
+Remove OpenAIOrchestratedAgent._write_runtime_ledger_event and the run/tool/final calls in backend/core/openai_agentmain.py, then remove the smoke markers.
+```
+
+Status:
+
+```text
+OpenAI orchestrated runtime_ledger wiring applied; source port-back required
+```
