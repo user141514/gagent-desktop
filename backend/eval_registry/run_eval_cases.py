@@ -160,31 +160,7 @@ def run_eval_cases(write_report: bool = True) -> dict[str, Any]:
 def _run_agent_loop_case(case: EvalCase) -> dict[str, Any]:
     run_id = f"eval_{case.id}_{time.time_ns()}"
     args = dict(case.input)
-    write_event(LedgerEvent(
-        run_id=run_id,
-        event_type="run_started",
-        task=case.task,
-        owner_layer=case.owner_layer,
-        metadata={"integration_scope": "agent_loop_runtime_mapper"},
-    ))
-    write_event(LedgerEvent(
-        run_id=run_id,
-        event_type="tool_call",
-        task=case.task,
-        owner_layer=case.owner_layer,
-        tool=case.target_tool,
-        args=args,
-    ))
     tool_result = _exercise_agent_loop_runtime_mapper(case, run_id, args)
-    write_event(LedgerEvent(
-        run_id=run_id,
-        event_type="tool_result",
-        task=case.task,
-        owner_layer=case.owner_layer,
-        tool=case.target_tool,
-        args=args,
-        result=tool_result,
-    ))
     result_status = str(tool_result.get("status") or "unknown").lower()
     if result_status in {"error", "failed", "blocked", "timeout"}:
         write_event(LedgerEvent(
@@ -198,15 +174,6 @@ def _run_agent_loop_case(case: EvalCase) -> dict[str, Any]:
                 "next_tool": "",
             },
         ))
-    write_event(LedgerEvent(
-        run_id=run_id,
-        event_type="run_finished",
-        task=case.task,
-        owner_layer=case.owner_layer,
-        tool=case.target_tool,
-        final_status="success" if result_status == "success" else "structured_failure",
-        metadata={"result_status": result_status},
-    ))
     ledger_events = read_run_events(run_id)
     ledger_summary = summarize_run(run_id)
     score = score_case_result(case, tool_result, ledger_events, ledger_summary)
@@ -219,6 +186,11 @@ def _run_agent_loop_case(case: EvalCase) -> dict[str, Any]:
         "runtime_event_types": tool_result.get("runtime_event_types") or [],
         "runtime_started_turns": tool_result.get("runtime_started_turns"),
         "runtime_completed_turns": tool_result.get("runtime_completed_turns"),
+        "ledger_tool_turns": [
+            event.get("turn")
+            for event in ledger_events
+            if event.get("event_type") in {"tool_call", "tool_result"}
+        ],
         "ledger_event_count": len(ledger_events),
         "final_status": ledger_summary.get("final_status"),
         "forbidden_tools_used": forbidden_used,
@@ -253,6 +225,7 @@ def _exercise_agent_loop_runtime_mapper(case: EvalCase, run_id: str, args: dict[
         runtime_mapper=mapper,
         formatter=NullFormatter(),
         turn_gap=0.0,
+        runtime_ledger_run_id=run_id,
     ))
     mapper.on_done(str(exit_reason))
     runtime_events = _read_runtime_host_events(host)

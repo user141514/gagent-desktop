@@ -367,7 +367,7 @@ def _maybe_apply_early_stop(client, handler, response, tool_calls, tool_results,
     return {"result": "EARLY_STOP", "data": response, "meta": event_payload}
 
 
-def agent_runner_loop(client, system_prompt, user_input, handler, tools_schema, max_turns=80, verbose=True, initial_user_content=None, stop_event=None, runtime_mapper=None, formatter=None, turn_gap=0.0):
+def agent_runner_loop(client, system_prompt, user_input, handler, tools_schema, max_turns=80, verbose=True, initial_user_content=None, stop_event=None, runtime_mapper=None, formatter=None, turn_gap=0.0, runtime_ledger_run_id=None):
     # ── Formatter: backward-compat construction from verbose flag ──
     if formatter is None:
         if verbose:
@@ -387,6 +387,38 @@ def agent_runner_loop(client, system_prompt, user_input, handler, tools_schema, 
     handler._done_hooks = []
     handler.max_turns = max_turns
     handler._last_user_input = user_input
+    runtime_ledger_run_id = str(runtime_ledger_run_id or "").strip()
+
+    def _write_runtime_ledger(event_type, *, event_turn=None, tool="", args=None, result=None, final_status=None, metadata=None):
+        if not runtime_ledger_run_id:
+            return
+        try:
+            from runtime_ledger import LedgerEvent, write_event
+            write_event(LedgerEvent(
+                run_id=runtime_ledger_run_id,
+                event_type=event_type,
+                turn=event_turn,
+                task=str(user_input or ""),
+                owner_layer="Layer 3 runtime controller",
+                tool=str(tool or ""),
+                args=dict(args or {}),
+                result=dict(result or {}),
+                final_status=final_status,
+                metadata=dict(metadata or {}),
+            ))
+        except Exception:
+            pass
+
+    def _runtime_ledger_result(outcome):
+        status = "error" if _is_error_like_outcome(outcome) else "success"
+        data = getattr(outcome, "data", None)
+        if isinstance(data, dict):
+            payload = dict(data)
+            payload.setdefault("status", status)
+            return payload
+        return {"status": status, "data": _outcome_result_text(outcome)}
+
+    _write_runtime_ledger("run_started", metadata={"integration_scope": "agent_runner_loop"})
 
     # ── M7: Tool Event Ledger initialization ──
     import os as _os_m7
@@ -516,6 +548,7 @@ def agent_runner_loop(client, system_prompt, user_input, handler, tools_schema, 
                 if runtime_mapper is not None:
                     runtime_mapper.on_tool_requested(tool_name, args)
                 if tool_name != "no_tool":
+                    _write_runtime_ledger("tool_call", event_turn=turn, tool=tool_name, args=args)
                     yield formatter.format_tool_call(tool_name, args)
                 _ledger = getattr(handler, "_tool_event_ledger", None)
                 _ledger_event_id = ""
@@ -613,6 +646,15 @@ def agent_runner_loop(client, system_prompt, user_input, handler, tools_schema, 
                     except Exception:
                         pass  # ledger failure must never block agent loop
 
+                if tool_name != "no_tool":
+                    _write_runtime_ledger(
+                        "tool_result",
+                        event_turn=turn,
+                        tool=tool_name,
+                        args=args,
+                        result=_runtime_ledger_result(outcome),
+                    )
+
                 if outcome.should_exit:
                     exit_reason = {"result": "EXITED", "data": outcome.data}
                     break
@@ -683,6 +725,9 @@ def agent_runner_loop(client, system_prompt, user_input, handler, tools_schema, 
                     exit_reason,
                 )
             messages = [{"role": "user", "content": next_prompt, "tool_results": tool_results}]
+    final_result = exit_reason or {"result": "MAX_TURNS_EXCEEDED"}
+    final_status = "max_turns_exceeded" if final_result.get("result") == "MAX_TURNS_EXCEEDED" else "success"
     if exit_reason:
         handler.turn_end_callback(response, tool_calls, tool_results, turn, "", exit_reason)
-    return exit_reason or {"result": "MAX_TURNS_EXCEEDED"}
+    _write_runtime_ledger("run_finished", final_status=final_status, result=final_result)
+    return final_result

@@ -527,3 +527,43 @@ Status:
 ```text
 agent-loop runtime mapper eval applied; source port-back required
 ```
+
+---
+
+### Agent-loop runtime ledger opt-in
+
+Files changed:
+
+```text
+backend/core/agent_loop.py
+backend/eval_registry/README.md
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/runtime_ledger/README.md
+```
+
+Reason:
+
+```text
+The agent-loop eval previously relied on eval-runner wrapper events for runtime_ledger scoring. agent_runner_loop now has an opt-in runtime_ledger_run_id path that emits run_started, turn-tagged tool_call/tool_result, and run_finished directly from the loop.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/tests/smoke_runtime_ledger.py
+```
+
+Rollback:
+
+```text
+Remove the runtime_ledger_run_id parameter and nested writer from backend/core/agent_loop.py, then restore eval runner wrapper ledger events for agent_loop_runtime_mapper_web_search.
+```
+
+Status:
+
+```text
+agent-loop runtime_ledger opt-in applied; source port-back required
+```

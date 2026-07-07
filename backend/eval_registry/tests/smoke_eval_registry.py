@@ -12,12 +12,12 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from eval_registry.registry import load_eval_cases  # noqa: E402
-from eval_registry.run_eval_cases import _FakeDriver, run_eval_cases  # noqa: E402
+from eval_registry.run_eval_cases import _AgentLoopEvalHandler, _FakeAgentLoopClient, _FakeDriver, run_eval_cases  # noqa: E402
 from eval_registry.score_final_answer import score_final_answer  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
 from eval_registry.validate_eval_registry import validate  # noqa: E402
 from core import ga  # noqa: E402
-from core.agent_loop import exhaust  # noqa: E402
+from core.agent_loop import agent_runner_loop, exhaust  # noqa: E402
 from runtime_ledger import read_run_events  # noqa: E402
 
 
@@ -128,6 +128,33 @@ def _assert_score_rejects_disallowed_failure(cases) -> None:
         raise AssertionError("score accepted a structured failure when allow_structured_failure=false")
 
 
+def _assert_agent_loop_writes_runtime_ledger(cases) -> None:
+    from core.protocol.formatter import NullFormatter
+
+    case = next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search")
+    run_id = f"smoke_agent_loop_runtime_ledger_{time.time_ns()}"
+    exhaust(agent_runner_loop(
+        _FakeAgentLoopClient(dict(case.input)),
+        "You are an eval fake agent.",
+        case.task,
+        _AgentLoopEvalHandler(),
+        tools_schema=[],
+        max_turns=3,
+        verbose=False,
+        formatter=NullFormatter(),
+        turn_gap=0.0,
+        runtime_ledger_run_id=run_id,
+    ))
+    events = read_run_events(run_id)
+    event_types = [event.get("event_type") for event in events]
+    required = {"run_started", "tool_call", "tool_result", "run_finished"}
+    if not required.issubset(event_types):
+        raise AssertionError(f"agent_loop runtime_ledger events missing: {sorted(required - set(event_types))}")
+    tool_events = [event for event in events if event.get("event_type") in {"tool_call", "tool_result"}]
+    if not tool_events or any(event.get("turn") is None for event in tool_events):
+        raise AssertionError("agent_loop runtime_ledger tool events must include turn")
+
+
 def main() -> int:
     cases = load_eval_cases()
     errors = validate()
@@ -141,6 +168,7 @@ def main() -> int:
     _assert_handler_writes_browser_bridge_ledger()
     _assert_answer_score_rejects_false_success(cases)
     _assert_score_rejects_disallowed_failure(cases)
+    _assert_agent_loop_writes_runtime_ledger(cases)
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []
     if summary.get("status") != "ok" or int(summary.get("failed") or 0) != 0:
@@ -181,6 +209,8 @@ def main() -> int:
                 raise AssertionError("agent_loop_runtime_mapper_web_search: expected success")
             if result.get("runtime_started_turns") != result.get("runtime_completed_turns"):
                 raise AssertionError("agent_loop_runtime_mapper_web_search: runtime turn events are unbalanced")
+            if not result.get("ledger_tool_turns") or any(turn is None for turn in result.get("ledger_tool_turns")):
+                raise AssertionError("agent_loop_runtime_mapper_web_search: runtime_ledger tool events must include turn")
         if result.get("forbidden_tools_used"):
             raise AssertionError(f"{result.get('case_id')}: forbidden tool used: {result.get('forbidden_tools_used')}")
     if summary.get("case_count", 0) < 3:

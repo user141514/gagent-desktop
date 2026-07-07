@@ -23,11 +23,14 @@ quality_gate, experience_candidate, smoke_test, file_change, run_finished
 Current direct handler integrations:
 
 ```text
+agent_runner_loop(runtime_ledger_run_id=...)
 GenericAgentHandler.do_web_search
 GenericAgentHandler.do_web_scan
 GenericAgentHandler.do_web_execute_js
 GenericAgentHandler.do_browser_agent
 ```
+
+`agent_runner_loop` integration is opt-in. When `runtime_ledger_run_id` is provided, the loop records `run_started`, per-tool `tool_call`/`tool_result` with `turn`, and `run_finished`.
 
 Checks:
 
