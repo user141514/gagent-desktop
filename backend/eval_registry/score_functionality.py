@@ -224,6 +224,27 @@ def _self_test() -> None:
         ("stderr", "child stderr"),
     ]
 
+    failing_command = [
+        sys.executable,
+        "-c",
+        (
+            "import sys; "
+            "print('refresh child stdout'); "
+            "print('refresh child stderr', file=sys.stderr); "
+            "raise SystemExit(7)"
+        ),
+    ]
+    try:
+        _run_refresh_command(failing_command)
+    except subprocess.CalledProcessError as exc:
+        assert exc.returncode == 7
+        assert _captured_process_output_sections(exc) == [
+            ("stdout", "refresh child stdout"),
+            ("stderr", "refresh child stderr"),
+        ]
+    else:
+        raise AssertionError("failing refresh child command unexpectedly passed")
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

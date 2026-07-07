@@ -32,6 +32,7 @@ Pass criteria:
 - eval registry smoke exits 0;
 - functionality score exits 0 after refreshing eval reports and reports optional e2e blockers instead of hiding them behind green internal evals;
 - refreshed functionality score success output stays machine-readable as one JSON report; child stdout/stderr appears only on refresh failure;
+- functionality score self-test verifies refresh child failure captures stdout/stderr locally;
 - runtime ledger validator exits 0;
 - runtime ledger smoke exits 0;
 - smoke output may classify real network/search-backend failures as structured non-logic failures, but must not classify polluted results as success;

@@ -1068,3 +1068,40 @@ Status:
 ```text
 functionality score quiet refresh output applied; source port-back required
 ```
+
+---
+
+### Functionality score refresh failure self-test
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The quiet refresh path was verified for successful JSON output, but refresh child-command failure output was only covered by formatting helpers. The self-test now runs a local failing Python child process and asserts returncode/stdout/stderr are preserved.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+```
+
+Rollback:
+
+```text
+Remove the failing_command block from _self_test and restore the previous README/checklist text.
+```
+
+Status:
+
+```text
+functionality score refresh failure self-test applied; source port-back required
+```
