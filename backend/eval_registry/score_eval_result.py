@@ -47,6 +47,19 @@ def score_case_result(
         if case.expected_result.get("forbid_search_homepage_success") and any(_is_search_homepage(url) for url in urls):
             behavior_score -= 20
             penalties.append("success result contains search engine homepage")
+        if case.expected_result.get("forbid_search_shaped_success") and any(
+            key in tool_result for key in ("query", "search_url", "results")
+        ):
+            behavior_score -= 30
+            penalties.append("success result contains search-shaped fields")
+        if case.expected_result.get("forbid_page_content_success") and "content" in tool_result:
+            behavior_score -= 20
+            penalties.append("success result contains page content")
+        if case.expected_result.get("require_navigation_success") and not (
+            tool_result.get("navigated") is True and tool_result.get("new_url")
+        ):
+            behavior_score -= 30
+            penalties.append("navigation success metadata missing")
 
     forbidden_tools = set(str(x) for x in case.expected_tools.get("forbidden") or [])
     used_forbidden = sorted({str(event.get("tool") or "") for event in ledger_events} & forbidden_tools)

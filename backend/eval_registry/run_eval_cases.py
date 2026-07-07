@@ -17,7 +17,7 @@ from core import ga  # noqa: E402
 from core.agent_loop import StepOutcome, exhaust  # noqa: E402
 from eval_registry.registry import EvalCase, load_eval_cases  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
-from runtime_ledger import read_run_events, summarize_run  # noqa: E402
+from runtime_ledger import LedgerEvent, read_run_events, summarize_run, write_event  # noqa: E402
 
 
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
@@ -27,18 +27,43 @@ class _DummyParent:
     verbose = False
 
 
+class _FakeDriver:
+    def __init__(self) -> None:
+        self.default_session_id = "tab-1"
+        self.urls = {
+            "tab-1": "https://example.com/current",
+            "tab-2": "https://openai.com/docs",
+        }
+
+    def get_all_sessions(self) -> list[dict[str, str]]:
+        return [
+            {"id": key, "url": value, "connected_at": "now", "type": "page"}
+            for key, value in self.urls.items()
+        ]
+
+    def get_session_dict(self) -> dict[str, str]:
+        return dict(self.urls)
+
+    def execute_js(self, script: str) -> dict[str, Any]:
+        if "location" in str(script):
+            self.urls[self.default_session_id] = "https://example.com/after-nav"
+        return {"status": "success", "js_return": None}
+
+
 def run_eval_cases(write_report: bool = True) -> dict[str, Any]:
     cases = load_eval_cases()
     results = []
     for case in cases:
-        if case.target_tool != "web_search":
+        if case.target_tool == "web_search":
+            results.append(_run_web_search_case(case))
+        elif case.target_tool in {"web_scan", "web_execute_js"}:
+            results.append(_run_browser_bridge_case(case))
+        else:
             results.append({
                 "case_id": case.id,
                 "verdict": "skip",
-                "reason": f"target_tool {case.target_tool} is not supported in eval_registry step1",
+                "reason": f"target_tool {case.target_tool} is not supported in eval_registry",
             })
-            continue
-        results.append(_run_web_search_case(case))
 
     failed = [item for item in results if item.get("verdict") == "fail"]
     summary = {
@@ -87,6 +112,86 @@ def _run_web_search_case(case: EvalCase) -> dict[str, Any]:
         "forbidden_tools_used": forbidden_used,
     })
     return score
+
+
+def _run_browser_bridge_case(case: EvalCase) -> dict[str, Any]:
+    run_id = f"eval_{case.id}_{time.time_ns()}"
+    args = dict(case.input)
+    write_event(LedgerEvent(
+        run_id=run_id,
+        event_type="run_started",
+        task=case.task,
+        owner_layer=case.owner_layer,
+        metadata={"integration_scope": "eval_harness_browser_bridge"},
+    ))
+    write_event(LedgerEvent(
+        run_id=run_id,
+        event_type="tool_call",
+        task=case.task,
+        owner_layer=case.owner_layer,
+        tool=case.target_tool,
+        args=args,
+    ))
+    tool_result = _call_browser_bridge_tool(case.target_tool, args)
+    if not isinstance(tool_result, dict):
+        tool_result = {"status": "error", "msg": str(tool_result)}
+    write_event(LedgerEvent(
+        run_id=run_id,
+        event_type="tool_result",
+        task=case.task,
+        owner_layer=case.owner_layer,
+        tool=case.target_tool,
+        args=args,
+        result=tool_result,
+    ))
+    final_status = "success" if str(tool_result.get("status") or "").lower() == "success" else "structured_failure"
+    write_event(LedgerEvent(
+        run_id=run_id,
+        event_type="run_finished",
+        task=case.task,
+        owner_layer=case.owner_layer,
+        tool=case.target_tool,
+        final_status=final_status,
+        metadata={"result_status": str(tool_result.get("status") or "").lower()},
+    ))
+    ledger_events = read_run_events(run_id)
+    ledger_summary = summarize_run(run_id)
+    score = score_case_result(case, tool_result, ledger_events, ledger_summary)
+    forbidden = set(str(x) for x in case.expected_tools.get("forbidden") or [])
+    forbidden_used = sorted({str(event.get("tool") or "") for event in ledger_events} & forbidden)
+    score.update({
+        "run_id": run_id,
+        "target_tool": case.target_tool,
+        "tool_status": str(tool_result.get("status") or ""),
+        "ledger_event_count": len(ledger_events),
+        "final_status": ledger_summary.get("final_status"),
+        "forbidden_tools_used": forbidden_used,
+    })
+    return score
+
+
+def _call_browser_bridge_tool(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    original_driver = ga.driver
+    original_sleep = ga.time.sleep
+    try:
+        ga.driver = _FakeDriver()
+        if tool_name == "web_scan":
+            return ga.web_scan(
+                tabs_only=bool(args.get("tabs_only")),
+                switch_tab_id=args.get("switch_tab_id"),
+                text_only=bool(args.get("text_only")),
+            )
+        if tool_name == "web_execute_js":
+            ga.time.sleep = lambda _seconds: None
+            return ga.web_execute_js(
+                str(args.get("script") or ""),
+                switch_tab_id=args.get("switch_tab_id"),
+                no_monitor=bool(args.get("no_monitor")),
+            )
+        return {"status": "error", "msg": f"unsupported browser bridge eval tool: {tool_name}"}
+    finally:
+        ga.driver = original_driver
+        ga.time.sleep = original_sleep
 
 
 def _call_handler(value: Any) -> Any:

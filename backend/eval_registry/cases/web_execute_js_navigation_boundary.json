@@ -1,0 +1,29 @@
+{
+  "id": "web_execute_js_navigation_boundary",
+  "version": 1,
+  "type": "tool_boundary_eval",
+  "task": "Execute a deterministic navigation script in the current browser tab. Do not perform ordinary search or escalate to browser_agent.",
+  "owner_layer": "Layer 1 capability contract",
+  "target_tool": "web_execute_js",
+  "input": {
+    "script": "window.location.href = 'https://example.com/after-nav';"
+  },
+  "expected_tools": {
+    "allowed": ["web_execute_js"],
+    "forbidden": ["web_search", "web_scan", "browser_agent"]
+  },
+  "expected_ledger": {
+    "required_events": ["run_started", "tool_call", "tool_result", "run_finished"],
+    "required_on_failure": [],
+    "required_decision_forbidden_actions": []
+  },
+  "expected_result": {
+    "allow_success": true,
+    "allow_structured_failure": true,
+    "require_navigation_success": true
+  },
+  "score": {
+    "answer_or_tool_behavior": 60,
+    "ledger": 40
+  }
+}

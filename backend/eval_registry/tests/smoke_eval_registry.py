@@ -55,6 +55,10 @@ def main() -> int:
         raise AssertionError("expected at least 3 eval cases")
     if len(results) < 3:
         raise AssertionError("expected at least 3 executed or skipped case results")
+    skipped = [result.get("case_id") for result in results if result.get("verdict") == "skip"]
+    forbidden_skips = {"web_scan_current_tab_boundary", "web_execute_js_navigation_boundary"} & set(skipped)
+    if forbidden_skips:
+        raise AssertionError("expected boundary eval cases to execute, skipped: " + ", ".join(sorted(forbidden_skips)))
     for result in results:
         if result.get("verdict") == "skip":
             continue

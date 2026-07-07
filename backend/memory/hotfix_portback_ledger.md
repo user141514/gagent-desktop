@@ -288,3 +288,44 @@ Status:
 ```text
 auto GitHub routing and eval attempt visibility applied; source port-back required
 ```
+
+---
+
+### Eval registry web boundary expansion
+
+Files changed:
+
+```text
+backend/eval_registry/README.md
+backend/eval_registry/cases/web_scan_current_tab_boundary.json
+backend/eval_registry/cases/web_execute_js_navigation_boundary.json
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/score_eval_result.py
+backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Reason:
+
+```text
+eval_registry should no longer score only web_search. It now executes deterministic offline boundary evals for web_scan and web_execute_js with runtime_ledger events and result-shape scoring.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Remove the two added eval cases and revert eval_registry runner/scorer/smoke changes.
+```
+
+Status:
+
+```text
+web_scan and web_execute_js boundary eval coverage applied; source port-back required
+```
