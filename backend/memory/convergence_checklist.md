@@ -1,6 +1,6 @@
 # Convergence Check Entry
 
-Run these checks before claiming a non-trivial change is complete:
+Run these baseline checks before claiming a non-trivial change is complete:
 
 ```text
 PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/validate_tool_registry.py
@@ -8,12 +8,12 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/quality_registry/validate_quali
 PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/tests/smoke_web_tools.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
-PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh --strict
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh
 PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/validate_runtime_ledger.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/tests/smoke_runtime_ledger.py
 ```
 
-Optional full-flow checks:
+Full-flow completion gate:
 
 ```text
 PYTHONUTF8=1 ./python-runtime/python.exe -m pip install --target backend/temp/e2e_deps -r backend/requirements-e2e.txt
@@ -21,6 +21,7 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_opena
 GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
 GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh --strict
 ```
 
 Pass criteria:
@@ -30,10 +31,12 @@ Pass criteria:
 - web tool smoke exits 0;
 - eval registry validator exits 0;
 - eval registry smoke exits 0;
-- strict functionality score exits 0 after refreshing eval reports; advisory non-strict mode may exit 0 with `needs_work`;
+- advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
+- strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
 - refreshed functionality score success output stays machine-readable as one JSON report; child stdout/stderr appears only on refresh failure;
 - functionality score self-test verifies refresh child failure captures stdout/stderr locally;
 - functionality score self-test verifies strict/non-strict CLI exit behavior with isolated `--results-dir` fixtures;
+- functionality score self-test verifies skipped optional e2e paths cannot pass strict completion;
 - runtime ledger validator exits 0;
 - runtime ledger smoke exits 0;
 - smoke output may classify real network/search-backend failures as structured non-logic failures, but must not classify polluted results as success;

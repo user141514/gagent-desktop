@@ -214,6 +214,15 @@ def _self_test() -> None:
     assert complete["status"] == "ok"
     assert _exit_code_for_report(complete, strict=True) == 0
 
+    skipped_optional = score_reports(
+        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        {"status": "skipped", "reason": "openai e2e disabled"},
+        {"status": "skipped", "reason": "browser e2e disabled"},
+    )
+    assert skipped_optional["status"] == "needs_work"
+    assert skipped_optional["total"] == 70
+    assert _exit_code_for_report(skipped_optional, strict=True) == 1
+
     failed_optional = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
         {"status": "failed", "failure_class": "readiness_failure", "reason": "openai-agents missing"},

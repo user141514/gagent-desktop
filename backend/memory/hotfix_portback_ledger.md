@@ -1180,3 +1180,41 @@ Status:
 ```text
 functionality score isolated CLI fixture checks applied; source port-back required
 ```
+
+---
+
+### Functionality score strict skip semantics
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence checklist used the strict score command without stating that optional real E2E env vars must be enabled. The checklist now separates baseline advisory scoring from the full-flow completion gate, and the score self-test verifies skipped optional E2E reports stay needs_work and fail strict completion.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh --strict
+```
+
+Rollback:
+
+```text
+Remove the skipped_optional block from _self_test and restore convergence_checklist.md to the previous single strict command.
+```
+
+Status:
+
+```text
+functionality score strict skip semantics applied; source port-back required
+```

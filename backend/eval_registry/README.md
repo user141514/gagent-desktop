@@ -40,6 +40,7 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionali
 `score_functionality.py --self-test` includes a local failing child command to verify that refresh failure output is retained.
 Use `--strict` when the command is acting as a completion gate; `needs_work` remains exit 0 without `--strict` for advisory reports.
 Use `--results-dir <dir> --no-write` to score isolated report fixtures without touching the default latest score artifact.
+Skipped optional OpenAI/browser_agent E2E reports count as `needs_work`; full completion requires enabling the opt-in E2E env vars before running `--refresh --strict`.
 
 Optional OpenAI orchestrated SDK smoke:
 
