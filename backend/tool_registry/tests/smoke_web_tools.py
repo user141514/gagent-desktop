@@ -83,6 +83,9 @@ def is_search_homepage(url):
 
 
 def classify_failure(result):
+    category = str((result or {}).get("error_category") or "")
+    if category in {"network_error", "search_backend_unavailable", "rate_limited"}:
+        return category
     text = json.dumps(result, ensure_ascii=False).lower()
     if any(hint in text for hint in NETWORK_HINTS):
         return "network_failure"

@@ -28,8 +28,11 @@ outputs:
   - result_count
   - results
   - attempts
+  - error_category
+  - recovery_action
+  - recommended_next_tool
 success_contract: Returns status=success with at least one non-search-engine source URL for general web queries.
-failure_contract: Returns status=error with msg and optional attempts; network failures remain structured failures.
+failure_contract: Returns status=error with msg and optional attempts; network/search-backend failures remain structured failures and must stay inside the web_search capability class.
 fallback_policy:
   - try configured HTTP engines in order
   - keep GitHub API failure within HTTP search paths first

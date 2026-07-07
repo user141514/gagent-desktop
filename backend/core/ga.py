@@ -708,21 +708,21 @@ def web_search(query, engine="bing", max_results=8, timeout=18):
     try:
         engine_key = str(engine or "bing").strip().lower()
         if engine_key in _GITHUB_ENGINE_ALIASES:
-            return _github_api_search(query, max_results=max_results, timeout=timeout)
+            return enrich_web_tool_result("web_search", _github_api_search(query, max_results=max_results, timeout=timeout))
         if engine_key in {"", "auto", "web", "http", "bing"}:
-            return _http_search_with_fallback(query, max_results=max_results, timeout=timeout)
+            return enrich_web_tool_result("web_search", _http_search_with_fallback(query, max_results=max_results, timeout=timeout))
         if engine_key in {"duckduckgo", "ddg"}:
-            return _duckduckgo_html_search(query, max_results=max_results, timeout=timeout)
+            return enrich_web_tool_result("web_search", _duckduckgo_html_search(query, max_results=max_results, timeout=timeout))
         if engine_key in {"bing", "google", "scholar"}:
-            return _generic_http_search(query, engine=engine_key, max_results=max_results, timeout=timeout)
-        return {
+            return enrich_web_tool_result("web_search", _generic_http_search(query, engine=engine_key, max_results=max_results, timeout=timeout))
+        return enrich_web_tool_result("web_search", {
             "status": "error",
             "query": query,
             "engine": engine_key,
             "msg": "Unsupported web_search engine. Use bing, google, duckduckgo, scholar, github, or auto.",
-        }
+        })
     except Exception as e:
-        return {"status": "error", "query": query, "msg": format_error(e)}
+        return enrich_web_tool_result("web_search", {"status": "error", "query": query, "msg": format_error(e)})
 
 
 def _looks_like_script_path(script):

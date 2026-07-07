@@ -67,6 +67,20 @@ def classify_web_tool_failure(error_text: Any, *, tool_name: str = "") -> WebToo
             ),
         )
 
+    if _is_search_backend_unavailable(lowered):
+        return WebToolFailure(
+            category="search_backend_unavailable",
+            action="retry_same_capability_or_report_blocker",
+            retryable=True,
+            recommended_next_tool=_alternate_tool(tool_name),
+            message=(
+                "The HTTP search backend responded but no usable source results were "
+                "parsed, or the backend returned an anti-bot/challenge page. Retry "
+                "another web_search engine or report the search backend blocker; do "
+                "not switch to web_scan for ordinary search."
+            ),
+        )
+
     if _is_network_error(lowered):
         return WebToolFailure(
             category="network_error",
@@ -198,6 +212,18 @@ def _is_dependency_missing(lowered: str) -> bool:
             "playwright install",
             "executable doesn't exist",
             "chromium",
+        )
+    )
+
+
+def _is_search_backend_unavailable(lowered: str) -> bool:
+    return any(
+        token in lowered
+        for token in (
+            "all configured http search engines failed",
+            "no http search results parsed",
+            "challenge-form",
+            "anomaly.js",
         )
     )
 

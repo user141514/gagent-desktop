@@ -206,3 +206,44 @@ Status:
 ```text
 runtime eval registry prototype applied; source port-back required
 ```
+
+---
+
+### Web search eval hardening
+
+Files changed:
+
+```text
+backend/core/ga.py
+backend/core/runtime/web_tool_errors.py
+backend/tool_registry/tools/web_search.yml
+backend/tool_registry/tests/smoke_web_tools.py
+backend/eval_registry/score_eval_result.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/memory/convergence_checklist.md
+```
+
+Reason:
+
+```text
+Direct web_search failures must carry structured error_category/recovery fields, and eval scoring must reject polluted success URLs even when they are nested in tool result payloads.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/tests/smoke_web_tools.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Rollback:
+
+```text
+Revert the listed files to the previous eval_registry/runtime_ledger commit.
+```
+
+Status:
+
+```text
+web_search failure classification and eval scorer hardening applied; source port-back required
+```

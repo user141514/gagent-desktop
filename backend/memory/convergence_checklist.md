@@ -21,7 +21,7 @@ Pass criteria:
 - eval registry smoke exits 0;
 - runtime ledger validator exits 0;
 - runtime ledger smoke exits 0;
-- smoke output may classify real network failures as network failures, but must not classify polluted results as success;
+- smoke output may classify real network/search-backend failures as structured non-logic failures, but must not classify polluted results as success;
 - no search-engine homepage may be returned as a successful web_search source;
 - web_search failure must not recommend web_scan as ordinary fallback.
 

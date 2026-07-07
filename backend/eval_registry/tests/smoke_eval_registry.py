@@ -11,7 +11,32 @@ if str(BACKEND) not in sys.path:
 
 from eval_registry.registry import load_eval_cases  # noqa: E402
 from eval_registry.run_eval_cases import run_eval_cases  # noqa: E402
+from eval_registry.score_eval_result import score_case_result  # noqa: E402
 from eval_registry.validate_eval_registry import validate  # noqa: E402
+
+
+def _assert_score_rejects_nested_baidu(cases) -> None:
+    case = next(item for item in cases if item.id == "web_search_openai_docs")
+    run_id = "smoke_nested_baidu"
+    ledger_events = [
+        {"run_id": run_id, "event_type": "run_started"},
+        {"run_id": run_id, "event_type": "tool_call", "tool": "web_search", "args": {"query": "OpenAI API docs"}},
+        {
+            "run_id": run_id,
+            "event_type": "tool_result",
+            "tool": "web_search",
+            "result": {"status": "success", "data": {"results": [{"url": "https://www.baidu.com/"}]}},
+        },
+        {"run_id": run_id, "event_type": "run_finished", "final_status": "success"},
+    ]
+    score = score_case_result(
+        case,
+        {"status": "success", "data": {"results": [{"url": "https://www.baidu.com/"}]}},
+        ledger_events,
+        {"run_id": run_id, "final_status": "success"},
+    )
+    if score.get("verdict") != "fail" or not any("baidu.com" in item for item in score.get("penalties", [])):
+        raise AssertionError("nested baidu success was not rejected")
 
 
 def main() -> int:
@@ -23,6 +48,7 @@ def main() -> int:
             print(f"- {error}", file=sys.stderr)
         return 1
 
+    _assert_score_rejects_nested_baidu(cases)
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []
     if len(cases) < 3:

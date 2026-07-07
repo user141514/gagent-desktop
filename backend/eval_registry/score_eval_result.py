@@ -16,6 +16,7 @@ SEARCH_HOME_HOSTS = {
     "duckduckgo.com",
     "www.duckduckgo.com",
 }
+URL_KEYS = {"url", "link", "href", "source_url", "canonical_url"}
 
 
 def score_case_result(
@@ -125,10 +126,20 @@ def score_case_result(
 
 
 def _result_urls(tool_result: dict) -> list[str]:
-    urls = []
-    for item in tool_result.get("results") or []:
-        if isinstance(item, dict) and item.get("url"):
-            urls.append(str(item.get("url")))
+    urls: list[str] = []
+
+    def walk(value) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if str(key).lower() in URL_KEYS and isinstance(child, str):
+                    urls.append(child)
+                else:
+                    walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    walk(tool_result)
     return urls
 
 
