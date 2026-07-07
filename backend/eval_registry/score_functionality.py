@@ -33,6 +33,9 @@ def main() -> int:
         print("[score_functionality] self-test ok")
         return 0
 
+    if args.refresh and args.results_dir:
+        parser.error("--refresh cannot be combined with --results-dir")
+
     if args.refresh:
         try:
             _refresh_reports()
@@ -321,6 +324,21 @@ def _self_test() -> None:
         )
         assert strict.returncode == 1
         assert json.loads(strict.stdout)["status"] == "needs_work"
+
+        invalid_combo = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--results-dir",
+                str(tmp_path),
+                "--refresh",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert invalid_combo.returncode != 0
+        assert "--refresh cannot be combined with --results-dir" in invalid_combo.stderr
 
 
 if __name__ == "__main__":

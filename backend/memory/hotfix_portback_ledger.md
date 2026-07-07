@@ -1218,3 +1218,40 @@ Status:
 ```text
 functionality score strict skip semantics applied; source port-back required
 ```
+
+---
+
+### Functionality score refresh/results-dir conflict
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+--results-dir is for isolated fixture reports, while --refresh regenerates the default latest reports. Allowing both together could refresh one directory and score another. The CLI now rejects this ambiguous combination, and self-test covers the real argparse path.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+```
+
+Rollback:
+
+```text
+Remove the parser.error guard and invalid_combo self-test block.
+```
+
+Status:
+
+```text
+functionality score refresh/results-dir conflict guard applied; source port-back required
+```

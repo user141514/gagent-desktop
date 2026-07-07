@@ -37,6 +37,7 @@ Pass criteria:
 - functionality score self-test verifies refresh child failure captures stdout/stderr locally;
 - functionality score self-test verifies strict/non-strict CLI exit behavior with isolated `--results-dir` fixtures;
 - functionality score self-test verifies skipped optional e2e paths cannot pass strict completion;
+- functionality score self-test rejects the ambiguous `--refresh --results-dir` combination;
 - runtime ledger validator exits 0;
 - runtime ledger smoke exits 0;
 - smoke output may classify real network/search-backend failures as structured non-logic failures, but must not classify polluted results as success;
