@@ -5,6 +5,7 @@ import argparse
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ def main() -> int:
     parser.add_argument("--no-write", action="store_true", help="do not write latest_functionality_score.json")
     parser.add_argument("--refresh", action="store_true", help="run eval/smoke report generators before scoring")
     parser.add_argument("--strict", action="store_true", help="exit non-zero unless the score is complete")
+    parser.add_argument("--results-dir", help="read latest reports from this directory instead of the default results dir")
     args = parser.parse_args()
 
     if args.self_test:
@@ -39,7 +41,7 @@ def main() -> int:
             _print_captured_process_output(exc)
             return int(exc.returncode or 1)
 
-    report = score_latest_reports()
+    report = score_latest_reports(args.results_dir)
     report["refreshed"] = bool(args.refresh)
     report["strict"] = bool(args.strict)
     if not args.no_write:
@@ -265,6 +267,51 @@ def _self_test() -> None:
         ]
     else:
         raise AssertionError("failing refresh child command unexpectedly passed")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        (tmp_path / "latest_eval_report.json").write_text(
+            json.dumps(passing_eval),
+            encoding="utf-8",
+        )
+        (tmp_path / "latest_openai_e2e_report.json").write_text(
+            json.dumps({"status": "passed"}),
+            encoding="utf-8",
+        )
+        (tmp_path / "latest_browser_agent_e2e_report.json").write_text(
+            json.dumps({"status": "passed"}),
+            encoding="utf-8",
+        )
+        advisory = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--results-dir",
+                str(tmp_path),
+                "--no-write",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert json.loads(advisory.stdout)["status"] == "needs_work"
+
+        strict = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--results-dir",
+                str(tmp_path),
+                "--no-write",
+                "--strict",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert strict.returncode == 1
+        assert json.loads(strict.stdout)["status"] == "needs_work"
 
 
 if __name__ == "__main__":

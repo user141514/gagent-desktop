@@ -1143,3 +1143,40 @@ Status:
 ```text
 functionality score strict gate applied; source port-back required
 ```
+
+---
+
+### Functionality score isolated CLI fixtures
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The strict gate self-test covered helper exit-code logic but not the real CLI argument path. score_functionality.py now accepts --results-dir, and the self-test uses temporary report fixtures plus --no-write to verify strict/non-strict CLI exit behavior without touching runtime artifacts.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+```
+
+Rollback:
+
+```text
+Remove the --results-dir argument and temporary-directory CLI subprocess checks from _self_test.
+```
+
+Status:
+
+```text
+functionality score isolated CLI fixture checks applied; source port-back required
+```

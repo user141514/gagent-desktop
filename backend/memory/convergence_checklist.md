@@ -33,6 +33,7 @@ Pass criteria:
 - strict functionality score exits 0 after refreshing eval reports; advisory non-strict mode may exit 0 with `needs_work`;
 - refreshed functionality score success output stays machine-readable as one JSON report; child stdout/stderr appears only on refresh failure;
 - functionality score self-test verifies refresh child failure captures stdout/stderr locally;
+- functionality score self-test verifies strict/non-strict CLI exit behavior with isolated `--results-dir` fixtures;
 - runtime ledger validator exits 0;
 - runtime ledger smoke exits 0;
 - smoke output may classify real network/search-backend failures as structured non-logic failures, but must not classify polluted results as success;
