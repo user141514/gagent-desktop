@@ -26,6 +26,7 @@ Current direct handler integrations:
 GenericAgentHandler.do_web_search
 GenericAgentHandler.do_web_scan
 GenericAgentHandler.do_web_execute_js
+GenericAgentHandler.do_browser_agent
 ```
 
 Checks:

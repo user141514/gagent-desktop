@@ -58,8 +58,10 @@ def run_eval_cases(write_report: bool = True) -> dict[str, Any]:
             results.append(_run_web_search_case(case))
         elif case.target_tool in {"web_scan", "web_execute_js"}:
             results.append(_run_browser_bridge_case(case))
-        elif case.target_tool == "browser_agent":
+        elif case.target_tool == "browser_agent" and case.type == "tool_contract_eval":
             results.append(_run_contract_case(case))
+        elif case.target_tool == "browser_agent":
+            results.append(_run_browser_agent_handler_case(case))
         else:
             results.append({
                 "case_id": case.id,
@@ -219,6 +221,55 @@ def _run_browser_bridge_case(case: EvalCase) -> dict[str, Any]:
         "forbidden_tools_used": forbidden_used,
     })
     return score
+
+
+def _run_browser_agent_handler_case(case: EvalCase) -> dict[str, Any]:
+    run_id = f"eval_{case.id}_{time.time_ns()}"
+    args = dict(case.input)
+    args["ledger_run_id"] = run_id
+    tool_result = _call_browser_agent_stub(args)
+    if not isinstance(tool_result, dict):
+        tool_result = {"status": "error", "msg": str(tool_result)}
+    ledger_events = read_run_events(run_id)
+    ledger_summary = summarize_run(run_id)
+    score = score_case_result(case, tool_result, ledger_events, ledger_summary)
+    forbidden = set(str(x) for x in case.expected_tools.get("forbidden") or [])
+    forbidden_used = sorted({str(event.get("tool") or "") for event in ledger_events} & forbidden)
+    status = str(tool_result.get("status") or "").strip().lower()
+    if not status and tool_result.get("success") is True:
+        status = "success"
+    elif not status and tool_result.get("success") is False:
+        status = "error"
+    score.update({
+        "run_id": run_id,
+        "target_tool": case.target_tool,
+        "tool_status": status,
+        "steps_taken": tool_result.get("steps_taken"),
+        "ledger_event_count": len(ledger_events),
+        "final_status": ledger_summary.get("final_status"),
+        "forbidden_tools_used": forbidden_used,
+    })
+    return score
+
+
+def _call_browser_agent_stub(args: dict[str, Any]) -> dict[str, Any]:
+    from core import browser_agent as browser_agent_module
+
+    original_run = browser_agent_module.run_browser_agent
+
+    def fake_run_browser_agent(task, llm_config, max_steps=20, headless=True, progress_cb=None):
+        return {
+            "success": True,
+            "result": f"stubbed browser_agent completed: {task}",
+            "steps_taken": min(int(max_steps or 1), 2),
+        }
+
+    try:
+        browser_agent_module.run_browser_agent = fake_run_browser_agent
+        handler = ga.GenericAgentHandler(_DummyParent(), cwd=str(ROOT / "backend" / "temp"))
+        return _coerce_handler_result(_call_handler(handler.do_browser_agent(args, "")))
+    finally:
+        browser_agent_module.run_browser_agent = original_run
 
 
 def _call_browser_bridge_tool(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:

@@ -1,0 +1,31 @@
+{
+  "id": "browser_agent_handler_stub_boundary",
+  "version": 1,
+  "type": "tool_handler_eval",
+  "task": "Exercise GenericAgentHandler.do_browser_agent with a stubbed browser agent implementation. Do not launch a real browser or LLM.",
+  "owner_layer": "Layer 1 capability contract",
+  "target_tool": "browser_agent",
+  "input": {
+    "task": "Stub browser-agent rendered workflow",
+    "max_steps": 2,
+    "headless": true
+  },
+  "expected_tools": {
+    "allowed": ["browser_agent"],
+    "forbidden": ["web_search", "web_scan", "web_execute_js"]
+  },
+  "expected_ledger": {
+    "required_events": ["run_started", "tool_call", "tool_result", "run_finished"],
+    "required_on_failure": [],
+    "required_decision_forbidden_actions": []
+  },
+  "expected_result": {
+    "allow_success": true,
+    "allow_structured_failure": false,
+    "require_browser_agent_success": true
+  },
+  "score": {
+    "answer_or_tool_behavior": 60,
+    "ledger": 40
+  }
+}

@@ -82,7 +82,14 @@ def _finish_runtime_ledger(run_id, write_event_fn, LedgerEvent, *, tool_name, ta
             args=call_args,
             result=result_payload,
         ))
-        result_status = str(result_payload.get("status") or "unknown").lower()
+        if str(result_payload.get("status") or "").strip():
+            result_status = str(result_payload.get("status") or "unknown").lower()
+        elif result_payload.get("success") is True:
+            result_status = "success"
+        elif result_payload.get("success") is False:
+            result_status = "error"
+        else:
+            result_status = "unknown"
         final_status = "success" if result_status == "success" else "structured_failure"
         write_event_fn(LedgerEvent(
             run_id=run_id,
@@ -1600,6 +1607,14 @@ class GenericAgentHandler(BaseHandler):
 
         max_steps = int(args.get("max_steps", 20))
         headless = bool(args.get("headless", True))
+        call_args = {"task": task, "max_steps": max_steps, "headless": headless}
+        ledger_run_id, ledger_write, LedgerEvent = _start_runtime_ledger(
+            args,
+            tool_name="browser_agent",
+            task=task,
+            call_args=call_args,
+            scope="browser_agent_minimal",
+        )
 
         llm_config = self._get_browser_llm_config()
         yield f"[BrowserAgent] Starting sub-Agent, task: {task[:120]}\n"
@@ -1622,6 +1637,15 @@ class GenericAgentHandler(BaseHandler):
             progress_cb=_progress,
         )
         result = enrich_web_tool_result("browser_agent", result)
+        _finish_runtime_ledger(
+            ledger_run_id,
+            ledger_write,
+            LedgerEvent,
+            tool_name="browser_agent",
+            task=task,
+            call_args=call_args,
+            result=result,
+        )
 
         status = "OK" if result.get("success") else "FAILED"
         steps = result.get("steps_taken", "?")

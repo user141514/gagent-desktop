@@ -31,6 +31,10 @@ def score_case_result(
     penalties: list[str] = []
 
     status = str((tool_result or {}).get("status") or "").strip().lower()
+    if not status and (tool_result or {}).get("success") is True:
+        status = "success"
+    elif not status and (tool_result or {}).get("success") is False:
+        status = "error"
     success = status == "success"
     failure = status in FAILURE_STATUSES
     if success or failure:
@@ -69,6 +73,9 @@ def score_case_result(
         if case.expected_result.get("require_contract_valid") and tool_result.get("contract_valid") is not True:
             behavior_score -= 30
             penalties.append("contract validation did not pass")
+        if case.expected_result.get("require_browser_agent_success") and tool_result.get("success") is not True:
+            behavior_score -= 30
+            penalties.append("browser_agent success result missing")
 
     forbidden_tools = set(str(x) for x in case.expected_tools.get("forbidden") or [])
     used_forbidden = sorted({str(event.get("tool") or "") for event in ledger_events} & forbidden_tools)

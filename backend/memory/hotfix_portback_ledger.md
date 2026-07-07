@@ -408,3 +408,44 @@ Status:
 ```text
 browser_agent contract eval coverage applied; executable browser-agent eval still intentionally not enabled
 ```
+
+---
+
+### Browser agent handler-stub eval coverage
+
+Files changed:
+
+```text
+backend/core/ga.py
+backend/eval_registry/README.md
+backend/eval_registry/cases/browser_agent_handler_stub_boundary.json
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/score_eval_result.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/runtime_ledger/README.md
+```
+
+Reason:
+
+```text
+browser_agent should have a handler-level eval path and runtime_ledger events without launching the real browser/LLM workflow. The harness stubs run_browser_agent and calls GenericAgentHandler.do_browser_agent.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry/cases/browser_agent_handler_stub_boundary.json and revert browser_agent handler ledger/scoring changes.
+```
+
+Status:
+
+```text
+browser_agent handler-stub eval and runtime_ledger coverage applied; real browser-agent workflow eval remains intentionally disabled
+```

@@ -102,6 +102,7 @@ def main() -> int:
     skipped = [result.get("case_id") for result in results if result.get("verdict") == "skip"]
     forbidden_skips = {
         "browser_agent_contract_boundary",
+        "browser_agent_handler_stub_boundary",
         "web_scan_current_tab_boundary",
         "web_execute_js_navigation_boundary",
     } & set(skipped)
@@ -120,6 +121,8 @@ def main() -> int:
                 raise AssertionError("web_search_yobot_github_failure: missing github attempt in failure chain")
         if result.get("case_id") == "browser_agent_contract_boundary" and result.get("contract_valid") is not True:
             raise AssertionError("browser_agent_contract_boundary: contract_valid is not true")
+        if result.get("case_id") == "browser_agent_handler_stub_boundary" and result.get("tool_status") != "success":
+            raise AssertionError("browser_agent_handler_stub_boundary: expected success")
         if result.get("forbidden_tools_used"):
             raise AssertionError(f"{result.get('case_id')}: forbidden tool used: {result.get('forbidden_tools_used')}")
     if summary.get("case_count", 0) < 3:
