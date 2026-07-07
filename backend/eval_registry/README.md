@@ -31,6 +31,7 @@ Run:
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --full
 npm.cmd run test:convergence
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py
@@ -45,7 +46,7 @@ Use `--strict` when the command is acting as a completion gate; `needs_work` rem
 Use `--results-dir <dir> --no-write` to score isolated report fixtures without touching the default latest score artifact.
 `--results-dir` is intentionally incompatible with `--refresh`; refresh writes the default latest reports.
 Skipped optional OpenAI/browser_agent E2E reports count as `needs_work`; full completion requires enabling the opt-in E2E env vars before running `--refresh --strict`.
-`run_convergence_checks.py` validates and prints the successful advisory score JSON so baseline runs expose current blockers instead of only saying `ok`.
+`run_convergence_checks.py` validates and prints the successful advisory score JSON so baseline runs expose current blockers instead of only saying `ok`; `--full` also runs the baseline validators before strict scoring.
 
 Optional OpenAI orchestrated SDK smoke:
 

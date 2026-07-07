@@ -56,7 +56,7 @@
     "test:eval-registry": "python-runtime\\python.exe backend\\eval_registry\\validate_eval_registry.py",
     "test:eval-registry:smoke": "python-runtime\\python.exe backend\\eval_registry\\tests\\smoke_eval_registry.py",
     "test:convergence": "python-runtime\\python.exe backend\\eval_registry\\run_convergence_checks.py",
-    "test:convergence:full": "python-runtime\\python.exe backend\\eval_registry\\score_functionality.py --refresh --strict",
+    "test:convergence:full": "python-runtime\\python.exe backend\\eval_registry\\run_convergence_checks.py --full",
     "test:web-tools:smoke": "python-runtime\\python.exe backend\\tool_registry\\tests\\smoke_web_tools.py",
     "pack:dry": "npm pack --dry-run",
     "pack:npm": "npm pack",

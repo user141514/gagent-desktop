@@ -28,7 +28,7 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_opena
 GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
 GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
-GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh --strict
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --full
 GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
 ```
 
@@ -41,6 +41,7 @@ Pass criteria:
 - eval registry smoke exits 0;
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
 - baseline convergence runner validates and prints the advisory functionality score JSON on success;
+- full convergence runner includes baseline validators before strict functionality scoring;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
 - refreshed functionality score success output stays machine-readable as one JSON report; child stdout/stderr appears only on refresh failure;
 - functionality score self-test verifies refresh child failure captures stdout/stderr locally;

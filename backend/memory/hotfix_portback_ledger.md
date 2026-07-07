@@ -1407,3 +1407,42 @@ Status:
 ```text
 full convergence package script applied; source port-back required
 ```
+
+---
+
+### Full convergence runner mode
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+package.json
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+test:convergence:full ran only score_functionality.py --refresh --strict, so it did not include the baseline tool/quality/runtime validators. run_convergence_checks.py now supports --full, which runs the same baseline validators and uses strict scoring for the functionality score step.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove --full support from run_convergence_checks.py and point test:convergence:full back at score_functionality.py --refresh --strict.
+```
+
+Status:
+
+```text
+full convergence runner mode applied; source port-back required
+```

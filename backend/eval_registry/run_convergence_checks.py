@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import argparse
 import os
 import json
 import subprocess
@@ -13,21 +14,17 @@ PYTHON = ROOT / "python-runtime" / ("python.exe" if os.name == "nt" else "bin/py
 
 
 def main() -> int:
-    if "--self-test" in sys.argv[1:]:
+    parser = argparse.ArgumentParser(description="Run gagent-desktop convergence gates.")
+    parser.add_argument("--self-test", action="store_true", help="run runner self-tests")
+    parser.add_argument("--full", action="store_true", help="run strict full-flow score gate after baseline checks")
+    args = parser.parse_args()
+
+    if args.self_test:
         _self_test()
         print("[run_convergence_checks] self-test ok")
         return 0
 
-    commands = [
-        [str(PYTHON), "backend/tool_registry/validate_tool_registry.py"],
-        [str(PYTHON), "backend/quality_registry/validate_quality_registry.py"],
-        [str(PYTHON), "backend/tool_registry/tests/smoke_web_tools.py"],
-        [str(PYTHON), "backend/eval_registry/validate_eval_registry.py"],
-        [str(PYTHON), "backend/eval_registry/tests/smoke_eval_registry.py"],
-        [str(PYTHON), "backend/eval_registry/score_functionality.py", "--refresh"],
-        [str(PYTHON), "backend/runtime_ledger/validate_runtime_ledger.py"],
-        [str(PYTHON), "backend/runtime_ledger/tests/smoke_runtime_ledger.py"],
-    ]
+    commands = _commands(full=bool(args.full))
     env = {**os.environ, "PYTHONUTF8": "1"}
     for command in commands:
         label = " ".join(command[1:])
@@ -60,6 +57,22 @@ def main() -> int:
     return 0
 
 
+def _commands(*, full: bool) -> list[list[str]]:
+    score_command = [str(PYTHON), "backend/eval_registry/score_functionality.py", "--refresh"]
+    if full:
+        score_command.append("--strict")
+    return [
+        [str(PYTHON), "backend/tool_registry/validate_tool_registry.py"],
+        [str(PYTHON), "backend/quality_registry/validate_quality_registry.py"],
+        [str(PYTHON), "backend/tool_registry/tests/smoke_web_tools.py"],
+        [str(PYTHON), "backend/eval_registry/validate_eval_registry.py"],
+        [str(PYTHON), "backend/eval_registry/tests/smoke_eval_registry.py"],
+        score_command,
+        [str(PYTHON), "backend/runtime_ledger/validate_runtime_ledger.py"],
+        [str(PYTHON), "backend/runtime_ledger/tests/smoke_runtime_ledger.py"],
+    ]
+
+
 def _success_output_for(command: list[str], stdout: str) -> str:
     if not _is_score_command(command):
         return ""
@@ -83,6 +96,8 @@ def _self_test() -> None:
     smoke_command = [str(PYTHON), "backend/eval_registry/tests/smoke_eval_registry.py"]
     assert _is_score_command(score_command)
     assert not _is_score_command(smoke_command)
+    assert _commands(full=False)[5] == score_command
+    assert _commands(full=True)[5] == [*score_command, "--strict"]
     assert json.loads(_success_output_for(score_command, " {\"status\":\"needs_work\"}\n"))["status"] == "needs_work"
     assert _success_output_for(smoke_command, "noisy child output") == ""
     try:
