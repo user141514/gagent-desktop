@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -47,7 +48,12 @@ def main() -> int:
                 print(result.stderr.strip(), file=sys.stderr)
             return int(result.returncode or 1)
         print(f"[run_convergence_checks] ok: {label}")
-        success_output = _success_output_for(command, result.stdout)
+        try:
+            success_output = _success_output_for(command, result.stdout)
+        except ValueError as exc:
+            print(f"[run_convergence_checks] failed: {label}", file=sys.stderr)
+            print(str(exc), file=sys.stderr)
+            return 1
         if success_output:
             print(success_output)
     print("[run_convergence_checks] ok")
@@ -57,7 +63,13 @@ def main() -> int:
 def _success_output_for(command: list[str], stdout: str) -> str:
     if not _is_score_command(command):
         return ""
-    return stdout.strip()
+    try:
+        score = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"score_functionality output is not valid JSON: {exc}") from exc
+    if not isinstance(score, dict):
+        raise ValueError("score_functionality output is not a JSON object")
+    return json.dumps(score, indent=2, ensure_ascii=False)
 
 
 def _is_score_command(command: list[str]) -> bool:
@@ -71,8 +83,14 @@ def _self_test() -> None:
     smoke_command = [str(PYTHON), "backend/eval_registry/tests/smoke_eval_registry.py"]
     assert _is_score_command(score_command)
     assert not _is_score_command(smoke_command)
-    assert _success_output_for(score_command, " {\"status\":\"needs_work\"}\n") == "{\"status\":\"needs_work\"}"
+    assert json.loads(_success_output_for(score_command, " {\"status\":\"needs_work\"}\n"))["status"] == "needs_work"
     assert _success_output_for(smoke_command, "noisy child output") == ""
+    try:
+        _success_output_for(score_command, "log before json\n{\"status\":\"needs_work\"}")
+    except ValueError as exc:
+        assert "not valid JSON" in str(exc)
+    else:
+        raise AssertionError("noisy score output unexpectedly passed")
 
 
 if __name__ == "__main__":

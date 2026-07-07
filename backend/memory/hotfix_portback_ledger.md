@@ -1332,3 +1332,41 @@ Status:
 ```text
 baseline convergence score visibility applied; source port-back required
 ```
+
+---
+
+### Baseline convergence score JSON validation
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The baseline convergence runner printed score_functionality.py output but did not validate that it was still pure JSON. It now parses the score output before printing it and fails if logs or other text pollute stdout.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+```
+
+Rollback:
+
+```text
+Remove the json.loads validation from _success_output_for and restore direct stdout.strip() forwarding.
+```
+
+Status:
+
+```text
+baseline convergence score JSON validation applied; source port-back required
+```

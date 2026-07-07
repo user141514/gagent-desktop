@@ -39,7 +39,7 @@ Pass criteria:
 - eval registry validator exits 0;
 - eval registry smoke exits 0;
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
-- baseline convergence runner prints the advisory functionality score JSON on success;
+- baseline convergence runner validates and prints the advisory functionality score JSON on success;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
 - refreshed functionality score success output stays machine-readable as one JSON report; child stdout/stderr appears only on refresh failure;
 - functionality score self-test verifies refresh child failure captures stdout/stderr locally;
