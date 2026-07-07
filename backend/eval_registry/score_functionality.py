@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +51,7 @@ def main() -> int:
     report = score_latest_reports(args.results_dir)
     report["refreshed"] = bool(args.refresh)
     report["strict"] = bool(args.strict)
+    report["evidence"] = _build_evidence(args.results_dir)
     if not args.no_write:
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         OUTPUT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -145,6 +148,50 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def _build_evidence(results_dir: str | Path | None = None) -> dict[str, Any]:
+    base = Path(results_dir) if results_dir is not None else RESULTS_DIR
+    return {
+        "generated_at_utc": _utc_now(),
+        "results_dir": str(base.resolve()),
+        "python_executable": str(Path(sys.executable).resolve()),
+        "e2e_env": {
+            "GAGENT_E2E_DEPS": os.environ.get("GAGENT_E2E_DEPS", ""),
+            "GAGENT_RUN_OPENAI_E2E": os.environ.get("GAGENT_RUN_OPENAI_E2E", ""),
+            "GAGENT_RUN_BROWSER_AGENT_E2E": os.environ.get("GAGENT_RUN_BROWSER_AGENT_E2E", ""),
+        },
+        "input_reports": _input_report_evidence(base),
+    }
+
+
+def _input_report_evidence(base: Path) -> dict[str, dict[str, Any]]:
+    evidence: dict[str, dict[str, Any]] = {}
+    for name in [
+        "latest_eval_report.json",
+        "latest_openai_e2e_report.json",
+        "latest_browser_agent_e2e_report.json",
+    ]:
+        path = base / name
+        try:
+            stat = path.stat()
+        except OSError:
+            evidence[name] = {"exists": False}
+        else:
+            evidence[name] = {
+                "exists": True,
+                "bytes": stat.st_size,
+                "modified_at_utc": _utc_from_timestamp(stat.st_mtime),
+            }
+    return evidence
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _utc_from_timestamp(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _exit_code_for_report(report: dict[str, Any], *, strict: bool) -> int:
@@ -309,7 +356,13 @@ def _self_test() -> None:
             text=True,
             encoding="utf-8",
         )
-        assert json.loads(advisory.stdout)["status"] == "needs_work"
+        advisory_report = json.loads(advisory.stdout)
+        assert advisory_report["status"] == "needs_work"
+        assert advisory_report["evidence"]["results_dir"] == str(tmp_path.resolve())
+        assert advisory_report["evidence"]["generated_at_utc"].endswith("Z")
+        assert advisory_report["evidence"]["input_reports"]["latest_eval_report.json"]["exists"] is True
+        assert advisory_report["evidence"]["input_reports"]["latest_openai_e2e_report.json"]["exists"] is True
+        assert advisory_report["evidence"]["input_reports"]["latest_browser_agent_e2e_report.json"]["exists"] is True
 
         strict = subprocess.run(
             [

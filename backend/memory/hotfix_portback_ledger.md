@@ -1484,3 +1484,41 @@ Status:
 ```text
 functionality score results-dir no-write guard applied; source port-back required
 ```
+
+---
+
+### Functionality score evidence metadata
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+A 100/100 functionality score was machine-readable, but did not say which report files, Python runtime, results directory, or non-secret E2E switches produced it. score_functionality.py now emits an evidence object so score reports are easier to audit without reading shell history.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _build_evidence/_input_report_evidence/_utc_* helpers, the report["evidence"] assignment, and the evidence assertions/docs.
+```
+
+Status:
+
+```text
+functionality score evidence metadata applied; source port-back required
+```
