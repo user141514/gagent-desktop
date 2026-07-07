@@ -8,6 +8,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+EVAL_REGISTRY_DIR = Path(__file__).resolve().parent
+if str(EVAL_REGISTRY_DIR) not in sys.path:
+    sys.path.insert(0, str(EVAL_REGISTRY_DIR))
+import score_functionality
+
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = ROOT / "python-runtime" / ("python.exe" if os.name == "nt" else "bin/python")
@@ -21,11 +26,7 @@ SCORE_E2E_ENV_KEYS = [
     "GAGENT_RUN_OPENAI_E2E",
     "GAGENT_RUN_BROWSER_AGENT_E2E",
 ]
-SCORE_COMPONENT_WEIGHTS = {
-    "internal_eval": 70,
-    "openai_orchestrated_e2e": 15,
-    "browser_agent_e2e": 15,
-}
+SCORE_COMPONENT_WEIGHTS = score_functionality.SCORE_COMPONENT_WEIGHTS
 
 
 def main() -> int:
@@ -182,6 +183,7 @@ def _self_test() -> None:
     assert not _is_score_command(smoke_command)
     assert _commands(full=False)[5] == score_command
     assert _commands(full=True)[5] == [*score_command, "--strict"]
+    assert SCORE_COMPONENT_WEIGHTS is score_functionality.SCORE_COMPONENT_WEIGHTS
     assert json.loads(_success_output_for(score_command, _score_output_fixture()))["status"] == "needs_work"
     assert _success_output_for(smoke_command, "noisy child output") == ""
     try:

@@ -1638,3 +1638,43 @@ Status:
 ```text
 convergence runner score component validation applied; source port-back required
 ```
+
+---
+
+### Functionality score component weight source
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner locked expected score component weights, but duplicated the same constants already owned by score_functionality.py. score_functionality.py now exports SCORE_COMPONENT_WEIGHTS, and run_convergence_checks.py imports that source of truth while still validating report output against it.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove SCORE_COMPONENT_WEIGHTS from score_functionality.py, remove the run_convergence_checks.py import/path shim, and restore the local runner component weight dict.
+```
+
+Status:
+
+```text
+functionality score component weight source applied; source port-back required
+```

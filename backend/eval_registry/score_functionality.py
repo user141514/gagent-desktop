@@ -19,6 +19,11 @@ OUTPUT_PATH = RESULTS_DIR / "latest_functionality_score.json"
 INTERNAL_EVAL_WEIGHT = 70
 OPENAI_E2E_WEIGHT = 15
 BROWSER_AGENT_E2E_WEIGHT = 15
+SCORE_COMPONENT_WEIGHTS = {
+    "internal_eval": INTERNAL_EVAL_WEIGHT,
+    "openai_orchestrated_e2e": OPENAI_E2E_WEIGHT,
+    "browser_agent_e2e": BROWSER_AGENT_E2E_WEIGHT,
+}
 
 
 def main() -> int:
