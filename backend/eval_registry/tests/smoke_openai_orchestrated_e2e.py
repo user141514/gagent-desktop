@@ -13,6 +13,7 @@ from typing import Any
 
 BACKEND = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = BACKEND.parent
+RESULTS_DIR = BACKEND / "eval_registry" / "results"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
@@ -21,11 +22,13 @@ from runtime_ledger import new_run_id, read_run_events, summarize_observability,
 
 def main() -> int:
     if os.environ.get("GAGENT_RUN_OPENAI_E2E") != "1":
-        print(json.dumps({
+        report = {
             "status": "skipped",
             "reason": "set GAGENT_RUN_OPENAI_E2E=1 to run the real OpenAI orchestrated SDK smoke",
             "required": ["configured model variant", "openai-agents SDK", "network/API access"],
-        }, indent=2, ensure_ascii=False))
+        }
+        _emit_report(report)
+        print(json.dumps(report, indent=2, ensure_ascii=False))
         print("[smoke_openai_orchestrated_e2e] skipped")
         return 0
 
@@ -33,11 +36,15 @@ def main() -> int:
 
     agent = OpenAIOrchestratedAgent()
     if not getattr(agent, "ready", False):
-        print(json.dumps({
+        report = {
             "status": "failed",
+            "failure_class": "readiness_failure",
             "reason": "OpenAIOrchestratedAgent is not ready",
             "startup_error": getattr(agent, "startup_error", ""),
-        }, indent=2, ensure_ascii=False), file=sys.stderr)
+        }
+        _emit_report(report)
+        print(json.dumps(report, indent=2, ensure_ascii=False), file=sys.stderr)
+        print("[smoke_openai_orchestrated_e2e] failed", file=sys.stderr)
         return 1
 
     run_id = new_run_id("openai_e2e")
@@ -53,13 +60,16 @@ def main() -> int:
         done_item = _wait_for_done(output, timeout)
     except Exception as exc:
         events = read_run_events(run_id)
-        print(json.dumps({
+        report = {
             "status": "failed",
+            "failure_class": "runtime_failure",
             "run_id": run_id,
             "reason": str(exc),
             "ledger_event_count": len(events),
             "ledger_summary": summarize_run(run_id),
-        }, indent=2, ensure_ascii=False, default=str), file=sys.stderr)
+        }
+        _emit_report(report)
+        print(json.dumps(report, indent=2, ensure_ascii=False, default=str), file=sys.stderr)
         print("[smoke_openai_orchestrated_e2e] failed", file=sys.stderr)
         return 1
     events = read_run_events(run_id)
@@ -86,14 +96,24 @@ def main() -> int:
         result["reason"] = "model did not return expected sentinel"
     elif observability.get("aligned", {}).get("has_ledger_events") is not True:
         result["status"] = "failed"
+        result["failure_class"] = "observability_failure"
         result["reason"] = "observability summary missing runtime_ledger events"
 
+    _emit_report(result)
     print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     if result["status"] == "passed":
         print("[smoke_openai_orchestrated_e2e] ok")
         return 0
     print("[smoke_openai_orchestrated_e2e] failed", file=sys.stderr)
     return 1
+
+
+def _emit_report(report: dict[str, Any]) -> None:
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    (RESULTS_DIR / "latest_openai_e2e_report.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8",
+    )
 
 
 def _wait_for_done(output: "queue.Queue[dict[str, Any]]", timeout: float) -> dict[str, Any]:

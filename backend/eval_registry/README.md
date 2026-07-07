@@ -53,4 +53,5 @@ Runtime artifact:
 
 ```text
 backend/eval_registry/results/latest_eval_report.json
+backend/eval_registry/results/latest_openai_e2e_report.json
 ```

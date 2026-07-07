@@ -775,6 +775,7 @@ Reason:
 
 ```text
 OpenAI orchestrated runtime_ledger coverage had helper-level smoke but no runnable full SDK path. The eval registry now has an opt-in e2e smoke that structured-skips by default and, when GAGENT_RUN_OPENAI_E2E=1 is set, starts OpenAIOrchestratedAgent, submits a run_id-tagged task, and verifies runtime_ledger run_started/run_finished.
+The smoke writes latest_openai_e2e_report.json as an ignored runtime artifact so readiness/runtime failures are preserved as machine-readable evidence.
 ```
 
 Verification:
