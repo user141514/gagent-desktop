@@ -38,6 +38,12 @@ def score_case_result(
     else:
         behavior_score -= 20
         penalties.append(f"unexpected tool result status: {status or '(missing)'}")
+    if success and case.expected_result.get("allow_success") is False:
+        behavior_score -= 20
+        penalties.append("success is not allowed for this case")
+    if failure and case.expected_result.get("allow_structured_failure") is False:
+        behavior_score -= 20
+        penalties.append("structured failure is not allowed for this case")
 
     if success:
         urls = _result_urls(tool_result)
@@ -60,6 +66,9 @@ def score_case_result(
         ):
             behavior_score -= 30
             penalties.append("navigation success metadata missing")
+        if case.expected_result.get("require_contract_valid") and tool_result.get("contract_valid") is not True:
+            behavior_score -= 30
+            penalties.append("contract validation did not pass")
 
     forbidden_tools = set(str(x) for x in case.expected_tools.get("forbidden") or [])
     used_forbidden = sorted({str(event.get("tool") or "") for event in ledger_events} & forbidden_tools)

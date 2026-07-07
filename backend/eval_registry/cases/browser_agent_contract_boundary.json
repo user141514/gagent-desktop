@@ -1,0 +1,30 @@
+{
+  "id": "browser_agent_contract_boundary",
+  "version": 1,
+  "type": "tool_contract_eval",
+  "task": "Verify browser_agent remains a high-cost complex rendered workflow tool and is not allowed as ordinary web_search fallback.",
+  "owner_layer": "Layer 1 capability contract",
+  "target_tool": "browser_agent",
+  "input": {
+    "registry_file": "backend/tool_registry/tools/browser_agent.yml"
+  },
+  "expected_tools": {
+    "allowed": ["browser_agent"],
+    "forbidden": ["web_search", "web_scan", "web_execute_js"]
+  },
+  "expected_ledger": {
+    "required_events": ["run_started", "tool_call", "tool_result", "run_finished"],
+    "required_on_failure": [],
+    "required_decision_forbidden_actions": []
+  },
+  "expected_result": {
+    "allow_success": true,
+    "allow_structured_failure": false,
+    "require_contract_valid": true,
+    "require_contract_terms": ["complex", "rendered", "ordinary web_search fallback"]
+  },
+  "score": {
+    "answer_or_tool_behavior": 60,
+    "ledger": 40
+  }
+}

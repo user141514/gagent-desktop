@@ -368,3 +368,43 @@ Status:
 ```text
 web_scan and web_execute_js handler ledger integration applied; source port-back required
 ```
+
+---
+
+### Browser agent contract eval coverage
+
+Files changed:
+
+```text
+backend/eval_registry/README.md
+backend/eval_registry/cases/browser_agent_contract_boundary.json
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/score_eval_result.py
+backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Reason:
+
+```text
+browser_agent should be represented in eval_registry without launching the expensive browser/LLM workflow. The contract eval verifies registry ownership and forbidden fallback language.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry/cases/browser_agent_contract_boundary.json and revert contract-runner/scorer changes.
+```
+
+Status:
+
+```text
+browser_agent contract eval coverage applied; executable browser-agent eval still intentionally not enabled
+```

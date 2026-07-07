@@ -17,7 +17,7 @@ from core import ga  # noqa: E402
 from core.agent_loop import StepOutcome, exhaust  # noqa: E402
 from eval_registry.registry import EvalCase, load_eval_cases  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
-from runtime_ledger import read_run_events, summarize_run  # noqa: E402
+from runtime_ledger import LedgerEvent, read_run_events, summarize_run, write_event  # noqa: E402
 
 
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
@@ -58,6 +58,8 @@ def run_eval_cases(write_report: bool = True) -> dict[str, Any]:
             results.append(_run_web_search_case(case))
         elif case.target_tool in {"web_scan", "web_execute_js"}:
             results.append(_run_browser_bridge_case(case))
+        elif case.target_tool == "browser_agent":
+            results.append(_run_contract_case(case))
         else:
             results.append({
                 "case_id": case.id,
@@ -112,6 +114,88 @@ def _run_web_search_case(case: EvalCase) -> dict[str, Any]:
         "forbidden_tools_used": forbidden_used,
     })
     return score
+
+
+def _run_contract_case(case: EvalCase) -> dict[str, Any]:
+    run_id = f"eval_{case.id}_{time.time_ns()}"
+    args = dict(case.input)
+    write_event(LedgerEvent(
+        run_id=run_id,
+        event_type="run_started",
+        task=case.task,
+        owner_layer=case.owner_layer,
+        metadata={"integration_scope": "eval_harness_contract"},
+    ))
+    write_event(LedgerEvent(
+        run_id=run_id,
+        event_type="tool_call",
+        task=case.task,
+        owner_layer=case.owner_layer,
+        tool=case.target_tool,
+        args=args,
+    ))
+    tool_result = _check_registry_contract(case)
+    write_event(LedgerEvent(
+        run_id=run_id,
+        event_type="tool_result",
+        task=case.task,
+        owner_layer=case.owner_layer,
+        tool=case.target_tool,
+        args=args,
+        result=tool_result,
+    ))
+    result_status = str(tool_result.get("status") or "unknown").lower()
+    write_event(LedgerEvent(
+        run_id=run_id,
+        event_type="run_finished",
+        task=case.task,
+        owner_layer=case.owner_layer,
+        tool=case.target_tool,
+        final_status="success" if result_status == "success" else "structured_failure",
+        metadata={"result_status": result_status},
+    ))
+    ledger_events = read_run_events(run_id)
+    ledger_summary = summarize_run(run_id)
+    score = score_case_result(case, tool_result, ledger_events, ledger_summary)
+    forbidden = set(str(x) for x in case.expected_tools.get("forbidden") or [])
+    forbidden_used = sorted({str(event.get("tool") or "") for event in ledger_events} & forbidden)
+    score.update({
+        "run_id": run_id,
+        "target_tool": case.target_tool,
+        "tool_status": str(tool_result.get("status") or ""),
+        "contract_valid": bool(tool_result.get("contract_valid")),
+        "ledger_event_count": len(ledger_events),
+        "final_status": ledger_summary.get("final_status"),
+        "forbidden_tools_used": forbidden_used,
+    })
+    return score
+
+
+def _check_registry_contract(case: EvalCase) -> dict[str, Any]:
+    registry_file = ROOT / str(case.input.get("registry_file") or "")
+    try:
+        text = registry_file.read_text(encoding="utf-8").lower()
+    except OSError as exc:
+        return {"status": "error", "msg": f"cannot read registry contract: {exc}"}
+    terms = [str(item).lower() for item in case.expected_result.get("require_contract_terms") or []]
+    missing = [term for term in terms if term not in text]
+    forbidden_texts = ["ordinary web_search fallback", "simple current-tab inspection", "single-shot dom scripting"]
+    forbidden_present = [term for term in forbidden_texts if term in text]
+    valid = not missing and len(forbidden_present) == len(forbidden_texts)
+    if not valid:
+        return {
+            "status": "error",
+            "msg": "browser_agent registry contract is incomplete",
+            "contract_valid": False,
+            "missing_terms": missing,
+            "checked_forbidden_behaviors": forbidden_present,
+        }
+    return {
+        "status": "success",
+        "contract_valid": True,
+        "checked_terms": terms,
+        "checked_forbidden_behaviors": forbidden_present,
+    }
 
 
 def _run_browser_bridge_case(case: EvalCase) -> dict[str, Any]:
