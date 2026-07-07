@@ -1446,3 +1446,41 @@ Status:
 ```text
 full convergence runner mode applied; source port-back required
 ```
+
+---
+
+### Functionality score results-dir no-write guard
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+--results-dir is for isolated fixture reports. Allowing it without --no-write could write fixture-derived scores into the default latest_functionality_score.json artifact. The CLI now rejects that combination, and self-test covers the real argparse path.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the --results-dir requires --no-write parser guard and missing_no_write self-test block, then restore the README/checklist text.
+```
+
+Status:
+
+```text
+functionality score results-dir no-write guard applied; source port-back required
+```

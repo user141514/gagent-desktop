@@ -43,7 +43,7 @@ npm.cmd run test:convergence:full
 `score_functionality.py --refresh` suppresses successful child-command logs and prints one JSON score report. If a refresh child command fails, its captured stdout/stderr is printed to stderr for debugging.
 `score_functionality.py --self-test` includes a local failing child command to verify that refresh failure output is retained.
 Use `--strict` when the command is acting as a completion gate; `needs_work` remains exit 0 without `--strict` for advisory reports.
-Use `--results-dir <dir> --no-write` to score isolated report fixtures without touching the default latest score artifact.
+Use `--results-dir <dir> --no-write` to score isolated report fixtures without touching the default latest score artifact; `--results-dir` requires `--no-write`.
 `--results-dir` is intentionally incompatible with `--refresh`; refresh writes the default latest reports.
 Skipped optional OpenAI/browser_agent E2E reports count as `needs_work`; full completion requires enabling the opt-in E2E env vars before running `--refresh --strict`.
 `run_convergence_checks.py` validates and prints the successful advisory score JSON so baseline runs expose current blockers instead of only saying `ok`; `--full` also runs the baseline validators before strict scoring.

@@ -35,6 +35,8 @@ def main() -> int:
 
     if args.refresh and args.results_dir:
         parser.error("--refresh cannot be combined with --results-dir")
+    if args.results_dir and not args.no_write:
+        parser.error("--results-dir requires --no-write")
 
     if args.refresh:
         try:
@@ -339,6 +341,20 @@ def _self_test() -> None:
         )
         assert invalid_combo.returncode != 0
         assert "--refresh cannot be combined with --results-dir" in invalid_combo.stderr
+
+        missing_no_write = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--results-dir",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert missing_no_write.returncode != 0
+        assert "--results-dir requires --no-write" in missing_no_write.stderr
 
 
 if __name__ == "__main__":
