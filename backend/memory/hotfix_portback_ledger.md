@@ -1678,3 +1678,41 @@ Status:
 ```text
 functionality score component weight source applied; source port-back required
 ```
+
+---
+
+### Convergence runner score total consistency
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+run_convergence_checks.py validated component names/weights and evidence, but not whether total, max_total, status, and component scores agreed with each other. The runner now rejects inconsistent totals, invalid component score ranges, wrong max_total, and status values that do not match the computed total.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the total/max_total/status/component score validation block and the bad_total/bad_max_total/bad_status/bad_component_score self-test cases.
+```
+
+Status:
+
+```text
+convergence runner score total consistency applied; source port-back required
+```

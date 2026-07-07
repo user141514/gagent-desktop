@@ -117,6 +117,7 @@ def _validate_score_components(score: dict) -> None:
         raise ValueError("score_functionality component count is invalid")
 
     seen: set[str] = set()
+    total = 0
     for component in components:
         if not isinstance(component, dict):
             raise ValueError("score_functionality component is invalid")
@@ -128,6 +129,19 @@ def _validate_score_components(score: dict) -> None:
         seen.add(name)
         if component.get("weight") != SCORE_COMPONENT_WEIGHTS[name]:
             raise ValueError(f"score_functionality component {name} weight is invalid")
+        component_score = component.get("score")
+        if not isinstance(component_score, int) or component_score < 0 or component_score > SCORE_COMPONENT_WEIGHTS[name]:
+            raise ValueError(f"score_functionality component {name} score is invalid")
+        total += component_score
+
+    max_total = sum(SCORE_COMPONENT_WEIGHTS.values())
+    if score.get("total") != total:
+        raise ValueError("score_functionality total does not match component scores")
+    if score.get("max_total") != max_total:
+        raise ValueError("score_functionality max_total does not match component weights")
+    expected_status = "ok" if total == max_total else "needs_work"
+    if score.get("status") != expected_status:
+        raise ValueError("score_functionality status does not match total")
 
 
 def _validate_score_evidence(score: dict) -> None:
@@ -216,12 +230,46 @@ def _self_test() -> None:
         assert "component name" in str(exc)
     else:
         raise AssertionError("score output with wrong component name unexpectedly passed")
+    bad_total = json.loads(_score_output_fixture())
+    bad_total["total"] = 100
+    try:
+        _success_output_for(score_command, json.dumps(bad_total))
+    except ValueError as exc:
+        assert "total" in str(exc)
+    else:
+        raise AssertionError("score output with wrong total unexpectedly passed")
+    bad_max_total = json.loads(_score_output_fixture())
+    bad_max_total["max_total"] = 99
+    try:
+        _success_output_for(score_command, json.dumps(bad_max_total))
+    except ValueError as exc:
+        assert "max_total" in str(exc)
+    else:
+        raise AssertionError("score output with wrong max_total unexpectedly passed")
+    bad_status = json.loads(_score_output_fixture())
+    bad_status["status"] = "ok"
+    try:
+        _success_output_for(score_command, json.dumps(bad_status))
+    except ValueError as exc:
+        assert "status" in str(exc)
+    else:
+        raise AssertionError("score output with wrong status unexpectedly passed")
+    bad_component_score = json.loads(_score_output_fixture())
+    bad_component_score["components"][1]["score"] = 99
+    try:
+        _success_output_for(score_command, json.dumps(bad_component_score))
+    except ValueError as exc:
+        assert "component" in str(exc)
+    else:
+        raise AssertionError("score output with invalid component score unexpectedly passed")
 
 
 def _score_output_fixture() -> str:
     return json.dumps(
         {
             "status": "needs_work",
+            "total": 70,
+            "max_total": 100,
             "components": [
                 {"name": "internal_eval", "weight": 70, "score": 70},
                 {"name": "openai_orchestrated_e2e", "weight": 15, "score": 0},
