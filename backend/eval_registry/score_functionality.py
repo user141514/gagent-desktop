@@ -161,8 +161,42 @@ def _build_evidence(results_dir: str | Path | None = None) -> dict[str, Any]:
             "GAGENT_RUN_OPENAI_E2E": os.environ.get("GAGENT_RUN_OPENAI_E2E", ""),
             "GAGENT_RUN_BROWSER_AGENT_E2E": os.environ.get("GAGENT_RUN_BROWSER_AGENT_E2E", ""),
         },
+        "source_git": _source_git_evidence(),
         "input_reports": _input_report_evidence(base),
     }
+
+
+def _source_git_evidence() -> dict[str, Any]:
+    head = _git_text("rev-parse", "HEAD")
+    branch = _git_text("branch", "--show-current") or _git_text("rev-parse", "--abbrev-ref", "HEAD") or ""
+    status = _git_text("status", "--porcelain")
+    if not head or status is None:
+        return {
+            "available": False,
+            "head": head or "",
+            "branch": branch,
+            "dirty": None,
+        }
+    return {
+        "available": True,
+        "head": head,
+        "branch": branch,
+        "dirty": bool(status),
+    }
+
+
+def _git_text(*args: str) -> str | None:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
 
 
 def _input_report_evidence(base: Path) -> dict[str, dict[str, Any]]:
@@ -360,6 +394,9 @@ def _self_test() -> None:
         assert advisory_report["status"] == "needs_work"
         assert advisory_report["evidence"]["results_dir"] == str(tmp_path.resolve())
         assert advisory_report["evidence"]["generated_at_utc"].endswith("Z")
+        assert advisory_report["evidence"]["source_git"]["available"] is True
+        assert isinstance(advisory_report["evidence"]["source_git"]["head"], str)
+        assert isinstance(advisory_report["evidence"]["source_git"]["dirty"], bool)
         assert advisory_report["evidence"]["input_reports"]["latest_eval_report.json"]["exists"] is True
         assert advisory_report["evidence"]["input_reports"]["latest_openai_e2e_report.json"]["exists"] is True
         assert advisory_report["evidence"]["input_reports"]["latest_browser_agent_e2e_report.json"]["exists"] is True

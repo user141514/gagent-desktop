@@ -45,7 +45,7 @@ npm.cmd run test:convergence:full
 Use `--strict` when the command is acting as a completion gate; `needs_work` remains exit 0 without `--strict` for advisory reports.
 Use `--results-dir <dir> --no-write` to score isolated report fixtures without touching the default latest score artifact; `--results-dir` requires `--no-write`.
 `--results-dir` is intentionally incompatible with `--refresh`; refresh writes the default latest reports.
-Score reports include an `evidence` object with the results directory, input report file status, Python executable, and non-secret E2E env switches.
+Score reports include an `evidence` object with the results directory, input report file status, Git HEAD/dirty state, Python executable, and non-secret E2E env switches.
 Skipped optional OpenAI/browser_agent E2E reports count as `needs_work`; full completion requires enabling the opt-in E2E env vars before running `--refresh --strict`.
 `run_convergence_checks.py` validates the score JSON plus required `evidence` fields and prints it on success so baseline runs expose current blockers instead of only saying `ok`; `--full` also runs the baseline validators before strict scoring.
 

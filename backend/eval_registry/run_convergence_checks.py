@@ -119,6 +119,18 @@ def _validate_score_evidence(score: dict) -> None:
         if not isinstance(e2e_env.get(key), str):
             raise ValueError(f"score_functionality evidence.e2e_env.{key} is missing")
 
+    source_git = evidence.get("source_git")
+    if not isinstance(source_git, dict):
+        raise ValueError("score_functionality evidence.source_git is missing")
+    if source_git.get("available") is not True:
+        raise ValueError("score_functionality evidence.source_git is unavailable")
+    if not isinstance(source_git.get("head"), str) or len(source_git["head"]) < 7:
+        raise ValueError("score_functionality evidence.source_git.head is missing")
+    if not isinstance(source_git.get("branch"), str):
+        raise ValueError("score_functionality evidence.source_git.branch is missing")
+    if not isinstance(source_git.get("dirty"), bool):
+        raise ValueError("score_functionality evidence.source_git.dirty is missing")
+
     input_reports = evidence.get("input_reports")
     if not isinstance(input_reports, dict):
         raise ValueError("score_functionality evidence.input_reports is missing")
@@ -171,6 +183,12 @@ def _score_output_fixture() -> str:
                     "GAGENT_E2E_DEPS": "",
                     "GAGENT_RUN_OPENAI_E2E": "",
                     "GAGENT_RUN_BROWSER_AGENT_E2E": "",
+                },
+                "source_git": {
+                    "available": True,
+                    "head": "abcdef1234567890",
+                    "branch": "main",
+                    "dirty": False,
                 },
                 "input_reports": {
                     name: {

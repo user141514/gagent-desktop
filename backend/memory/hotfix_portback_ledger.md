@@ -1560,3 +1560,43 @@ Status:
 ```text
 convergence runner score evidence validation applied; source port-back required
 ```
+
+---
+
+### Functionality score Git source fingerprint
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Functionality score reports captured runtime evidence, but not the source version that produced the score. score_functionality.py now emits source_git.available/head/branch/dirty, and run_convergence_checks.py rejects score output that cannot bind to a Git source fingerprint.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _source_git_evidence/_git_text, the evidence.source_git assignment and assertions, and the source_git validation block in run_convergence_checks.py.
+```
+
+Status:
+
+```text
+functionality score Git source fingerprint applied; source port-back required
+```
