@@ -35,6 +35,8 @@ PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionali
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh
 ```
 
+`score_functionality.py --refresh` suppresses successful child-command logs and prints one JSON score report. If a refresh child command fails, its captured stdout/stderr is printed to stderr for debugging.
+
 Optional OpenAI orchestrated SDK smoke:
 
 ```text

@@ -1030,3 +1030,41 @@ Status:
 ```text
 OpenAI E2E classic init traceback suppression applied; source port-back required
 ```
+
+---
+
+### Functionality score quiet refresh output
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+score_functionality.py --refresh previously streamed child command logs before the final score JSON, which made the score hard to parse automatically. Successful refresh now captures child stdout/stderr and prints only the final JSON report; failed refresh still prints captured child stdout/stderr to stderr.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --refresh
+```
+
+Rollback:
+
+```text
+Replace _run_refresh_command with direct subprocess.run(command, cwd=ROOT, check=True) and remove captured-output helpers.
+```
+
+Status:
+
+```text
+functionality score quiet refresh output applied; source port-back required
+```

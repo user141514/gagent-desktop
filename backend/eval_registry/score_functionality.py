@@ -35,6 +35,7 @@ def main() -> int:
             _refresh_reports()
         except subprocess.CalledProcessError as exc:
             print(f"[score_functionality] refresh failed: {' '.join(exc.cmd)}", file=sys.stderr)
+            _print_captured_process_output(exc)
             return int(exc.returncode or 1)
 
     report = score_latest_reports()
@@ -139,7 +140,7 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 def _refresh_reports() -> None:
     for command in _refresh_commands():
-        subprocess.run(command, cwd=ROOT, check=True)
+        _run_refresh_command(command)
 
 
 def _refresh_commands() -> list[list[str]]:
@@ -148,6 +149,35 @@ def _refresh_commands() -> list[list[str]]:
         [sys.executable, str(ROOT / "backend" / "eval_registry" / "tests" / "smoke_openai_orchestrated_e2e.py")],
         [sys.executable, str(ROOT / "backend" / "eval_registry" / "tests" / "smoke_browser_agent_e2e.py")],
     ]
+
+
+def _run_refresh_command(command: list[str]) -> None:
+    subprocess.run(
+        command,
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def _print_captured_process_output(exc: subprocess.CalledProcessError) -> None:
+    for label, text in _captured_process_output_sections(exc):
+        print(f"[score_functionality] child {label}:", file=sys.stderr)
+        print(text, file=sys.stderr)
+
+
+def _captured_process_output_sections(exc: subprocess.CalledProcessError) -> list[tuple[str, str]]:
+    sections: list[tuple[str, str]] = []
+    stdout = str(exc.stdout or "").strip()
+    stderr = str(exc.stderr or "").strip()
+    if stdout:
+        sections.append(("stdout", stdout))
+    if stderr:
+        sections.append(("stderr", stderr))
+    return sections
 
 
 def _self_test() -> None:
@@ -181,6 +211,17 @@ def _self_test() -> None:
         "run_eval_cases.py",
         "smoke_openai_orchestrated_e2e.py",
         "smoke_browser_agent_e2e.py",
+    ]
+
+    captured = subprocess.CalledProcessError(
+        1,
+        ["python", "child.py"],
+        output="child stdout",
+        stderr="child stderr",
+    )
+    assert _captured_process_output_sections(captured) == [
+        ("stdout", "child stdout"),
+        ("stderr", "child stderr"),
     ]
 
 
