@@ -567,3 +567,40 @@ Status:
 ```text
 agent-loop runtime_ledger opt-in applied; source port-back required
 ```
+
+---
+
+### Classic agentmain runtime ledger wiring
+
+Files changed:
+
+```text
+backend/core/agentmain.py
+backend/runtime_ledger/README.md
+backend/runtime_ledger/tests/smoke_runtime_ledger.py
+```
+
+Reason:
+
+```text
+agent_runner_loop supported runtime_ledger_run_id, but the classic agentmain entrypoint did not pass its task run_id. Normal classic-agent runs now write runtime_ledger events without relying on eval-only wiring.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/tests/smoke_runtime_ledger.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Rollback:
+
+```text
+Remove runtime_ledger_run_id=run_id from backend/core/agentmain.py and remove the smoke assertion.
+```
+
+Status:
+
+```text
+classic agentmain runtime_ledger wiring applied; source port-back required
+```

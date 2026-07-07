@@ -733,6 +733,7 @@ class GeneraticAgent(AgentBackend):
                         stop_event=stop_event,
                         runtime_mapper=_runtime_mapper,
                         turn_gap=_turn_gap,
+                        runtime_ledger_run_id=run_id,
                     )
 
                 stream_span = self.active_profiler.span('stream_output', kind='frontend', metadata={'source': source}) if self.active_profiler is not None else nullcontext()

@@ -30,7 +30,7 @@ GenericAgentHandler.do_web_execute_js
 GenericAgentHandler.do_browser_agent
 ```
 
-`agent_runner_loop` integration is opt-in. When `runtime_ledger_run_id` is provided, the loop records `run_started`, per-tool `tool_call`/`tool_result` with `turn`, and `run_finished`.
+`agent_runner_loop` integration is opt-in at the loop boundary. Classic `agentmain.py` passes its task `run_id`, so normal classic-agent runs record `run_started`, per-tool `tool_call`/`tool_result` with `turn`, and `run_finished`.
 
 Checks:
 
