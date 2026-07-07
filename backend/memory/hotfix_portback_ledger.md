@@ -1370,3 +1370,40 @@ Status:
 ```text
 baseline convergence score JSON validation applied; source port-back required
 ```
+
+---
+
+### Full convergence package script
+
+Files changed:
+
+```text
+package.json
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Baseline convergence had a package script, but the full strict completion gate still required manually spelling the scorer command. package.json now exposes test:convergence:full, which runs score_functionality.py --refresh --strict and relies on the caller to set the opt-in E2E env vars.
+```
+
+Verification:
+
+```text
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove test:convergence:full from package.json and restore the checklist/README references.
+```
+
+Status:
+
+```text
+full convergence package script applied; source port-back required
+```
