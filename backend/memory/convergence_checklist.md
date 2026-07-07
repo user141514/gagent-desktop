@@ -1,6 +1,13 @@
 # Convergence Check Entry
 
-Run these baseline checks before claiming a non-trivial change is complete:
+Run this baseline gate before claiming a non-trivial change is complete:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+npm.cmd run test:convergence
+```
+
+It executes:
 
 ```text
 PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/validate_tool_registry.py
@@ -62,4 +69,5 @@ This file is an operational checklist, not a source of truth. The source of trut
 - `backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py`
 - `backend/eval_registry/tests/smoke_browser_agent_e2e.py`
 - `backend/eval_registry/score_functionality.py`
+- `backend/eval_registry/run_convergence_checks.py`
 - `backend/requirements-e2e.txt`

@@ -1255,3 +1255,42 @@ Status:
 ```text
 functionality score refresh/results-dir conflict guard applied; source port-back required
 ```
+
+---
+
+### Baseline convergence runner
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+package.json
+```
+
+Reason:
+
+```text
+The baseline convergence checklist was a manual list of commands, which made completion checks easy to run inconsistently. A small stdlib runner now executes the baseline gates in order with PYTHONUTF8=1 and reports the first failing command with captured output.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+npm.cmd run test:convergence
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry/run_convergence_checks.py and the test:convergence/checklist/README references.
+```
+
+Status:
+
+```text
+baseline convergence runner applied; source port-back required
+```
