@@ -795,3 +795,39 @@ Status:
 ```text
 OpenAI orchestrated optional e2e smoke applied; source port-back required
 ```
+
+---
+
+### Browser agent optional e2e smoke
+
+Files changed:
+
+```text
+backend/eval_registry/tests/smoke_browser_agent_e2e.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+```
+
+Reason:
+
+```text
+browser_agent coverage had registry contract and stubbed handler evals but no runnable full browser/LLM path. The eval registry now has an opt-in e2e smoke that structured-skips by default and, when GAGENT_RUN_BROWSER_AGENT_E2E=1 is set, calls GenericAgentHandler.do_browser_agent with a run_id and writes latest_browser_agent_e2e_report.json.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry/tests/smoke_browser_agent_e2e.py and remove the optional check references from README and convergence_checklist.md.
+```
+
+Status:
+
+```text
+browser_agent optional e2e smoke applied; source port-back required
+```

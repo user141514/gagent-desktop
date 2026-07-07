@@ -38,15 +38,18 @@ Optional OpenAI orchestrated SDK smoke:
 ```text
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
+GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
 ```
 
-The first command must structured-skip without network/API access. The second command is the real e2e path and requires configured model variants, openai-agents SDK, and API/network access.
+The default OpenAI/browser_agent commands must structured-skip without network/API access. The opt-in commands are real e2e paths and require their SDKs, browser/runtime dependencies, and API/network access.
 
 Source of truth:
 
 ```text
 backend/eval_registry/cases/*.json
 backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+backend/eval_registry/tests/smoke_browser_agent_e2e.py
 ```
 
 Runtime artifact:
@@ -54,4 +57,5 @@ Runtime artifact:
 ```text
 backend/eval_registry/results/latest_eval_report.json
 backend/eval_registry/results/latest_openai_e2e_report.json
+backend/eval_registry/results/latest_browser_agent_e2e_report.json
 ```

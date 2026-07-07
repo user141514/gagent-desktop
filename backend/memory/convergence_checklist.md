@@ -17,6 +17,8 @@ Optional full-flow checks:
 ```text
 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 GAGENT_RUN_OPENAI_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
+GAGENT_RUN_BROWSER_AGENT_E2E=1 PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_browser_agent_e2e.py
 ```
 
 Pass criteria:
@@ -32,6 +34,7 @@ Pass criteria:
 - no search-engine homepage may be returned as a successful web_search source;
 - web_search failure must not recommend web_scan as ordinary fallback.
 - OpenAI orchestrated e2e smoke may skip by default, but must fail when explicitly enabled and the real SDK/config/runtime path cannot complete.
+- browser_agent e2e smoke may skip by default, but must fail when explicitly enabled and browser-use/Playwright/LLM runtime cannot complete.
 
 This file is an operational checklist, not a source of truth. The source of truth remains:
 
@@ -43,3 +46,4 @@ This file is an operational checklist, not a source of truth. The source of trut
 - `backend/runtime_ledger/observability.py`
 - `backend/eval_registry/cases/*.json`
 - `backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py`
+- `backend/eval_registry/tests/smoke_browser_agent_e2e.py`
