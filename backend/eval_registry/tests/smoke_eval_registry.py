@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -94,6 +95,39 @@ def _assert_answer_score_rejects_false_success(cases) -> None:
         raise AssertionError("final-answer score accepted a false success claim")
 
 
+def _assert_score_rejects_disallowed_failure(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    case = replace(base_case, expected_result={**base_case.expected_result, "allow_structured_failure": False})
+    run_id = "smoke_disallowed_failure"
+    ledger_events = [
+        {"run_id": run_id, "event_type": "run_started"},
+        {"run_id": run_id, "event_type": "tool_call", "tool": "web_search", "args": {"query": "OpenAI API docs"}},
+        {
+            "run_id": run_id,
+            "event_type": "tool_result",
+            "tool": "web_search",
+            "result": {"status": "error", "msg": "blocked", "error_category": "network_error"},
+        },
+        {
+            "run_id": run_id,
+            "event_type": "decision",
+            "decision": {
+                "action": "report_blocker",
+                "forbidden_actions": ["web_scan", "web_execute_js", "browser_agent"],
+            },
+        },
+        {"run_id": run_id, "event_type": "run_finished", "final_status": "structured_failure"},
+    ]
+    score = score_case_result(
+        case,
+        {"status": "error", "msg": "blocked", "error_category": "network_error"},
+        ledger_events,
+        {"run_id": run_id, "final_status": "structured_failure"},
+    )
+    if score.get("verdict") != "fail":
+        raise AssertionError("score accepted a structured failure when allow_structured_failure=false")
+
+
 def main() -> int:
     cases = load_eval_cases()
     errors = validate()
@@ -106,8 +140,11 @@ def main() -> int:
     _assert_score_rejects_nested_baidu(cases)
     _assert_handler_writes_browser_bridge_ledger()
     _assert_answer_score_rejects_false_success(cases)
+    _assert_score_rejects_disallowed_failure(cases)
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []
+    if summary.get("status") != "ok" or int(summary.get("failed") or 0) != 0:
+        raise AssertionError(f"eval summary failed: {summary.get('failed')} failed")
     if len(cases) < 3:
         raise AssertionError("expected at least 3 eval cases")
     if len(results) < 3:
@@ -139,6 +176,11 @@ def main() -> int:
             raise AssertionError("browser_agent_contract_boundary: contract_valid is not true")
         if result.get("case_id") == "browser_agent_handler_stub_boundary" and result.get("tool_status") != "success":
             raise AssertionError("browser_agent_handler_stub_boundary: expected success")
+        if result.get("case_id") == "agent_loop_runtime_mapper_web_search":
+            if result.get("tool_status") != "success":
+                raise AssertionError("agent_loop_runtime_mapper_web_search: expected success")
+            if result.get("runtime_started_turns") != result.get("runtime_completed_turns"):
+                raise AssertionError("agent_loop_runtime_mapper_web_search: runtime turn events are unbalanced")
         if result.get("forbidden_tools_used"):
             raise AssertionError(f"{result.get('case_id')}: forbidden tool used: {result.get('forbidden_tools_used')}")
     if summary.get("case_count", 0) < 3:

@@ -37,15 +37,18 @@ def score_case_result(
         status = "error"
     success = status == "success"
     failure = status in FAILURE_STATUSES
+    disallowed_outcome = False
     if success or failure:
         reasons.append("tool result is success or structured failure")
     else:
         behavior_score -= 20
         penalties.append(f"unexpected tool result status: {status or '(missing)'}")
     if success and case.expected_result.get("allow_success") is False:
+        disallowed_outcome = True
         behavior_score -= 20
         penalties.append("success is not allowed for this case")
     if failure and case.expected_result.get("allow_structured_failure") is False:
+        disallowed_outcome = True
         behavior_score -= 20
         penalties.append("structured failure is not allowed for this case")
 
@@ -142,7 +145,7 @@ def score_case_result(
 
     ledger_score = min(int(case.score.get("ledger", 40)), ledger_score)
     total = behavior_score + ledger_score
-    verdict = "pass" if total >= 80 and not used_forbidden else "fail"
+    verdict = "pass" if total >= 80 and not used_forbidden and not disallowed_outcome else "fail"
     return {
         "case_id": case.id,
         "total": total,

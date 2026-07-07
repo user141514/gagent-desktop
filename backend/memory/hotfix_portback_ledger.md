@@ -487,3 +487,43 @@ Status:
 ```text
 rule-based final-answer scoring applied; source port-back required
 ```
+
+---
+
+### Agent-loop runtime mapper eval
+
+Files changed:
+
+```text
+backend/core/agent_loop.py
+backend/eval_registry/README.md
+backend/eval_registry/cases/agent_loop_runtime_mapper_web_search.json
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/score_eval_result.py
+backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Reason:
+
+```text
+eval_registry needed at least one deterministic agent-loop-level check, not only direct tool handler checks. The new case exercises agent_runner_loop with a fake LLM and fake web_search handler, verifies RuntimeEventMapper turn/tool events, and catches unbalanced final-turn llm_call_started/llm_call_completed events.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_eval_cases.py
+```
+
+Rollback:
+
+```text
+Remove backend/eval_registry/cases/agent_loop_runtime_mapper_web_search.json, revert the eval runner/scorer/smoke/README changes, and revert the agent_loop.py turn_end emission fix.
+```
+
+Status:
+
+```text
+agent-loop runtime mapper eval applied; source port-back required
+```

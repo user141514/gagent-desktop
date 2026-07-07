@@ -659,6 +659,8 @@ def agent_runner_loop(client, system_prompt, user_input, handler, tools_schema, 
                     exit_reason = early_stop_reason
 
             if exit_reason:
+                if runtime_mapper is not None:
+                    runtime_mapper.on_turn_end(turn)
                 break
             if len(next_prompts) == 0:
                 if len(handler._done_hooks) == 0:

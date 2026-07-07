@@ -12,11 +12,14 @@ web_scan
 web_execute_js
 browser_agent contract
 browser_agent handler stub
+agent_loop runtime mapper
 ```
 
 `web_scan` and `web_execute_js` use a fake local browser bridge but still call the real `GenericAgentHandler` methods, so their boundary evals are offline, deterministic, and covered by handler-level `runtime_ledger` events. `browser_agent` has a registry contract eval plus a stubbed handler eval; the real high-cost browser/LLM workflow is not launched.
 
 Final-answer scoring is rule-based and deterministic. It checks that a successful tool result is not described as a failure, that successful source URLs are surfaced, and that structured failures are not reported as successful findings.
+
+`agent_loop runtime mapper` is a local fake-client/fake-handler path through the real `agent_runner_loop`. It verifies that runtime mapper turn and tool events are emitted and that started/completed LLM turns stay balanced.
 
 It intentionally does not use an LLM judge, external benchmarks, CTest, PyYAML, SWE-bench, GAIA, Judgeval, Kiln, or frontend code.
 

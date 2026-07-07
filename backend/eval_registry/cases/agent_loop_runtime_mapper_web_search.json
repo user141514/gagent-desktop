@@ -1,0 +1,32 @@
+{
+  "id": "agent_loop_runtime_mapper_web_search",
+  "version": 1,
+  "type": "agent_loop_eval",
+  "task": "Run a deterministic agent_runner_loop path where a fake LLM calls web_search once, then returns a final answer. Verify runtime mapper turn/tool events stay balanced.",
+  "owner_layer": "Layer 3 runtime controller",
+  "target_tool": "web_search",
+  "input": {
+    "query": "OpenAI API docs",
+    "engine": "auto",
+    "max_results": 1
+  },
+  "expected_tools": {
+    "allowed": ["web_search"],
+    "forbidden": ["web_scan", "web_execute_js", "browser_agent"]
+  },
+  "expected_ledger": {
+    "required_events": ["run_started", "tool_call", "tool_result", "run_finished"],
+    "required_on_failure": ["decision"],
+    "required_decision_forbidden_actions": ["web_scan", "web_execute_js", "browser_agent"]
+  },
+  "expected_result": {
+    "allow_success": true,
+    "allow_structured_failure": false,
+    "require_runtime_events": ["llm_call_started", "llm_call_completed", "tool_requested", "tool_completed"],
+    "require_balanced_turn_events": true
+  },
+  "score": {
+    "answer_or_tool_behavior": 60,
+    "ledger": 40
+  }
+}
