@@ -236,6 +236,83 @@ def _assert_validator_rejects_non_bool_expected_result_switches(cases) -> None:
             raise AssertionError(f"validator accepted non-bool expected_result.{field_name}")
 
 
+def _assert_validator_rejects_non_string_list_items(cases) -> None:
+    web_search_case = next(item for item in cases if item.id == "web_search_tool_boundary")
+    agent_loop_case = next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search")
+    browser_contract_case = next(item for item in cases if item.id == "browser_agent_contract_boundary")
+    failure_case = next(item for item in cases if item.id == "web_search_yobot_github_failure")
+    checks = [
+        (
+            replace(web_search_case, expected_tools={**web_search_case.expected_tools, "allowed": ["web_search", 7]}),
+            "expected_tools.allowed",
+        ),
+        (
+            replace(web_search_case, expected_tools={**web_search_case.expected_tools, "forbidden": ["web_scan", 7]}),
+            "expected_tools.forbidden",
+        ),
+        (
+            replace(
+                agent_loop_case,
+                expected_result={
+                    **agent_loop_case.expected_result,
+                    "require_runtime_events": [*agent_loop_case.expected_result.get("require_runtime_events", []), 7],
+                },
+            ),
+            "expected_result.require_runtime_events",
+        ),
+        (
+            replace(
+                browser_contract_case,
+                expected_result={
+                    **browser_contract_case.expected_result,
+                    "require_contract_terms": [
+                        *browser_contract_case.expected_result.get("require_contract_terms", []),
+                        7,
+                    ],
+                },
+            ),
+            "expected_result.require_contract_terms",
+        ),
+        (
+            replace(
+                failure_case,
+                expected_ledger={
+                    **failure_case.expected_ledger,
+                    "required_events": [*failure_case.expected_ledger.get("required_events", []), 7],
+                },
+            ),
+            "expected_ledger.required_events",
+        ),
+        (
+            replace(
+                failure_case,
+                expected_ledger={
+                    **failure_case.expected_ledger,
+                    "required_on_failure": [*failure_case.expected_ledger.get("required_on_failure", []), 7],
+                },
+            ),
+            "expected_ledger.required_on_failure",
+        ),
+        (
+            replace(
+                failure_case,
+                expected_ledger={
+                    **failure_case.expected_ledger,
+                    "required_decision_forbidden_actions": [
+                        *failure_case.expected_ledger.get("required_decision_forbidden_actions", []),
+                        7,
+                    ],
+                },
+            ),
+            "expected_ledger.required_decision_forbidden_actions",
+        ),
+    ]
+    for bad_case, field_path in checks:
+        errors = _validate_loaded_case(bad_case)
+        if not any(f"{field_path} must contain only strings" in error for error in errors):
+            raise AssertionError(f"validator accepted non-string {field_path} item")
+
+
 def _assert_validator_rejects_unknown_contract_fields(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -510,6 +587,7 @@ def main() -> int:
     _assert_validator_rejects_unknown_expected_result_fields(cases)
     _assert_validator_rejects_duplicate_expected_result_lists(cases)
     _assert_validator_rejects_non_bool_expected_result_switches(cases)
+    _assert_validator_rejects_non_string_list_items(cases)
     _assert_validator_rejects_unknown_contract_fields(cases)
     _assert_validator_rejects_invalid_score_weights(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)

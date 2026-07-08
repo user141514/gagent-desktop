@@ -3053,3 +3053,43 @@ Status:
 ```text
 eval expected-result boolean switch validation applied; source port-back required
 ```
+
+---
+
+### Eval list-item string validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case list fields could contain non-string items and still flow through validator/scorer paths via str() coercion. The validator now rejects non-string items in expected_tools, expected_result list fields, and expected_ledger list fields.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _has_non_string_items validation and the non-string list item smoke assertion.
+```
+
+Status:
+
+```text
+eval list-item string validation applied; source port-back required
+```

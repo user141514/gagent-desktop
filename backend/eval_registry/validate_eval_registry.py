@@ -124,6 +124,8 @@ def _validate_loaded_case(loaded) -> list[str]:
         errors.append(f"{loaded.id}: expected_tools.forbidden must be a non-empty list")
     for field_name, tools in (("allowed", allowed), ("forbidden", forbidden)):
         if isinstance(tools, list):
+            if _has_non_string_items(tools):
+                errors.append(f"{loaded.id}: expected_tools.{field_name} must contain only strings")
             duplicates = _duplicate_strings(tools)
             if duplicates:
                 errors.append(f"{loaded.id}: expected_tools.{field_name} contains duplicate item: {', '.join(duplicates)}")
@@ -151,6 +153,8 @@ def _validate_loaded_case(loaded) -> list[str]:
     for field_name in ("require_contract_terms", "require_runtime_events"):
         values = loaded.expected_result.get(field_name)
         if isinstance(values, list):
+            if _has_non_string_items(values):
+                errors.append(f"{loaded.id}: expected_result.{field_name} must contain only strings")
             duplicates = _duplicate_strings(values)
             if duplicates:
                 errors.append(f"{loaded.id}: expected_result.{field_name} contains duplicate item: {', '.join(duplicates)}")
@@ -214,6 +218,8 @@ def _validate_loaded_case(loaded) -> list[str]:
     for field_name in ("required_events", "required_on_failure", "required_decision_forbidden_actions"):
         values = loaded.expected_ledger.get(field_name)
         if isinstance(values, list):
+            if _has_non_string_items(values):
+                errors.append(f"{loaded.id}: expected_ledger.{field_name} must contain only strings")
             duplicates = _duplicate_strings(values)
             if duplicates:
                 errors.append(f"{loaded.id}: expected_ledger.{field_name} contains duplicate item: {', '.join(duplicates)}")
@@ -249,6 +255,10 @@ def _duplicate_strings(values: list) -> list[str]:
             duplicates.add(text)
         seen.add(text)
     return sorted(duplicates)
+
+
+def _has_non_string_items(values: list) -> bool:
+    return any(not isinstance(value, str) for value in values)
 
 
 def main() -> int:
