@@ -98,6 +98,7 @@ def _success_output_for(command: list[str], stdout: str) -> str:
         raise ValueError(f"score_functionality output is not valid JSON: {exc}") from exc
     if not isinstance(score, dict):
         raise ValueError("score_functionality output is not a JSON object")
+    _validate_score_mode(command, score)
     _validate_score_components(score)
     _validate_score_evidence(score)
     return json.dumps(score, indent=2, ensure_ascii=False)
@@ -107,6 +108,13 @@ def _is_score_command(command: list[str]) -> bool:
     return len(command) > 1 and command[1].replace("\\", "/").endswith(
         "backend/eval_registry/score_functionality.py"
     )
+
+
+def _validate_score_mode(command: list[str], score: dict) -> None:
+    if score.get("refreshed") is not ("--refresh" in command):
+        raise ValueError("score_functionality refreshed flag does not match runner command")
+    if score.get("strict") is not ("--strict" in command):
+        raise ValueError("score_functionality strict flag does not match runner command")
 
 
 def _validate_score_components(score: dict) -> None:
@@ -202,11 +210,12 @@ def _validate_score_evidence(score: dict) -> None:
 
 def _self_test() -> None:
     score_command = [str(PYTHON), "backend/eval_registry/score_functionality.py", "--refresh"]
+    strict_score_command = [*score_command, "--strict"]
     smoke_command = [str(PYTHON), "backend/eval_registry/tests/smoke_eval_registry.py"]
     assert _is_score_command(score_command)
     assert not _is_score_command(smoke_command)
     assert _commands(full=False)[5] == score_command
-    assert _commands(full=True)[5] == [*score_command, "--strict"]
+    assert _commands(full=True)[5] == strict_score_command
     assert SCORE_COMPONENT_WEIGHTS is score_functionality.SCORE_COMPONENT_WEIGHTS
     original_weight = SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
     try:
@@ -217,6 +226,7 @@ def _self_test() -> None:
     finally:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight
     assert json.loads(_success_output_for(score_command, _score_output_fixture()))["status"] == "needs_work"
+    assert json.loads(_success_output_for(strict_score_command, _score_output_fixture(strict=True)))["strict"] is True
     assert _success_output_for(smoke_command, "noisy child output") == ""
     try:
         _success_output_for(score_command, "log before json\n{\"status\":\"needs_work\"}")
@@ -288,6 +298,29 @@ def _self_test() -> None:
         assert "component" in str(exc)
     else:
         raise AssertionError("score output with invalid component status unexpectedly passed")
+    bad_refreshed = json.loads(_score_output_fixture())
+    bad_refreshed["refreshed"] = False
+    try:
+        _success_output_for(score_command, json.dumps(bad_refreshed))
+    except ValueError as exc:
+        assert "refreshed" in str(exc)
+    else:
+        raise AssertionError("score output with wrong refreshed flag unexpectedly passed")
+    bad_strict = json.loads(_score_output_fixture())
+    bad_strict["strict"] = True
+    try:
+        _success_output_for(score_command, json.dumps(bad_strict))
+    except ValueError as exc:
+        assert "strict" in str(exc)
+    else:
+        raise AssertionError("score output with wrong strict flag unexpectedly passed")
+    missing_strict = json.loads(_score_output_fixture())
+    try:
+        _success_output_for(strict_score_command, json.dumps(missing_strict))
+    except ValueError as exc:
+        assert "strict" in str(exc)
+    else:
+        raise AssertionError("strict score output without strict flag unexpectedly passed")
     bad_blockers = json.loads(_score_output_fixture())
     bad_blockers["blockers"] = ["hidden blocker"]
     try:
@@ -298,7 +331,7 @@ def _self_test() -> None:
         raise AssertionError("score output with wrong blockers unexpectedly passed")
 
 
-def _score_output_fixture() -> str:
+def _score_output_fixture(*, strict: bool = False) -> str:
     internal_score = SCORE_COMPONENT_WEIGHTS["internal_eval"]
     components = [
         {
@@ -329,6 +362,8 @@ def _score_output_fixture() -> str:
             "total": internal_score,
             "max_total": sum(SCORE_COMPONENT_WEIGHTS.values()),
             "blockers": [],
+            "refreshed": True,
+            "strict": strict,
             "components": components,
             "evidence": {
                 "generated_at_utc": "2026-01-01T00:00:00Z",

@@ -40,7 +40,7 @@ Pass criteria:
 - eval registry validator exits 0;
 - eval registry smoke exits 0;
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
-- baseline convergence runner validates and prints the advisory functionality score JSON, including expected component names/weights/status fields, total/max_total/status/blockers consistency, and required evidence fields, on success;
+- baseline convergence runner validates and prints the advisory functionality score JSON, including refreshed/strict mode flags, expected component names/weights/status fields, total/max_total/status/blockers consistency, and required evidence fields, on success;
 - functionality score component weights are defined in `score_functionality.py`; score max_total/status and the convergence runner use that same source;
 - convergence runner score fixtures are generated from the shared component weights;
 - full convergence runner includes baseline validators before strict functionality scoring;

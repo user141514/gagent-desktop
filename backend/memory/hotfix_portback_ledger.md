@@ -1872,3 +1872,42 @@ Status:
 ```text
 convergence runner component status validation applied; source port-back required
 ```
+
+---
+
+### Convergence runner score mode validation
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+run_convergence_checks.py always invokes score_functionality.py with --refresh, and full mode also uses --strict, but it did not verify that the score JSON reported matching refreshed/strict flags. The runner now rejects score reports whose mode flags do not match the command it executed.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _validate_score_mode, the call from _success_output_for, and the bad_refreshed/bad_strict/missing_strict self-test cases.
+```
+
+Status:
+
+```text
+convergence runner score mode validation applied; source port-back required
+```
