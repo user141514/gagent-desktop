@@ -139,6 +139,38 @@ def _assert_score_rejects_disallowed_failure(cases) -> None:
         raise AssertionError("score accepted a structured failure when allow_structured_failure=false")
 
 
+def _assert_score_rejects_required_final_status_mismatch(cases) -> None:
+    case = next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search_failure")
+    run_id = "smoke_final_status_mismatch"
+    ledger_events = [
+        {"run_id": run_id, "event_type": "run_started"},
+        {"run_id": run_id, "event_type": "tool_call", "tool": "web_search", "args": {"query": "OpenAI API docs"}},
+        {
+            "run_id": run_id,
+            "event_type": "tool_result",
+            "tool": "web_search",
+            "result": {"status": "error", "msg": "blocked", "error_category": "network_error"},
+        },
+        {
+            "run_id": run_id,
+            "event_type": "decision",
+            "decision": {
+                "action": "report_blocker",
+                "forbidden_actions": ["web_scan", "web_execute_js", "browser_agent"],
+            },
+        },
+        {"run_id": run_id, "event_type": "run_finished", "final_status": "success"},
+    ]
+    score = score_case_result(
+        case,
+        {"status": "error", "msg": "blocked", "error_category": "network_error"},
+        ledger_events,
+        {"run_id": run_id, "final_status": "success"},
+    )
+    if score.get("verdict") != "fail":
+        raise AssertionError("score accepted a mismatched required final_status")
+
+
 def _assert_validator_rejects_impossible_expected_result(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     bad_case = replace(
@@ -277,6 +309,7 @@ def main() -> int:
     _assert_answer_score_rejects_false_success(cases)
     _assert_answer_score_rejects_forbidden_fallback(cases)
     _assert_score_rejects_disallowed_failure(cases)
+    _assert_score_rejects_required_final_status_mismatch(cases)
     _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_requires_allowed_target_tool(cases)

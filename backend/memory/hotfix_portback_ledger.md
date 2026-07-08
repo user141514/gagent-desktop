@@ -2532,3 +2532,44 @@ Status:
 ```text
 eval case tool-specific expected-result validation applied; source port-back required
 ```
+
+---
+
+### Eval case required final status scoring
+
+Files changed:
+
+```text
+backend/eval_registry/score_eval_result.py
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval cases could declare expected_result.require_final_status, but score_case_result only checked that final_status existed. A mismatched final_status could still pass. The scorer now fails mismatched or missing required final_status values, and the validator requires require_final_status to be a non-empty string.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the require_final_status score check, validator type check, and smoke mismatch assertion.
+```
+
+Status:
+
+```text
+eval case required final status scoring applied; source port-back required
+```

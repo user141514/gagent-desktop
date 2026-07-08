@@ -38,6 +38,7 @@ def score_case_result(
     success = status == "success"
     failure = status in FAILURE_STATUSES
     disallowed_outcome = False
+    final_status_mismatch = False
     if success or failure:
         reasons.append("tool result is success or structured failure")
     else:
@@ -137,15 +138,24 @@ def score_case_result(
     else:
         penalties.append("decision missing required forbidden actions")
 
-    if ledger_summary.get("final_status"):
-        ledger_score += 5
-        reasons.append("final_status present")
+    required_final_status = str(case.expected_result.get("require_final_status") or "").strip()
+    actual_final_status = str(ledger_summary.get("final_status") or "").strip()
+    if actual_final_status:
+        if required_final_status and actual_final_status != required_final_status:
+            final_status_mismatch = True
+            penalties.append(f"final_status mismatch: {actual_final_status} != {required_final_status}")
+        else:
+            ledger_score += 5
+            reasons.append("final_status present")
+    elif required_final_status:
+        final_status_mismatch = True
+        penalties.append(f"final_status missing, expected {required_final_status}")
     else:
         penalties.append("final_status missing")
 
     ledger_score = min(int(case.score.get("ledger", 40)), ledger_score)
     total = behavior_score + ledger_score
-    verdict = "pass" if total >= 80 and not used_forbidden and not disallowed_outcome else "fail"
+    verdict = "pass" if total >= 80 and not used_forbidden and not disallowed_outcome and not final_status_mismatch else "fail"
     return {
         "case_id": case.id,
         "total": total,

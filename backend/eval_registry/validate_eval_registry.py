@@ -112,6 +112,10 @@ def _validate_loaded_case(loaded) -> list[str]:
         errors.append(f"{loaded.id}: expected_result.require_runtime_events requires agent_loop_eval")
     if loaded.expected_result.get("require_balanced_turn_events") is True and loaded.type != "agent_loop_eval":
         errors.append(f"{loaded.id}: expected_result.require_balanced_turn_events requires agent_loop_eval")
+    if "require_final_status" in loaded.expected_result:
+        required_final_status = loaded.expected_result.get("require_final_status")
+        if not isinstance(required_final_status, str) or not required_final_status.strip():
+            errors.append(f"{loaded.id}: expected_result.require_final_status must be a non-empty string")
     required_events = loaded.expected_ledger.get("required_events")
     if not isinstance(required_events, list):
         errors.append(f"{loaded.id}: expected_ledger.required_events must be a list")
