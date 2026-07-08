@@ -2138,3 +2138,41 @@ Status:
 ```text
 OpenAI E2E observability score evidence applied; source port-back required
 ```
+
+---
+
+### Browser-agent E2E output score evidence
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Browser-agent E2E score evidence required status=passed, run_id, ledger_summary, and successful tool_result, but a tool_result with only success=true was still too thin. Passed browser_agent reports now need non-empty result output and a positive steps_taken count.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the browser_agent result/steps_taken evidence checks and restore the self-test browser_agent passed fixture to success-only.
+```
+
+Status:
+
+```text
+browser-agent E2E output score evidence applied; source port-back required
+```

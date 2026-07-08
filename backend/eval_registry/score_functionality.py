@@ -170,6 +170,10 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
             tool_result.get("success") is True or str(tool_result.get("status") or "").lower() == "success"
         ):
             errors.append(f"{name} passed report missing successful tool_result")
+        elif not str(tool_result.get("result") or "").strip():
+            errors.append(f"{name} passed report missing browser_agent result")
+        elif not isinstance(tool_result.get("steps_taken"), int) or int(tool_result.get("steps_taken") or 0) <= 0:
+            errors.append(f"{name} passed report missing positive steps_taken")
         if not isinstance(report.get("ledger_event_count"), int) or int(report.get("ledger_event_count") or 0) <= 0:
             errors.append(f"{name} passed report missing ledger_event_count")
     return errors
@@ -364,7 +368,11 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
             }
         }
     if name == "browser_agent_e2e":
-        report["tool_result"] = {"success": True}
+        report["tool_result"] = {
+            "success": True,
+            "result": "Example Domain",
+            "steps_taken": 2,
+        }
         report["ledger_event_count"] = 4
     return report
 
@@ -411,6 +419,17 @@ def _self_test() -> None:
     )
     assert missing_openai_observability["status"] == "needs_work"
     assert any("observability" in blocker for blocker in missing_openai_observability["blockers"])
+
+    browser_without_result = dict(browser_passed)
+    browser_without_result["tool_result"] = {"success": True}
+    browser_without_result.pop("ledger_event_count", None)
+    thin_browser_result = score_reports(
+        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        openai_passed,
+        browser_without_result,
+    )
+    assert thin_browser_result["status"] == "needs_work"
+    assert any("browser_agent result" in blocker for blocker in thin_browser_result["blockers"])
 
     skipped_optional = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
