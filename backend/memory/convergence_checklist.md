@@ -49,6 +49,7 @@ Pass criteria:
 - eval registry validator rejects `expected_tools.allowed` or `expected_tools.forbidden` entries missing from `backend/tool_registry/tools/*.yml`;
 - eval registry validator rejects `expected_result` cases that allow neither success nor structured failure;
 - eval registry validator rejects duplicate items in `expected_result.require_runtime_events` and `expected_result.require_contract_terms`;
+- eval registry validator rejects non-list `expected_result.require_runtime_events` and `expected_result.require_contract_terms`;
 - eval registry validator rejects non-string items in `expected_result.require_runtime_events` and `expected_result.require_contract_terms`;
 - eval registry validator rejects non-boolean `expected_result` boolean switches;
 - eval registry validator rejects tool-specific `expected_result` fields on mismatched target tools or case types;
@@ -56,6 +57,7 @@ Pass criteria:
 - eval registry validator rejects unsupported RuntimeHost event names in `expected_result.require_runtime_events`;
 - eval registry validator rejects `expected_result.require_balanced_turn_events` unless `require_runtime_events` includes both LLM turn events;
 - eval registry validator rejects unsupported `expected_ledger.required_events` and `expected_ledger.required_on_failure` event names;
+- eval registry validator rejects non-list `expected_ledger.required_on_failure` and `expected_ledger.required_decision_forbidden_actions`;
 - eval registry validator rejects duplicate items in `expected_ledger.required_events`, `expected_ledger.required_on_failure`, and `expected_ledger.required_decision_forbidden_actions`;
 - eval registry validator rejects non-string items in `expected_ledger.required_events`, `expected_ledger.required_on_failure`, and `expected_ledger.required_decision_forbidden_actions`;
 - eval registry validator rejects `expected_ledger.required_decision_forbidden_actions` entries outside `expected_tools.forbidden`;

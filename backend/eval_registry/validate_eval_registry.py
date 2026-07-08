@@ -152,7 +152,9 @@ def _validate_loaded_case(loaded) -> list[str]:
         errors.append(f"{loaded.id}: expected_result contains unknown field: {', '.join(unknown_expected_result)}")
     for field_name in ("require_contract_terms", "require_runtime_events"):
         values = loaded.expected_result.get(field_name)
-        if isinstance(values, list):
+        if field_name in loaded.expected_result and not isinstance(values, list):
+            errors.append(f"{loaded.id}: expected_result.{field_name} must be a list")
+        elif isinstance(values, list):
             if _has_non_string_items(values):
                 errors.append(f"{loaded.id}: expected_result.{field_name} must contain only strings")
             duplicates = _duplicate_strings(values)
@@ -217,7 +219,9 @@ def _validate_loaded_case(loaded) -> list[str]:
     required_events = loaded.expected_ledger.get("required_events")
     for field_name in ("required_events", "required_on_failure", "required_decision_forbidden_actions"):
         values = loaded.expected_ledger.get(field_name)
-        if isinstance(values, list):
+        if field_name != "required_events" and field_name in loaded.expected_ledger and not isinstance(values, list):
+            errors.append(f"{loaded.id}: expected_ledger.{field_name} must be a list")
+        elif isinstance(values, list):
             if _has_non_string_items(values):
                 errors.append(f"{loaded.id}: expected_ledger.{field_name} must contain only strings")
             duplicates = _duplicate_strings(values)

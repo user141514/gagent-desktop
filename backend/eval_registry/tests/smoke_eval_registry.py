@@ -313,6 +313,46 @@ def _assert_validator_rejects_non_string_list_items(cases) -> None:
             raise AssertionError(f"validator accepted non-string {field_path} item")
 
 
+def _assert_validator_rejects_non_list_contract_fields(cases) -> None:
+    agent_loop_case = next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search")
+    browser_contract_case = next(item for item in cases if item.id == "browser_agent_contract_boundary")
+    failure_case = next(item for item in cases if item.id == "web_search_yobot_github_failure")
+    checks = [
+        (
+            replace(
+                agent_loop_case,
+                expected_result={**agent_loop_case.expected_result, "require_runtime_events": "tool_requested"},
+            ),
+            "expected_result.require_runtime_events",
+        ),
+        (
+            replace(
+                browser_contract_case,
+                expected_result={**browser_contract_case.expected_result, "require_contract_terms": "complex"},
+            ),
+            "expected_result.require_contract_terms",
+        ),
+        (
+            replace(failure_case, expected_ledger={**failure_case.expected_ledger, "required_on_failure": "decision"}),
+            "expected_ledger.required_on_failure",
+        ),
+        (
+            replace(
+                failure_case,
+                expected_ledger={
+                    **failure_case.expected_ledger,
+                    "required_decision_forbidden_actions": "web_scan",
+                },
+            ),
+            "expected_ledger.required_decision_forbidden_actions",
+        ),
+    ]
+    for bad_case, field_path in checks:
+        errors = _validate_loaded_case(bad_case)
+        if not any(f"{field_path} must be a list" in error for error in errors):
+            raise AssertionError(f"validator accepted non-list {field_path}")
+
+
 def _assert_validator_rejects_unknown_contract_fields(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -588,6 +628,7 @@ def main() -> int:
     _assert_validator_rejects_duplicate_expected_result_lists(cases)
     _assert_validator_rejects_non_bool_expected_result_switches(cases)
     _assert_validator_rejects_non_string_list_items(cases)
+    _assert_validator_rejects_non_list_contract_fields(cases)
     _assert_validator_rejects_unknown_contract_fields(cases)
     _assert_validator_rejects_invalid_score_weights(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)
