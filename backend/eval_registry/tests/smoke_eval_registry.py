@@ -219,6 +219,8 @@ def main() -> int:
         if result.get("case_id") == "agent_loop_runtime_mapper_web_search":
             if result.get("tool_status") != "success":
                 raise AssertionError("agent_loop_runtime_mapper_web_search: expected success")
+            if "FINAL_LOOP_ANSWER" not in str((result.get("final_answer") or {}).get("text") or ""):
+                raise AssertionError("agent_loop_runtime_mapper_web_search: final answer must come from the loop output")
             if result.get("runtime_started_turns") != result.get("runtime_completed_turns"):
                 raise AssertionError("agent_loop_runtime_mapper_web_search: runtime turn events are unbalanced")
             if not result.get("ledger_tool_turns") or any(turn is None for turn in result.get("ledger_tool_turns")):

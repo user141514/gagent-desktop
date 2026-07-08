@@ -2025,3 +2025,41 @@ Status:
 ```text
 final-answer forbidden fallback scoring applied; source port-back required
 ```
+
+---
+
+### Agent-loop actual final-answer eval
+
+Files changed:
+
+```text
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Agent-loop evals exercised the real agent_runner_loop path, but the harness still scored a synthesized final answer. The success-path eval now extracts exit_reason.data.answer and the smoke test verifies the reported final_answer text comes from the loop output.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Rollback:
+
+```text
+Remove final_answer_text extraction/use in run_eval_cases.py and the FINAL_LOOP_ANSWER smoke assertion.
+```
+
+Status:
+
+```text
+agent-loop actual final-answer eval applied; source port-back required
+```

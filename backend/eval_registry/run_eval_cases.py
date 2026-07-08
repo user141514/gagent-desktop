@@ -92,7 +92,7 @@ class _FakeAgentLoopClient:
                 "I will call web_search.",
                 [_FakeToolCall("web_search", dict(self.args), "eval_call_1")],
             )
-        return _FakeResponse("web_search succeeded. Source: https://openai.com/docs")
+        return _FakeResponse("FINAL_LOOP_ANSWER Source: https://openai.com/docs")
 
 
 class _AgentLoopEvalHandler(BaseHandler):
@@ -266,6 +266,7 @@ def _exercise_agent_loop_runtime_mapper(case: EvalCase, run_id: str, args: dict[
             "runtime_started_turns": started_turns,
             "runtime_completed_turns": completed_turns,
             "exit_result": exit_reason,
+            "final_answer_text": _final_answer_from_exit_reason(exit_reason),
         }
     return {
         "status": "success",
@@ -273,6 +274,7 @@ def _exercise_agent_loop_runtime_mapper(case: EvalCase, run_id: str, args: dict[
         "runtime_started_turns": started_turns,
         "runtime_completed_turns": completed_turns,
         "exit_result": exit_reason,
+        "final_answer_text": _final_answer_from_exit_reason(exit_reason),
     }
 
 
@@ -293,6 +295,15 @@ def _runtime_turns(event_types: list[str], events: list[dict[str, Any]], event_t
         if turn is not None:
             turns.append(int(turn))
     return turns
+
+
+def _final_answer_from_exit_reason(exit_reason: Any) -> str:
+    if not isinstance(exit_reason, dict):
+        return ""
+    data = exit_reason.get("data")
+    if isinstance(data, dict):
+        return str(data.get("answer") or "").strip()
+    return ""
 
 
 def _run_web_search_case(case: EvalCase) -> dict[str, Any]:
@@ -461,7 +472,7 @@ def _run_browser_agent_handler_case(case: EvalCase) -> dict[str, Any]:
 
 
 def _attach_final_answer_score(case: EvalCase, tool_result: dict, score: dict[str, Any]) -> dict[str, Any]:
-    answer_text = make_default_final_answer(case, tool_result)
+    answer_text = str(tool_result.get("final_answer_text") or "").strip() or make_default_final_answer(case, tool_result)
     answer_score = score_final_answer(case, answer_text, tool_result)
     score["final_answer"] = {
         "text": answer_text,

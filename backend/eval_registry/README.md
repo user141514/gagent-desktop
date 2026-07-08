@@ -19,7 +19,7 @@ agent_loop runtime mapper success/failure
 
 Final-answer scoring is rule-based and deterministic. It checks that a successful tool result is not described as a failure, that successful source URLs are surfaced, that structured failures are not reported as successful findings, and that failure answers do not recommend forbidden fallback tools from the eval case.
 
-`agent_loop runtime mapper` is a local fake-client/fake-handler path through the real `agent_runner_loop`. It verifies that runtime mapper turn and tool events are emitted, started/completed LLM turns stay balanced, and `agent_runner_loop(runtime_ledger_run_id=...)` writes turn-tagged `runtime_ledger` tool events. It covers both success and structured web_search failure paths.
+`agent_loop runtime mapper` is a local fake-client/fake-handler path through the real `agent_runner_loop`. It verifies that runtime mapper turn and tool events are emitted, started/completed LLM turns stay balanced, `agent_runner_loop(runtime_ledger_run_id=...)` writes turn-tagged `runtime_ledger` tool events, and the success case scores the loop's actual final answer instead of a synthesized fallback. It covers both success and structured web_search failure paths.
 
 Agent-loop eval reports also include a read-only `observability` summary that joins RuntimeHost events with `runtime_ledger` events for the same run id.
 
