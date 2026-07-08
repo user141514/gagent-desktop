@@ -2100,3 +2100,41 @@ Status:
 ```text
 optional E2E passed-evidence scoring applied; source port-back required
 ```
+
+---
+
+### OpenAI E2E observability score evidence
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+OpenAI E2E score evidence required run_id, ledger_summary, and sentinel output, but did not require RuntimeHost observability alignment. A passed report could still be too thin to prove the orchestrated path was observable end to end.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _openai_observability_errors and the observability block from the self-test OpenAI passed fixture.
+```
+
+Status:
+
+```text
+OpenAI E2E observability score evidence applied; source port-back required
+```

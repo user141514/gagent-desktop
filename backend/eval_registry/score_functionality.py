@@ -162,6 +162,8 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
         errors.append(f"{name} passed report final_status is not success")
     if name == "openai_orchestrated_e2e" and "OPENAI_E2E_OK" not in str(report.get("done") or ""):
         errors.append(f"{name} passed report missing OPENAI_E2E_OK sentinel")
+    if name == "openai_orchestrated_e2e":
+        errors.extend(_openai_observability_errors(name, report))
     if name == "browser_agent_e2e":
         tool_result = report.get("tool_result")
         if not isinstance(tool_result, dict) or not (
@@ -171,6 +173,26 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
         if not isinstance(report.get("ledger_event_count"), int) or int(report.get("ledger_event_count") or 0) <= 0:
             errors.append(f"{name} passed report missing ledger_event_count")
     return errors
+
+
+def _openai_observability_errors(name: str, report: dict[str, Any]) -> list[str]:
+    observability = report.get("observability")
+    if not isinstance(observability, dict):
+        return [f"{name} passed report missing observability"]
+    aligned = observability.get("aligned")
+    if not isinstance(aligned, dict):
+        return [f"{name} passed report missing observability alignment"]
+    required = [
+        "has_ledger_events",
+        "has_runtime_host_events",
+        "ledger_run_id_matches_requested",
+        "runtime_session_matches_run_id",
+    ]
+    return [
+        f"{name} observability alignment missing {key}"
+        for key in required
+        if aligned.get(key) is not True
+    ]
 
 
 def _component(name: str, weight: int, score: int, status: str, blockers: list[str]) -> dict[str, Any]:
@@ -333,6 +355,14 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
     }
     if name == "openai_orchestrated_e2e":
         report["done"] = "OPENAI_E2E_OK"
+        report["observability"] = {
+            "aligned": {
+                "has_ledger_events": True,
+                "has_runtime_host_events": True,
+                "ledger_run_id_matches_requested": True,
+                "runtime_session_matches_run_id": True,
+            }
+        }
     if name == "browser_agent_e2e":
         report["tool_result"] = {"success": True}
         report["ledger_event_count"] = 4
@@ -371,6 +401,16 @@ def _self_test() -> None:
     )
     assert thin_e2e_evidence["status"] == "needs_work"
     assert any("missing run_id" in blocker for blocker in thin_e2e_evidence["blockers"])
+
+    openai_without_observability = dict(openai_passed)
+    openai_without_observability.pop("observability", None)
+    missing_openai_observability = score_reports(
+        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        openai_without_observability,
+        browser_passed,
+    )
+    assert missing_openai_observability["status"] == "needs_work"
+    assert any("observability" in blocker for blocker in missing_openai_observability["blockers"])
 
     skipped_optional = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
