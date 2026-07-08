@@ -67,6 +67,13 @@ def _validate_loaded_case(loaded) -> list[str]:
             unknown = sorted({str(tool) for tool in tools if str(tool) not in registry_tools})
             if unknown:
                 errors.append(f"{loaded.id}: expected_tools.{field_name} contains unknown tool: {', '.join(unknown)}")
+    required_decision_forbidden = loaded.expected_ledger.get("required_decision_forbidden_actions")
+    if isinstance(forbidden, list) and isinstance(required_decision_forbidden, list):
+        drift = sorted(set(str(tool) for tool in required_decision_forbidden) - set(str(tool) for tool in forbidden))
+        if drift:
+            errors.append(
+                f"{loaded.id}: required_decision_forbidden_actions must be a subset of expected_tools.forbidden: {', '.join(drift)}"
+            )
     total_score = int(loaded.score.get("answer_or_tool_behavior", 0)) + int(loaded.score.get("ledger", 0))
     if total_score != 100:
         errors.append(f"{loaded.id}: score weights must sum to 100, got {total_score}")

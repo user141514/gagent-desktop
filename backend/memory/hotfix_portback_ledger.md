@@ -2372,3 +2372,43 @@ Status:
 ```text
 eval case expected-tool registry validation applied; source port-back required
 ```
+
+---
+
+### Eval case decision-forbidden subset validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval cases could require ledger decisions to forbid tools that were not listed in expected_tools.forbidden. That split the ledger contract from the tool-boundary contract. The validator now requires expected_ledger.required_decision_forbidden_actions to be a subset of expected_tools.forbidden; smoke_eval_registry covers the regression with a mutated failure case.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the required_decision_forbidden_actions subset check and the smoke mutation assertion.
+```
+
+Status:
+
+```text
+eval case decision-forbidden subset validation applied; source port-back required
+```

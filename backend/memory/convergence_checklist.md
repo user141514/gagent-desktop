@@ -41,6 +41,7 @@ Pass criteria:
 - eval registry validator rejects cases whose `expected_tools.allowed` does not include `target_tool`;
 - eval registry validator rejects overlap between `expected_tools.allowed` and `expected_tools.forbidden`;
 - eval registry validator rejects `expected_tools.allowed` or `expected_tools.forbidden` entries missing from `backend/tool_registry/tools/*.yml`;
+- eval registry validator rejects `expected_ledger.required_decision_forbidden_actions` entries outside `expected_tools.forbidden`;
 - eval registry smoke exits 0;
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
 - functionality score requires internal eval reports to cover every registry case id exactly once;

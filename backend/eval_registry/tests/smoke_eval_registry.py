@@ -176,6 +176,21 @@ def _assert_validator_rejects_unknown_expected_tools(cases) -> None:
             raise AssertionError(f"validator accepted unknown expected_tools.{field_name} tool")
 
 
+def _assert_validator_rejects_decision_forbidden_drift(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_yobot_github_failure")
+    bad_case = replace(
+        base_case,
+        expected_tools={**base_case.expected_tools, "forbidden": ["web_scan"]},
+        expected_ledger={
+            **base_case.expected_ledger,
+            "required_decision_forbidden_actions": ["web_scan", "browser_agent"],
+        },
+    )
+    errors = _validate_loaded_case(bad_case)
+    if not any("required_decision_forbidden_actions must be a subset" in error for error in errors):
+        raise AssertionError("validator accepted decision forbidden-actions outside expected_tools.forbidden")
+
+
 def _assert_agent_loop_writes_runtime_ledger(cases) -> None:
     from core.protocol.formatter import NullFormatter
 
@@ -220,6 +235,7 @@ def main() -> int:
     _assert_validator_requires_allowed_target_tool(cases)
     _assert_validator_rejects_allowed_forbidden_overlap(cases)
     _assert_validator_rejects_unknown_expected_tools(cases)
+    _assert_validator_rejects_decision_forbidden_drift(cases)
     _assert_agent_loop_writes_runtime_ledger(cases)
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []
