@@ -3,7 +3,7 @@
 Owner layer: Layer 4 quality gates plus Layer 3 runtime observability.
 
 This is the first internal evaluation harness for gagent-desktop. It runs deterministic eval cases from `cases/*.json`, executes supported web tool boundary paths, reads `runtime_ledger` JSONL events, and scores tool behavior, ledger completeness, and final-answer consistency.
-Each eval case `expected_tools.allowed` list must include its `target_tool`; the validator treats mismatches as contract drift.
+Each eval case `expected_tools.allowed` list must include its `target_tool`; `expected_tools.allowed` and `expected_tools.forbidden` must be disjoint. The validator treats mismatches as contract drift.
 
 Supported executable targets:
 
@@ -77,6 +77,7 @@ Source of truth:
 backend/eval_registry/cases/*.json
 backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 backend/eval_registry/tests/smoke_browser_agent_e2e.py
+backend/eval_registry/validate_eval_registry.py
 backend/eval_registry/score_final_answer.py
 backend/eval_registry/score_functionality.py
 backend/requirements-e2e.txt

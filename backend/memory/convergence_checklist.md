@@ -39,6 +39,7 @@ Pass criteria:
 - web tool smoke exits 0;
 - eval registry validator exits 0;
 - eval registry validator rejects cases whose `expected_tools.allowed` does not include `target_tool`;
+- eval registry validator rejects overlap between `expected_tools.allowed` and `expected_tools.forbidden`;
 - eval registry smoke exits 0;
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
 - functionality score requires internal eval reports to cover every registry case id exactly once;
@@ -83,6 +84,7 @@ This file is an operational checklist, not a source of truth. The source of trut
 - `backend/eval_registry/cases/*.json`
 - `backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py`
 - `backend/eval_registry/tests/smoke_browser_agent_e2e.py`
+- `backend/eval_registry/validate_eval_registry.py`
 - `backend/eval_registry/score_final_answer.py`
 - `backend/eval_registry/score_functionality.py`
 - `backend/eval_registry/run_convergence_checks.py`

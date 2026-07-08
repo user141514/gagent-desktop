@@ -56,6 +56,10 @@ def _validate_loaded_case(loaded) -> list[str]:
         errors.append(f"{loaded.id}: expected_tools.allowed must include target_tool {loaded.target_tool}")
     if not isinstance(forbidden, list) or not forbidden:
         errors.append(f"{loaded.id}: expected_tools.forbidden must be a non-empty list")
+    if isinstance(allowed, list) and isinstance(forbidden, list):
+        overlap = sorted(set(str(tool) for tool in allowed) & set(str(tool) for tool in forbidden))
+        if overlap:
+            errors.append(f"{loaded.id}: expected_tools.allowed and forbidden must not overlap: {', '.join(overlap)}")
     total_score = int(loaded.score.get("answer_or_tool_behavior", 0)) + int(loaded.score.get("ledger", 0))
     if total_score != 100:
         errors.append(f"{loaded.id}: score weights must sum to 100, got {total_score}")

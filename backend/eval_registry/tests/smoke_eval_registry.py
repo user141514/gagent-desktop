@@ -147,6 +147,20 @@ def _assert_validator_requires_allowed_target_tool(cases) -> None:
         raise AssertionError("validator accepted allowed tools without target_tool")
 
 
+def _assert_validator_rejects_allowed_forbidden_overlap(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_tool_boundary")
+    bad_case = replace(
+        base_case,
+        expected_tools={
+            **base_case.expected_tools,
+            "forbidden": [*base_case.expected_tools.get("forbidden", []), base_case.target_tool],
+        },
+    )
+    errors = _validate_loaded_case(bad_case)
+    if not any("allowed and forbidden must not overlap" in error for error in errors):
+        raise AssertionError("validator accepted overlapping allowed/forbidden tools")
+
+
 def _assert_agent_loop_writes_runtime_ledger(cases) -> None:
     from core.protocol.formatter import NullFormatter
 
@@ -189,6 +203,7 @@ def main() -> int:
     _assert_answer_score_rejects_forbidden_fallback(cases)
     _assert_score_rejects_disallowed_failure(cases)
     _assert_validator_requires_allowed_target_tool(cases)
+    _assert_validator_rejects_allowed_forbidden_overlap(cases)
     _assert_agent_loop_writes_runtime_ledger(cases)
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []
