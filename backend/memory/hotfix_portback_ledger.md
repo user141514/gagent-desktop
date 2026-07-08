@@ -2813,3 +2813,43 @@ Status:
 ```text
 eval case input field whitelist applied; source port-back required
 ```
+
+---
+
+### Eval case type and version whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case type/version were accepted unless they failed indirectly through another contract. The validator now rejects unsupported type and version explicitly; smoke_eval_registry covers both mutations.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove SUPPORTED_CASE_TYPES, SUPPORTED_CASE_VERSIONS, and the unsupported type/version smoke assertion.
+```
+
+Status:
+
+```text
+eval case type/version whitelist applied; source port-back required
+```

@@ -241,6 +241,18 @@ def _assert_validator_rejects_unknown_input_fields(cases) -> None:
             raise AssertionError(f"validator accepted unknown input field {base_case.id}.{field_name}")
 
 
+def _assert_validator_rejects_unsupported_type_and_version(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    checks = [
+        (replace(base_case, type="tool_boundry_eval"), "type is unsupported"),
+        (replace(base_case, version=2), "version is unsupported"),
+    ]
+    for bad_case, expected_error in checks:
+        errors = _validate_loaded_case(bad_case)
+        if not any(expected_error in error for error in errors):
+            raise AssertionError(f"validator accepted unsupported eval case contract: {expected_error}")
+
+
 def _assert_validator_rejects_tool_specific_expected_result_drift(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -406,6 +418,7 @@ def main() -> int:
     _assert_validator_rejects_unknown_contract_fields(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)
     _assert_validator_rejects_unknown_input_fields(cases)
+    _assert_validator_rejects_unsupported_type_and_version(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_rejects_unknown_runtime_events(cases)
     _assert_validator_rejects_unobservable_balanced_turns(cases)

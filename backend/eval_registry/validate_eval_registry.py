@@ -17,6 +17,8 @@ from runtime_ledger.ledger import _ALLOWED_EVENT_TYPES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_EVENT_TYPES = set(str(event) for event in get_args(RuntimeEventType))
+SUPPORTED_CASE_TYPES = {"agent_loop_eval", "tool_boundary_eval", "tool_contract_eval", "tool_handler_eval"}
+SUPPORTED_CASE_VERSIONS = {1}
 INPUT_FIELDS_BY_CASE = {
     ("agent_loop_eval", "web_search"): {"engine", "force_error", "max_results", "query", "timeout"},
     ("tool_boundary_eval", "web_execute_js"): {"script"},
@@ -75,6 +77,10 @@ def _validate_loaded_case(loaded) -> list[str]:
     errors: list[str] = []
     if loaded.id != Path(loaded.source_path).stem:
         errors.append(f"{loaded.source_path}: id and filename mismatch")
+    if loaded.type not in SUPPORTED_CASE_TYPES:
+        errors.append(f"{loaded.id}: type is unsupported: {loaded.type}")
+    if loaded.version not in SUPPORTED_CASE_VERSIONS:
+        errors.append(f"{loaded.id}: version is unsupported: {loaded.version}")
     tool_dir = ROOT / "backend" / "tool_registry" / "tools"
     registry_tools = {path.stem for path in tool_dir.glob("*.yml")}
     tool_path = tool_dir / f"{loaded.target_tool}.yml"

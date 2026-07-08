@@ -38,6 +38,7 @@ Pass criteria:
 - quality registry validator exits 0;
 - web tool smoke exits 0;
 - eval registry validator exits 0;
+- eval registry validator rejects unsupported eval case `type` and `version`;
 - eval registry loader rejects unknown top-level eval case fields;
 - eval registry validator rejects unknown `input` fields for each `(type, target_tool)` contract;
 - eval registry validator rejects cases whose `expected_tools.allowed` does not include `target_tool`;
