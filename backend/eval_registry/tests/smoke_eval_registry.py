@@ -190,6 +190,19 @@ def _assert_validator_rejects_unknown_expected_result_fields(cases) -> None:
         raise AssertionError("validator accepted unknown expected_result field")
 
 
+def _assert_validator_rejects_unknown_contract_fields(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    checks = [
+        ("expected_tools", replace(base_case, expected_tools={**base_case.expected_tools, "allowd": ["web_search"]})),
+        ("expected_ledger", replace(base_case, expected_ledger={**base_case.expected_ledger, "required_event": []})),
+        ("score", replace(base_case, score={**base_case.score, "ledgr": 0})),
+    ]
+    for field_name, bad_case in checks:
+        errors = _validate_loaded_case(bad_case)
+        if not any(f"{field_name} contains unknown field" in error for error in errors):
+            raise AssertionError(f"validator accepted unknown {field_name} field")
+
+
 def _assert_validator_rejects_tool_specific_expected_result_drift(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -352,6 +365,7 @@ def main() -> int:
     _assert_score_rejects_required_final_status_mismatch(cases)
     _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_rejects_unknown_expected_result_fields(cases)
+    _assert_validator_rejects_unknown_contract_fields(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_rejects_unknown_runtime_events(cases)
     _assert_validator_rejects_unobservable_balanced_turns(cases)

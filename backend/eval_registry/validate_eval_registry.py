@@ -17,6 +17,8 @@ from runtime_ledger.ledger import _ALLOWED_EVENT_TYPES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_EVENT_TYPES = set(str(event) for event in get_args(RuntimeEventType))
+EXPECTED_TOOLS_FIELDS = {"allowed", "forbidden"}
+EXPECTED_LEDGER_FIELDS = {"required_decision_forbidden_actions", "required_events", "required_on_failure"}
 EXPECTED_RESULT_FIELDS = {
     "allow_success",
     "allow_structured_failure",
@@ -32,6 +34,7 @@ EXPECTED_RESULT_FIELDS = {
     "require_navigation_success",
     "require_runtime_events",
 }
+SCORE_FIELDS = {"answer_or_tool_behavior", "ledger"}
 
 
 def validate() -> list[str]:
@@ -69,6 +72,14 @@ def _validate_loaded_case(loaded) -> list[str]:
     tool_path = tool_dir / f"{loaded.target_tool}.yml"
     if not tool_path.exists():
         errors.append(f"{loaded.id}: target_tool registry missing: {tool_path}")
+    for field_name, payload, allowed_fields in (
+        ("expected_tools", loaded.expected_tools, EXPECTED_TOOLS_FIELDS),
+        ("expected_ledger", loaded.expected_ledger, EXPECTED_LEDGER_FIELDS),
+        ("score", loaded.score, SCORE_FIELDS),
+    ):
+        unknown = sorted(set(str(key) for key in payload) - allowed_fields)
+        if unknown:
+            errors.append(f"{loaded.id}: {field_name} contains unknown field: {', '.join(unknown)}")
     allowed = loaded.expected_tools.get("allowed")
     forbidden = loaded.expected_tools.get("forbidden")
     if not isinstance(allowed, list) or not allowed:
