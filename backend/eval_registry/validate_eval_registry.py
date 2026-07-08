@@ -189,6 +189,12 @@ def _validate_loaded_case(loaded) -> list[str]:
         if not isinstance(required_final_status, str) or not required_final_status.strip():
             errors.append(f"{loaded.id}: expected_result.require_final_status must be a non-empty string")
     required_events = loaded.expected_ledger.get("required_events")
+    for field_name in ("required_events", "required_on_failure", "required_decision_forbidden_actions"):
+        values = loaded.expected_ledger.get(field_name)
+        if isinstance(values, list):
+            duplicates = _duplicate_strings(values)
+            if duplicates:
+                errors.append(f"{loaded.id}: expected_ledger.{field_name} contains duplicate item: {', '.join(duplicates)}")
     if not isinstance(required_events, list):
         errors.append(f"{loaded.id}: expected_ledger.required_events must be a list")
     else:
@@ -210,6 +216,17 @@ def _validate_loaded_case(loaded) -> list[str]:
                 f"{loaded.id}: expected_ledger.required_on_failure contains unsupported event: {', '.join(unknown_failure_events)}"
             )
     return errors
+
+
+def _duplicate_strings(values: list) -> list[str]:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for value in values:
+        text = str(value)
+        if text in seen:
+            duplicates.add(text)
+        seen.add(text)
+    return sorted(duplicates)
 
 
 def main() -> int:

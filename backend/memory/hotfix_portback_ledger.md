@@ -2893,3 +2893,43 @@ Status:
 ```text
 eval case score weight contract applied; source port-back required
 ```
+
+---
+
+### Eval ledger list duplicate validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case expected_ledger list fields could repeat entries, making a case look stricter without adding coverage. The validator now rejects duplicate items in required_events, required_on_failure, and required_decision_forbidden_actions; smoke_eval_registry covers all three.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _duplicate_strings validation and the duplicate-ledger-list smoke assertion.
+```
+
+Status:
+
+```text
+eval ledger list duplicate validation applied; source port-back required
+```

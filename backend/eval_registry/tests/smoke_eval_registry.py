@@ -384,6 +384,26 @@ def _assert_validator_rejects_unknown_ledger_events(cases) -> None:
             raise AssertionError(f"validator accepted unknown expected_ledger.{field_name} event")
 
 
+def _assert_validator_rejects_duplicate_ledger_lists(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_yobot_github_failure")
+    checks = {
+        "required_events": [*base_case.expected_ledger.get("required_events", []), "tool_call"],
+        "required_on_failure": [*base_case.expected_ledger.get("required_on_failure", []), "decision"],
+        "required_decision_forbidden_actions": [
+            *base_case.expected_ledger.get("required_decision_forbidden_actions", []),
+            "web_scan",
+        ],
+    }
+    for field_name, field_value in checks.items():
+        bad_case = replace(
+            base_case,
+            expected_ledger={**base_case.expected_ledger, field_name: field_value},
+        )
+        errors = _validate_loaded_case(bad_case)
+        if not any(f"expected_ledger.{field_name} contains duplicate item" in error for error in errors):
+            raise AssertionError(f"validator accepted duplicate expected_ledger.{field_name} item")
+
+
 def _assert_agent_loop_writes_runtime_ledger(cases) -> None:
     from core.protocol.formatter import NullFormatter
 
@@ -441,6 +461,7 @@ def main() -> int:
     _assert_validator_rejects_unknown_expected_tools(cases)
     _assert_validator_rejects_decision_forbidden_drift(cases)
     _assert_validator_rejects_unknown_ledger_events(cases)
+    _assert_validator_rejects_duplicate_ledger_lists(cases)
     _assert_agent_loop_writes_runtime_ledger(cases)
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []

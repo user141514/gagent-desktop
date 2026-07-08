@@ -51,6 +51,7 @@ Pass criteria:
 - eval registry validator rejects unsupported RuntimeHost event names in `expected_result.require_runtime_events`;
 - eval registry validator rejects `expected_result.require_balanced_turn_events` unless `require_runtime_events` includes both LLM turn events;
 - eval registry validator rejects unsupported `expected_ledger.required_events` and `expected_ledger.required_on_failure` event names;
+- eval registry validator rejects duplicate items in `expected_ledger.required_events`, `expected_ledger.required_on_failure`, and `expected_ledger.required_decision_forbidden_actions`;
 - eval registry validator rejects `expected_ledger.required_decision_forbidden_actions` entries outside `expected_tools.forbidden`;
 - eval registry validator rejects unknown `expected_tools`, `expected_ledger`, and `score` fields;
 - eval registry validator rejects unknown `expected_result` fields;
