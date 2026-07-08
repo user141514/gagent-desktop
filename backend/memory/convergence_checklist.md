@@ -41,6 +41,7 @@ Pass criteria:
 - eval registry validator rejects unsupported eval case `type` and `version`;
 - eval registry loader rejects unknown top-level eval case fields;
 - eval registry validator rejects unknown `input` fields for each `(type, target_tool)` contract;
+- eval registry validator rejects invalid `input` field value types;
 - eval registry validator rejects score weights that differ from the current 60/40 harness contract;
 - eval registry validator rejects cases whose `expected_tools.allowed` does not include `target_tool`;
 - eval registry validator rejects overlap between `expected_tools.allowed` and `expected_tools.forbidden`;

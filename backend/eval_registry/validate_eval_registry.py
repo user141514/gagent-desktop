@@ -106,6 +106,7 @@ def _validate_loaded_case(loaded) -> list[str]:
         unknown_input = sorted(set(str(key) for key in loaded.input) - input_fields)
         if unknown_input:
             errors.append(f"{loaded.id}: input contains unknown field: {', '.join(unknown_input)}")
+        errors.extend(_validate_input_values(loaded.id, loaded.input))
     for field_name, payload, allowed_fields in (
         ("expected_tools", loaded.expected_tools, EXPECTED_TOOLS_FIELDS),
         ("expected_ledger", loaded.expected_ledger, EXPECTED_LEDGER_FIELDS),
@@ -259,6 +260,25 @@ def _duplicate_strings(values: list) -> list[str]:
             duplicates.add(text)
         seen.add(text)
     return sorted(duplicates)
+
+
+def _validate_input_values(case_id: str, values: dict) -> list[str]:
+    errors: list[str] = []
+    for field_name in ("query", "engine", "script", "registry_file", "task"):
+        if field_name in values and (not isinstance(values.get(field_name), str) or not values.get(field_name).strip()):
+            errors.append(f"{case_id}: input.{field_name} must be a non-empty string")
+    for field_name in ("max_results", "max_steps"):
+        value = values.get(field_name)
+        if field_name in values and (isinstance(value, bool) or not isinstance(value, int) or value <= 0):
+            errors.append(f"{case_id}: input.{field_name} must be a positive integer")
+    for field_name in ("timeout",):
+        value = values.get(field_name)
+        if field_name in values and (isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0):
+            errors.append(f"{case_id}: input.{field_name} must be a positive number")
+    for field_name in ("force_error", "headless", "tabs_only"):
+        if field_name in values and not isinstance(values.get(field_name), bool):
+            errors.append(f"{case_id}: input.{field_name} must be a boolean")
+    return errors
 
 
 def _has_non_string_items(values: list) -> bool:

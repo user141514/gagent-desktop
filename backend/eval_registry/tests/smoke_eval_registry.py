@@ -415,6 +415,71 @@ def _assert_validator_rejects_unknown_input_fields(cases) -> None:
             raise AssertionError(f"validator accepted unknown input field {base_case.id}.{field_name}")
 
 
+def _assert_validator_rejects_invalid_input_values(cases) -> None:
+    checks = [
+        (
+            next(item for item in cases if item.id == "web_search_openai_docs"),
+            {"query": ""},
+            "input.query must be a non-empty string",
+        ),
+        (
+            next(item for item in cases if item.id == "web_search_openai_docs"),
+            {"engine": 7},
+            "input.engine must be a non-empty string",
+        ),
+        (
+            next(item for item in cases if item.id == "web_search_openai_docs"),
+            {"max_results": "2"},
+            "input.max_results must be a positive integer",
+        ),
+        (
+            next(item for item in cases if item.id == "web_search_openai_docs"),
+            {"timeout": 0},
+            "input.timeout must be a positive number",
+        ),
+        (
+            next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search_failure"),
+            {"force_error": "true"},
+            "input.force_error must be a boolean",
+        ),
+        (
+            next(item for item in cases if item.id == "web_scan_current_tab_boundary"),
+            {"tabs_only": "true"},
+            "input.tabs_only must be a boolean",
+        ),
+        (
+            next(item for item in cases if item.id == "web_execute_js_navigation_boundary"),
+            {"script": ""},
+            "input.script must be a non-empty string",
+        ),
+        (
+            next(item for item in cases if item.id == "browser_agent_contract_boundary"),
+            {"registry_file": ""},
+            "input.registry_file must be a non-empty string",
+        ),
+        (
+            next(item for item in cases if item.id == "browser_agent_handler_stub_boundary"),
+            {"task": ""},
+            "input.task must be a non-empty string",
+        ),
+        (
+            next(item for item in cases if item.id == "browser_agent_handler_stub_boundary"),
+            {"max_steps": 0},
+            "input.max_steps must be a positive integer",
+        ),
+        (
+            next(item for item in cases if item.id == "browser_agent_handler_stub_boundary"),
+            {"headless": "true"},
+            "input.headless must be a boolean",
+        ),
+    ]
+    for base_case, changed_input, expected_error in checks:
+        bad_case = replace(base_case, input={**base_case.input, **changed_input})
+        errors = _validate_loaded_case(bad_case)
+        if not any(expected_error in error for error in errors):
+            raise AssertionError(f"validator accepted invalid {base_case.id} input: {changed_input}")
+
+
 def _assert_validator_rejects_unsupported_type_and_version(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -633,6 +698,7 @@ def main() -> int:
     _assert_validator_rejects_invalid_score_weights(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)
     _assert_validator_rejects_unknown_input_fields(cases)
+    _assert_validator_rejects_invalid_input_values(cases)
     _assert_validator_rejects_unsupported_type_and_version(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_rejects_unknown_runtime_events(cases)
