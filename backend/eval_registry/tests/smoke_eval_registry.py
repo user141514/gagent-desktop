@@ -139,6 +139,17 @@ def _assert_score_rejects_disallowed_failure(cases) -> None:
         raise AssertionError("score accepted a structured failure when allow_structured_failure=false")
 
 
+def _assert_validator_rejects_impossible_expected_result(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    bad_case = replace(
+        base_case,
+        expected_result={**base_case.expected_result, "allow_success": False, "allow_structured_failure": False},
+    )
+    errors = _validate_loaded_case(bad_case)
+    if not any("expected_result must allow success or structured failure" in error for error in errors):
+        raise AssertionError("validator accepted impossible expected_result outcomes")
+
+
 def _assert_validator_requires_allowed_target_tool(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_tool_boundary")
     bad_case = replace(base_case, expected_tools={**base_case.expected_tools, "allowed": ["web_scan"]})
@@ -248,6 +259,7 @@ def main() -> int:
     _assert_answer_score_rejects_false_success(cases)
     _assert_answer_score_rejects_forbidden_fallback(cases)
     _assert_score_rejects_disallowed_failure(cases)
+    _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_requires_allowed_target_tool(cases)
     _assert_validator_rejects_allowed_forbidden_overlap(cases)
     _assert_validator_rejects_unknown_expected_tools(cases)

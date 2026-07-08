@@ -2452,3 +2452,43 @@ Status:
 ```text
 eval case ledger event-name validation applied; source port-back required
 ```
+
+---
+
+### Eval case expected-result outcome validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval cases could set both expected_result.allow_success and expected_result.allow_structured_failure to false, making every possible tool outcome invalid. The validator now requires both fields to be booleans and at least one outcome to be allowed; smoke_eval_registry covers the impossible-outcome regression with a mutated case.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the expected_result allow_success/allow_structured_failure checks and the smoke mutation assertion.
+```
+
+Status:
+
+```text
+eval case expected-result outcome validation applied; source port-back required
+```

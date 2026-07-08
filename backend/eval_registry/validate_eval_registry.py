@@ -78,6 +78,14 @@ def _validate_loaded_case(loaded) -> list[str]:
     total_score = int(loaded.score.get("answer_or_tool_behavior", 0)) + int(loaded.score.get("ledger", 0))
     if total_score != 100:
         errors.append(f"{loaded.id}: score weights must sum to 100, got {total_score}")
+    allow_success = loaded.expected_result.get("allow_success")
+    allow_structured_failure = loaded.expected_result.get("allow_structured_failure")
+    if not isinstance(allow_success, bool):
+        errors.append(f"{loaded.id}: expected_result.allow_success must be a boolean")
+    if not isinstance(allow_structured_failure, bool):
+        errors.append(f"{loaded.id}: expected_result.allow_structured_failure must be a boolean")
+    if allow_success is False and allow_structured_failure is False:
+        errors.append(f"{loaded.id}: expected_result must allow success or structured failure")
     required_events = loaded.expected_ledger.get("required_events")
     if not isinstance(required_events, list):
         errors.append(f"{loaded.id}: expected_ledger.required_events must be a list")
