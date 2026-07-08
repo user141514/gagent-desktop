@@ -16,14 +16,14 @@ ROOT = Path(__file__).resolve().parents[2]
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
 OUTPUT_PATH = RESULTS_DIR / "latest_functionality_score.json"
 
-INTERNAL_EVAL_WEIGHT = 70
-OPENAI_E2E_WEIGHT = 15
-BROWSER_AGENT_E2E_WEIGHT = 15
 SCORE_COMPONENT_WEIGHTS = {
-    "internal_eval": INTERNAL_EVAL_WEIGHT,
-    "openai_orchestrated_e2e": OPENAI_E2E_WEIGHT,
-    "browser_agent_e2e": BROWSER_AGENT_E2E_WEIGHT,
+    "internal_eval": 70,
+    "openai_orchestrated_e2e": 15,
+    "browser_agent_e2e": 15,
 }
+INTERNAL_EVAL_WEIGHT = SCORE_COMPONENT_WEIGHTS["internal_eval"]
+OPENAI_E2E_WEIGHT = SCORE_COMPONENT_WEIGHTS["openai_orchestrated_e2e"]
+BROWSER_AGENT_E2E_WEIGHT = SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
 
 
 def main() -> int:
@@ -79,29 +79,34 @@ def score_reports(
     browser_agent_report: dict[str, Any] | None,
 ) -> dict[str, Any]:
     components = [
-        _score_internal_eval(eval_report, INTERNAL_EVAL_WEIGHT),
+        _score_internal_eval(eval_report, SCORE_COMPONENT_WEIGHTS["internal_eval"]),
         _score_optional_e2e(
             "openai_orchestrated_e2e",
             openai_report,
-            OPENAI_E2E_WEIGHT,
+            SCORE_COMPONENT_WEIGHTS["openai_orchestrated_e2e"],
             "OpenAI orchestrated SDK path is not proven",
         ),
         _score_optional_e2e(
             "browser_agent_e2e",
             browser_agent_report,
-            BROWSER_AGENT_E2E_WEIGHT,
+            SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"],
             "browser_agent real browser/LLM path is not proven",
         ),
     ]
     total = sum(int(item["score"]) for item in components)
+    max_total = _max_total()
     blockers = [blocker for item in components for blocker in item.get("blockers", [])]
     return {
-        "status": "ok" if total == 100 else "needs_work",
+        "status": "ok" if total == max_total else "needs_work",
         "total": total,
-        "max_total": 100,
+        "max_total": max_total,
         "components": components,
         "blockers": blockers,
     }
+
+
+def _max_total() -> int:
+    return sum(SCORE_COMPONENT_WEIGHTS.values())
 
 
 def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str, Any]:
@@ -313,6 +318,19 @@ def _self_test() -> None:
     assert skipped_optional["status"] == "needs_work"
     assert skipped_optional["total"] == 70
     assert _exit_code_for_report(skipped_optional, strict=True) == 1
+
+    original_weight = SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
+    try:
+        SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight + 5
+        shifted_weights = score_reports(
+            {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+            {"status": "passed"},
+            {"status": "passed"},
+        )
+        assert shifted_weights["max_total"] == sum(SCORE_COMPONENT_WEIGHTS.values())
+        assert shifted_weights["status"] == "ok"
+    finally:
+        SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight
 
     failed_optional = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},

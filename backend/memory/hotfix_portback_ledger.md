@@ -1754,3 +1754,42 @@ Status:
 ```text
 convergence runner blocker consistency applied; source port-back required
 ```
+
+---
+
+### Functionality score max-total source
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+score_functionality.py exported SCORE_COMPONENT_WEIGHTS for the convergence runner, but score_reports still hard-coded max_total/status against 100. The score now computes component weights, max_total, and status from SCORE_COMPONENT_WEIGHTS, and self-test mutates the weight table to prove the relationship.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Restore the old hard-coded weight constants, return status/max_total to the literal 100 behavior, and remove the shifted_weights self-test block.
+```
+
+Status:
+
+```text
+functionality score max-total source applied; source port-back required
+```

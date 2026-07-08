@@ -48,7 +48,7 @@ Use `--results-dir <dir> --no-write` to score isolated report fixtures without t
 Score reports include an `evidence` object with the results directory, input report file status, Git HEAD/dirty state, Python executable, and non-secret E2E env switches.
 Skipped optional OpenAI/browser_agent E2E reports count as `needs_work`; full completion requires enabling the opt-in E2E env vars before running `--refresh --strict`.
 `run_convergence_checks.py` validates the score JSON, expected component names/weights, total/max_total/status/blockers consistency, and required `evidence` fields, then prints it on success so baseline runs expose current blockers instead of only saying `ok`; `--full` also runs the baseline validators before strict scoring.
-The expected component weights are exported by `score_functionality.py`; the convergence runner imports that source of truth instead of keeping a second copy.
+The expected component weights are exported by `score_functionality.py`; score totals and the convergence runner both use that source of truth instead of keeping second copies.
 
 Optional OpenAI orchestrated SDK smoke:
 
