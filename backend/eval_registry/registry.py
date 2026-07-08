@@ -65,7 +65,14 @@ def load_eval_case(path: str | Path) -> EvalCase:
     if extra:
         raise ValueError(f"{case_path}: unknown fields: {', '.join(extra)}")
 
-    case_id = str(payload["id"]).strip()
+    for field_name in ("id", "type", "task", "owner_layer", "target_tool"):
+        value = payload[field_name]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{case_path}: {field_name} must be a non-empty string")
+    if isinstance(payload["version"], bool) or not isinstance(payload["version"], int):
+        raise ValueError(f"{case_path}: version must be an integer")
+
+    case_id = payload["id"].strip()
     if case_id != case_path.stem:
         raise ValueError(f"{case_path}: case id must match filename stem {case_path.stem}")
 
@@ -81,11 +88,11 @@ def load_eval_case(path: str | Path) -> EvalCase:
 
     return EvalCase(
         id=case_id,
-        version=int(payload["version"]),
-        type=str(payload["type"]),
-        task=str(payload["task"]),
-        owner_layer=str(payload["owner_layer"]),
-        target_tool=str(payload["target_tool"]),
+        version=payload["version"],
+        type=payload["type"],
+        task=payload["task"],
+        owner_layer=payload["owner_layer"],
+        target_tool=payload["target_tool"],
         input=dict(payload["input"]),
         expected_tools=dict(payload["expected_tools"]),
         expected_ledger=dict(payload["expected_ledger"]),

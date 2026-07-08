@@ -39,6 +39,7 @@ Pass criteria:
 - web tool smoke exits 0;
 - eval registry validator exits 0;
 - eval registry validator rejects unsupported eval case `type` and `version`;
+- eval registry loader rejects invalid top-level scalar types before coercion;
 - eval registry loader rejects unknown top-level eval case fields;
 - eval registry validator rejects unknown `input` fields for each `(type, target_tool)` contract;
 - eval registry validator rejects missing required `input` fields for each `(type, target_tool)` contract;

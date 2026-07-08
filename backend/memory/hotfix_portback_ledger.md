@@ -3253,3 +3253,43 @@ Status:
 ```text
 eval score integer loader validation applied; source port-back required
 ```
+
+---
+
+### Eval top-level scalar loader validation
+
+Files changed:
+
+```text
+backend/eval_registry/registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case top-level scalar fields could be coerced by load_eval_case, for example version "1" to 1 or type 7 to "7". The loader now rejects invalid top-level scalar types at the JSON boundary.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the top-level scalar type checks in load_eval_case and the invalid top-level scalar loader smoke assertion.
+```
+
+Status:
+
+```text
+eval top-level scalar loader validation applied; source port-back required
+```

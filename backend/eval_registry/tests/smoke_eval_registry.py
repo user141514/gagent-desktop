@@ -411,6 +411,31 @@ def _assert_loader_rejects_non_integer_score_values(cases) -> None:
     raise AssertionError("loader accepted non-integer score.answer_or_tool_behavior")
 
 
+def _assert_loader_rejects_invalid_top_level_scalar_types(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    base_payload = json.loads(Path(base_case.source_path).read_text(encoding="utf-8"))
+    checks = [
+        ({"version": "1"}, Path(base_case.source_path).name, "version must be an integer"),
+        ({"type": 7}, Path(base_case.source_path).name, "type must be a non-empty string"),
+        ({"task": 7}, Path(base_case.source_path).name, "task must be a non-empty string"),
+        ({"owner_layer": 7}, Path(base_case.source_path).name, "owner_layer must be a non-empty string"),
+        ({"target_tool": 7}, Path(base_case.source_path).name, "target_tool must be a non-empty string"),
+        ({"id": 123}, "123.json", "id must be a non-empty string"),
+    ]
+    for changed_fields, filename, expected_error in checks:
+        payload = {**base_payload, **changed_fields}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir) / filename
+            temp_path.write_text(json.dumps(payload), encoding="utf-8")
+            try:
+                load_eval_case(temp_path)
+            except ValueError as exc:
+                if expected_error in str(exc):
+                    continue
+                raise AssertionError(f"loader rejected top-level scalar for the wrong reason: {exc}") from exc
+        raise AssertionError(f"loader accepted invalid top-level scalar: {changed_fields}")
+
+
 def _assert_validator_rejects_unknown_input_fields(cases) -> None:
     checks = [
         (
@@ -737,6 +762,7 @@ def main() -> int:
     _assert_validator_rejects_invalid_score_weights(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)
     _assert_loader_rejects_non_integer_score_values(cases)
+    _assert_loader_rejects_invalid_top_level_scalar_types(cases)
     _assert_validator_rejects_unknown_input_fields(cases)
     _assert_validator_rejects_invalid_input_values(cases)
     _assert_validator_rejects_missing_required_input_fields(cases)
