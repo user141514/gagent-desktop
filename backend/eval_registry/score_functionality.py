@@ -148,6 +148,18 @@ def _internal_eval_coverage_blockers(report: dict[str, Any], results: list[dict[
     if len(results) != len(expected):
         blockers.append(f"internal eval result count does not match registry cases: {len(results)} != {len(expected)}")
     result_ids = [str(item.get("case_id") or "") for item in results]
+    passed = len([item for item in results if item.get("verdict") == "pass"])
+    failed = len([item for item in results if item.get("verdict") == "fail"])
+    skipped = len([item for item in results if item.get("verdict") == "skip"])
+    expected_status = "ok" if failed == 0 else "failed"
+    if report.get("status") != expected_status:
+        blockers.append(f"internal eval status does not match results: {report.get('status')} != {expected_status}")
+    if report.get("passed") != passed:
+        blockers.append(f"internal eval passed count does not match results: {report.get('passed')} != {passed}")
+    if report.get("failed") != failed:
+        blockers.append(f"internal eval failed count does not match results: {report.get('failed')} != {failed}")
+    if report.get("skipped") != skipped:
+        blockers.append(f"internal eval skipped count does not match results: {report.get('skipped')} != {skipped}")
     expected_set = set(expected)
     result_set = set(result_ids)
     missing = sorted(expected_set - result_set)
@@ -460,6 +472,16 @@ def _self_test() -> None:
     )
     assert thin_internal_eval["status"] == "needs_work"
     assert any("missing cases" in blocker for blocker in thin_internal_eval["blockers"])
+
+    inconsistent_internal_summary = dict(full_internal_eval)
+    inconsistent_internal_summary["passed"] = 0
+    inconsistent_score = score_reports(
+        inconsistent_internal_summary,
+        openai_passed,
+        browser_passed,
+    )
+    assert inconsistent_score["status"] == "needs_work"
+    assert any("passed count" in blocker for blocker in inconsistent_score["blockers"])
 
     thin_e2e_evidence = score_reports(
         full_internal_eval,

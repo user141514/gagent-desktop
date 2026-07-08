@@ -2214,3 +2214,41 @@ Status:
 ```text
 internal eval registry coverage scoring applied; source port-back required
 ```
+
+---
+
+### Internal eval summary consistency scoring
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Internal eval scoring now checked coverage, but still trusted top-level summary fields implicitly. A report could contain all passing results while status/passed/failed/skipped fields contradicted those results. The scorer now derives summary counts and expected status from result verdicts and rejects mismatches.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the internal eval status/passed/failed/skipped comparisons from _internal_eval_coverage_blockers and the inconsistent summary self-test block.
+```
+
+Status:
+
+```text
+internal eval summary consistency scoring applied; source port-back required
+```
