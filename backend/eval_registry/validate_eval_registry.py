@@ -10,6 +10,7 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from eval_registry.registry import default_cases_dir, load_eval_case, load_eval_cases  # noqa: E402
+from runtime_ledger.ledger import _ALLOWED_EVENT_TYPES  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -81,9 +82,23 @@ def _validate_loaded_case(loaded) -> list[str]:
     if not isinstance(required_events, list):
         errors.append(f"{loaded.id}: expected_ledger.required_events must be a list")
     else:
+        unknown_required_events = sorted({str(event) for event in required_events if str(event) not in _ALLOWED_EVENT_TYPES})
+        if unknown_required_events:
+            errors.append(
+                f"{loaded.id}: expected_ledger.required_events contains unsupported event: {', '.join(unknown_required_events)}"
+            )
         for event_name in ("tool_call", "tool_result"):
             if event_name not in required_events:
                 errors.append(f"{loaded.id}: required_events must include {event_name}")
+    required_on_failure = loaded.expected_ledger.get("required_on_failure")
+    if isinstance(required_on_failure, list):
+        unknown_failure_events = sorted(
+            {str(event) for event in required_on_failure if str(event) not in _ALLOWED_EVENT_TYPES}
+        )
+        if unknown_failure_events:
+            errors.append(
+                f"{loaded.id}: expected_ledger.required_on_failure contains unsupported event: {', '.join(unknown_failure_events)}"
+            )
     return errors
 
 
