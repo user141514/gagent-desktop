@@ -1793,3 +1793,43 @@ Status:
 ```text
 functionality score max-total source applied; source port-back required
 ```
+
+---
+
+### Convergence runner score fixture weight source
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner imported SCORE_COMPONENT_WEIGHTS for validation, but its self-test fixture still hard-coded 70/15/15. The fixture now generates component weights, total, and max_total from SCORE_COMPONENT_WEIGHTS, and the unused legacy weight aliases in score_functionality.py were removed.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Restore hard-coded component fixture values in _score_output_fixture and re-add the legacy INTERNAL_EVAL_WEIGHT/OPENAI_E2E_WEIGHT/BROWSER_AGENT_E2E_WEIGHT aliases.
+```
+
+Status:
+
+```text
+convergence runner score fixture weight source applied; source port-back required
+```

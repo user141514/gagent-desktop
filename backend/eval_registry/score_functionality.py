@@ -21,9 +21,6 @@ SCORE_COMPONENT_WEIGHTS = {
     "openai_orchestrated_e2e": 15,
     "browser_agent_e2e": 15,
 }
-INTERNAL_EVAL_WEIGHT = SCORE_COMPONENT_WEIGHTS["internal_eval"]
-OPENAI_E2E_WEIGHT = SCORE_COMPONENT_WEIGHTS["openai_orchestrated_e2e"]
-BROWSER_AGENT_E2E_WEIGHT = SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
 
 
 def main() -> int:

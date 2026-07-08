@@ -42,6 +42,7 @@ Pass criteria:
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
 - baseline convergence runner validates and prints the advisory functionality score JSON, including expected component names/weights, total/max_total/status/blockers consistency, and required evidence fields, on success;
 - functionality score component weights are defined in `score_functionality.py`; score max_total/status and the convergence runner use that same source;
+- convergence runner score fixtures are generated from the shared component weights;
 - full convergence runner includes baseline validators before strict functionality scoring;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
 - refreshed functionality score success output stays machine-readable as one JSON report; child stdout/stderr appears only on refresh failure;

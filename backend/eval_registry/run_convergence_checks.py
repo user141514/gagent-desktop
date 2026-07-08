@@ -205,6 +205,14 @@ def _self_test() -> None:
     assert _commands(full=False)[5] == score_command
     assert _commands(full=True)[5] == [*score_command, "--strict"]
     assert SCORE_COMPONENT_WEIGHTS is score_functionality.SCORE_COMPONENT_WEIGHTS
+    original_weight = SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
+    try:
+        SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight + 5
+        shifted_fixture = json.loads(_score_output_fixture())
+        assert shifted_fixture["max_total"] == sum(SCORE_COMPONENT_WEIGHTS.values())
+        assert shifted_fixture["components"][2]["weight"] == SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
+    finally:
+        SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight
     assert json.loads(_success_output_for(score_command, _score_output_fixture()))["status"] == "needs_work"
     assert _success_output_for(smoke_command, "noisy child output") == ""
     try:
@@ -280,17 +288,34 @@ def _self_test() -> None:
 
 
 def _score_output_fixture() -> str:
+    internal_score = SCORE_COMPONENT_WEIGHTS["internal_eval"]
+    components = [
+        {
+            "name": "internal_eval",
+            "weight": SCORE_COMPONENT_WEIGHTS["internal_eval"],
+            "score": internal_score,
+            "blockers": [],
+        },
+        {
+            "name": "openai_orchestrated_e2e",
+            "weight": SCORE_COMPONENT_WEIGHTS["openai_orchestrated_e2e"],
+            "score": 0,
+            "blockers": [],
+        },
+        {
+            "name": "browser_agent_e2e",
+            "weight": SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"],
+            "score": 0,
+            "blockers": [],
+        },
+    ]
     return json.dumps(
         {
             "status": "needs_work",
-            "total": 70,
-            "max_total": 100,
+            "total": internal_score,
+            "max_total": sum(SCORE_COMPONENT_WEIGHTS.values()),
             "blockers": [],
-            "components": [
-                {"name": "internal_eval", "weight": 70, "score": 70, "blockers": []},
-                {"name": "openai_orchestrated_e2e", "weight": 15, "score": 0, "blockers": []},
-                {"name": "browser_agent_e2e", "weight": 15, "score": 0, "blockers": []},
-            ],
+            "components": components,
             "evidence": {
                 "generated_at_utc": "2026-01-01T00:00:00Z",
                 "results_dir": "backend/eval_registry/results",
