@@ -73,6 +73,12 @@ def load_eval_case(path: str | Path) -> EvalCase:
         if not isinstance(payload.get(dict_field), dict):
             raise ValueError(f"{case_path}: {dict_field} must be an object")
 
+    score_payload = dict(payload["score"])
+    for field_name in ("answer_or_tool_behavior", "ledger"):
+        value = score_payload.get(field_name)
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{case_path}: score.{field_name} must be an integer")
+
     return EvalCase(
         id=case_id,
         version=int(payload["version"]),
@@ -84,7 +90,7 @@ def load_eval_case(path: str | Path) -> EvalCase:
         expected_tools=dict(payload["expected_tools"]),
         expected_ledger=dict(payload["expected_ledger"]),
         expected_result=dict(payload["expected_result"]),
-        score={str(k): int(v) for k, v in dict(payload["score"]).items()},
+        score={str(k): int(v) for k, v in score_payload.items()},
         source_path=str(case_path),
     )
 

@@ -3213,3 +3213,43 @@ Status:
 ```text
 eval required input field validation applied; source port-back required
 ```
+
+---
+
+### Eval score integer loader validation
+
+Files changed:
+
+```text
+backend/eval_registry/registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case score values could be written as JSON strings such as "60" and load_eval_case would coerce them to integers before validation. The loader now rejects non-integer score values at the JSON boundary.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the score integer check in load_eval_case and the non-integer score loader smoke assertion.
+```
+
+Status:
+
+```text
+eval score integer loader validation applied; source port-back required
+```

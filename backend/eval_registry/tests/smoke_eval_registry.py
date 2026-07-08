@@ -395,6 +395,22 @@ def _assert_loader_rejects_unknown_top_level_fields(cases) -> None:
     raise AssertionError("loader accepted unknown top-level eval case field")
 
 
+def _assert_loader_rejects_non_integer_score_values(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    payload = json.loads(Path(base_case.source_path).read_text(encoding="utf-8"))
+    payload["score"]["answer_or_tool_behavior"] = "60"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir) / Path(base_case.source_path).name
+        temp_path.write_text(json.dumps(payload), encoding="utf-8")
+        try:
+            load_eval_case(temp_path)
+        except ValueError as exc:
+            if "score.answer_or_tool_behavior must be an integer" in str(exc):
+                return
+            raise AssertionError(f"loader rejected score value for the wrong reason: {exc}") from exc
+    raise AssertionError("loader accepted non-integer score.answer_or_tool_behavior")
+
+
 def _assert_validator_rejects_unknown_input_fields(cases) -> None:
     checks = [
         (
@@ -720,6 +736,7 @@ def main() -> int:
     _assert_validator_rejects_unknown_contract_fields(cases)
     _assert_validator_rejects_invalid_score_weights(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)
+    _assert_loader_rejects_non_integer_score_values(cases)
     _assert_validator_rejects_unknown_input_fields(cases)
     _assert_validator_rejects_invalid_input_values(cases)
     _assert_validator_rejects_missing_required_input_fields(cases)
