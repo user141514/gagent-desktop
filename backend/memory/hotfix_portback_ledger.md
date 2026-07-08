@@ -2773,3 +2773,43 @@ Status:
 ```text
 eval case top-level field whitelist applied; source port-back required
 ```
+
+---
+
+### Eval case input field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case input objects could include misspelled or wrong-case fields and the runner would ignore or misroute them. The validator now scopes allowed input fields by (type, target_tool); smoke_eval_registry covers web_search typo input and browser_agent contract-vs-handler input drift.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove INPUT_FIELDS_BY_CASE validation and the unknown-input smoke assertion.
+```
+
+Status:
+
+```text
+eval case input field whitelist applied; source port-back required
+```

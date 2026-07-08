@@ -17,6 +17,14 @@ from runtime_ledger.ledger import _ALLOWED_EVENT_TYPES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_EVENT_TYPES = set(str(event) for event in get_args(RuntimeEventType))
+INPUT_FIELDS_BY_CASE = {
+    ("agent_loop_eval", "web_search"): {"engine", "force_error", "max_results", "query", "timeout"},
+    ("tool_boundary_eval", "web_execute_js"): {"script"},
+    ("tool_boundary_eval", "web_scan"): {"tabs_only"},
+    ("tool_boundary_eval", "web_search"): {"engine", "max_results", "query", "timeout"},
+    ("tool_contract_eval", "browser_agent"): {"registry_file"},
+    ("tool_handler_eval", "browser_agent"): {"headless", "max_steps", "task"},
+}
 EXPECTED_TOOLS_FIELDS = {"allowed", "forbidden"}
 EXPECTED_LEDGER_FIELDS = {"required_decision_forbidden_actions", "required_events", "required_on_failure"}
 EXPECTED_RESULT_FIELDS = {
@@ -72,6 +80,13 @@ def _validate_loaded_case(loaded) -> list[str]:
     tool_path = tool_dir / f"{loaded.target_tool}.yml"
     if not tool_path.exists():
         errors.append(f"{loaded.id}: target_tool registry missing: {tool_path}")
+    input_fields = INPUT_FIELDS_BY_CASE.get((loaded.type, loaded.target_tool))
+    if input_fields is None:
+        errors.append(f"{loaded.id}: input contract missing for {loaded.type}/{loaded.target_tool}")
+    else:
+        unknown_input = sorted(set(str(key) for key in loaded.input) - input_fields)
+        if unknown_input:
+            errors.append(f"{loaded.id}: input contains unknown field: {', '.join(unknown_input)}")
     for field_name, payload, allowed_fields in (
         ("expected_tools", loaded.expected_tools, EXPECTED_TOOLS_FIELDS),
         ("expected_ledger", loaded.expected_ledger, EXPECTED_LEDGER_FIELDS),

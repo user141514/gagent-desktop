@@ -221,6 +221,26 @@ def _assert_loader_rejects_unknown_top_level_fields(cases) -> None:
     raise AssertionError("loader accepted unknown top-level eval case field")
 
 
+def _assert_validator_rejects_unknown_input_fields(cases) -> None:
+    checks = [
+        (
+            next(item for item in cases if item.id == "web_search_openai_docs"),
+            "queri",
+            "OpenAI API docs",
+        ),
+        (
+            next(item for item in cases if item.id == "browser_agent_contract_boundary"),
+            "task",
+            "wrong contract input",
+        ),
+    ]
+    for base_case, field_name, field_value in checks:
+        bad_case = replace(base_case, input={**base_case.input, field_name: field_value})
+        errors = _validate_loaded_case(bad_case)
+        if not any("input contains unknown field" in error for error in errors):
+            raise AssertionError(f"validator accepted unknown input field {base_case.id}.{field_name}")
+
+
 def _assert_validator_rejects_tool_specific_expected_result_drift(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -385,6 +405,7 @@ def main() -> int:
     _assert_validator_rejects_unknown_expected_result_fields(cases)
     _assert_validator_rejects_unknown_contract_fields(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)
+    _assert_validator_rejects_unknown_input_fields(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_rejects_unknown_runtime_events(cases)
     _assert_validator_rejects_unobservable_balanced_turns(cases)
