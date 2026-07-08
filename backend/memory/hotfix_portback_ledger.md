@@ -3013,3 +3013,43 @@ Status:
 ```text
 eval expected-result duplicate validation applied; source port-back required
 ```
+
+---
+
+### Eval expected-result boolean switch validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case expected_result boolean switches could be strings such as "true" and still be treated as truthy by scorer/runtime checks. The validator now requires all expected_result boolean switches to be real booleans; smoke_eval_registry covers every optional boolean switch.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove EXPECTED_RESULT_BOOL_FIELDS validation and the non-bool expected_result smoke assertion.
+```
+
+Status:
+
+```text
+eval expected-result boolean switch validation applied; source port-back required
+```

@@ -218,6 +218,24 @@ def _assert_validator_rejects_duplicate_expected_result_lists(cases) -> None:
             raise AssertionError(f"validator accepted duplicate expected_result.{field_name} item")
 
 
+def _assert_validator_rejects_non_bool_expected_result_switches(cases) -> None:
+    checks = [
+        (next(item for item in cases if item.id == "web_search_openai_docs"), "forbid_baidu_success"),
+        (next(item for item in cases if item.id == "web_search_openai_docs"), "forbid_search_homepage_success"),
+        (next(item for item in cases if item.id == "web_scan_current_tab_boundary"), "forbid_search_shaped_success"),
+        (next(item for item in cases if item.id == "web_scan_current_tab_boundary"), "forbid_page_content_success"),
+        (next(item for item in cases if item.id == "web_execute_js_navigation_boundary"), "require_navigation_success"),
+        (next(item for item in cases if item.id == "browser_agent_contract_boundary"), "require_contract_valid"),
+        (next(item for item in cases if item.id == "browser_agent_handler_stub_boundary"), "require_browser_agent_success"),
+        (next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search"), "require_balanced_turn_events"),
+    ]
+    for base_case, field_name in checks:
+        bad_case = replace(base_case, expected_result={**base_case.expected_result, field_name: "true"})
+        errors = _validate_loaded_case(bad_case)
+        if not any(f"expected_result.{field_name} must be a boolean" in error for error in errors):
+            raise AssertionError(f"validator accepted non-bool expected_result.{field_name}")
+
+
 def _assert_validator_rejects_unknown_contract_fields(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -491,6 +509,7 @@ def main() -> int:
     _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_rejects_unknown_expected_result_fields(cases)
     _assert_validator_rejects_duplicate_expected_result_lists(cases)
+    _assert_validator_rejects_non_bool_expected_result_switches(cases)
     _assert_validator_rejects_unknown_contract_fields(cases)
     _assert_validator_rejects_invalid_score_weights(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)

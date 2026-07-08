@@ -48,6 +48,7 @@ Pass criteria:
 - eval registry validator rejects `expected_tools.allowed` or `expected_tools.forbidden` entries missing from `backend/tool_registry/tools/*.yml`;
 - eval registry validator rejects `expected_result` cases that allow neither success nor structured failure;
 - eval registry validator rejects duplicate items in `expected_result.require_runtime_events` and `expected_result.require_contract_terms`;
+- eval registry validator rejects non-boolean `expected_result` boolean switches;
 - eval registry validator rejects tool-specific `expected_result` fields on mismatched target tools or case types;
 - eval registry scoring rejects ledger `final_status` values that do not match `expected_result.require_final_status`;
 - eval registry validator rejects unsupported RuntimeHost event names in `expected_result.require_runtime_events`;

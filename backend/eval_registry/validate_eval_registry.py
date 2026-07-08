@@ -44,6 +44,18 @@ EXPECTED_RESULT_FIELDS = {
     "require_navigation_success",
     "require_runtime_events",
 }
+EXPECTED_RESULT_BOOL_FIELDS = {
+    "allow_success",
+    "allow_structured_failure",
+    "forbid_baidu_success",
+    "forbid_page_content_success",
+    "forbid_search_homepage_success",
+    "forbid_search_shaped_success",
+    "require_balanced_turn_events",
+    "require_browser_agent_success",
+    "require_contract_valid",
+    "require_navigation_success",
+}
 SCORE_WEIGHTS = {"answer_or_tool_behavior": 60, "ledger": 40}
 SCORE_FIELDS = set(SCORE_WEIGHTS)
 
@@ -142,12 +154,11 @@ def _validate_loaded_case(loaded) -> list[str]:
             duplicates = _duplicate_strings(values)
             if duplicates:
                 errors.append(f"{loaded.id}: expected_result.{field_name} contains duplicate item: {', '.join(duplicates)}")
+    for field_name in sorted(EXPECTED_RESULT_BOOL_FIELDS):
+        if field_name in loaded.expected_result and not isinstance(loaded.expected_result.get(field_name), bool):
+            errors.append(f"{loaded.id}: expected_result.{field_name} must be a boolean")
     allow_success = loaded.expected_result.get("allow_success")
     allow_structured_failure = loaded.expected_result.get("allow_structured_failure")
-    if not isinstance(allow_success, bool):
-        errors.append(f"{loaded.id}: expected_result.allow_success must be a boolean")
-    if not isinstance(allow_structured_failure, bool):
-        errors.append(f"{loaded.id}: expected_result.allow_structured_failure must be a boolean")
     if allow_success is False and allow_structured_failure is False:
         errors.append(f"{loaded.id}: expected_result must allow success or structured failure")
     if loaded.expected_result.get("forbid_baidu_success") is True and loaded.target_tool != "web_search":
