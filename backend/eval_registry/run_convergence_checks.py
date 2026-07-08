@@ -125,6 +125,9 @@ def _validate_score_components(score: dict) -> None:
         name = component.get("name")
         if not isinstance(name, str) or name not in SCORE_COMPONENT_WEIGHTS:
             raise ValueError("score_functionality component name is invalid")
+        status = component.get("status")
+        if not isinstance(status, str) or not status:
+            raise ValueError(f"score_functionality component {name} status is invalid")
         if name in seen:
             raise ValueError(f"score_functionality component {name} is duplicated")
         seen.add(name)
@@ -277,6 +280,14 @@ def _self_test() -> None:
         assert "component" in str(exc)
     else:
         raise AssertionError("score output with invalid component score unexpectedly passed")
+    bad_component_status = json.loads(_score_output_fixture())
+    bad_component_status["components"][1]["status"] = 123
+    try:
+        _success_output_for(score_command, json.dumps(bad_component_status))
+    except ValueError as exc:
+        assert "component" in str(exc)
+    else:
+        raise AssertionError("score output with invalid component status unexpectedly passed")
     bad_blockers = json.loads(_score_output_fixture())
     bad_blockers["blockers"] = ["hidden blocker"]
     try:
@@ -294,18 +305,21 @@ def _score_output_fixture() -> str:
             "name": "internal_eval",
             "weight": SCORE_COMPONENT_WEIGHTS["internal_eval"],
             "score": internal_score,
+            "status": "passed",
             "blockers": [],
         },
         {
             "name": "openai_orchestrated_e2e",
             "weight": SCORE_COMPONENT_WEIGHTS["openai_orchestrated_e2e"],
             "score": 0,
+            "status": "skipped",
             "blockers": [],
         },
         {
             "name": "browser_agent_e2e",
             "weight": SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"],
             "score": 0,
+            "status": "skipped",
             "blockers": [],
         },
     ]

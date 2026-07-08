@@ -1833,3 +1833,42 @@ Status:
 ```text
 convergence runner score fixture weight source applied; source port-back required
 ```
+
+---
+
+### Convergence runner component status validation
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+score_functionality.py emits status for every component, but run_convergence_checks.py did not require that field in score output. The runner now rejects score reports with missing or non-string component status values, and its self-test fixture includes component statuses.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the component status validation, the bad_component_status self-test case, and the status fields from _score_output_fixture.
+```
+
+Status:
+
+```text
+convergence runner component status validation applied; source port-back required
+```
