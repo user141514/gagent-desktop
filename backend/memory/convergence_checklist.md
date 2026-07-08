@@ -38,6 +38,7 @@ Pass criteria:
 - quality registry validator exits 0;
 - web tool smoke exits 0;
 - eval registry validator exits 0;
+- eval registry loader rejects unknown top-level eval case fields;
 - eval registry validator rejects cases whose `expected_tools.allowed` does not include `target_tool`;
 - eval registry validator rejects overlap between `expected_tools.allowed` and `expected_tools.forbidden`;
 - eval registry validator rejects `expected_tools.allowed` or `expected_tools.forbidden` entries missing from `backend/tool_registry/tools/*.yml`;

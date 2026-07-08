@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -11,7 +13,7 @@ BACKEND = Path(__file__).resolve().parents[2]
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-from eval_registry.registry import load_eval_cases  # noqa: E402
+from eval_registry.registry import load_eval_case, load_eval_cases  # noqa: E402
 from eval_registry.run_eval_cases import _AgentLoopEvalHandler, _FakeAgentLoopClient, _FakeDriver, run_eval_cases  # noqa: E402
 from eval_registry.score_final_answer import score_final_answer  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
@@ -203,6 +205,22 @@ def _assert_validator_rejects_unknown_contract_fields(cases) -> None:
             raise AssertionError(f"validator accepted unknown {field_name} field")
 
 
+def _assert_loader_rejects_unknown_top_level_fields(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    payload = json.loads(Path(base_case.source_path).read_text(encoding="utf-8"))
+    payload["target_tooool"] = "web_search"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir) / Path(base_case.source_path).name
+        temp_path.write_text(json.dumps(payload), encoding="utf-8")
+        try:
+            load_eval_case(temp_path)
+        except ValueError as exc:
+            if "unknown fields" in str(exc):
+                return
+            raise AssertionError(f"loader rejected top-level field for the wrong reason: {exc}") from exc
+    raise AssertionError("loader accepted unknown top-level eval case field")
+
+
 def _assert_validator_rejects_tool_specific_expected_result_drift(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -366,6 +384,7 @@ def main() -> int:
     _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_rejects_unknown_expected_result_fields(cases)
     _assert_validator_rejects_unknown_contract_fields(cases)
+    _assert_loader_rejects_unknown_top_level_fields(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_rejects_unknown_runtime_events(cases)
     _assert_validator_rejects_unobservable_balanced_turns(cases)

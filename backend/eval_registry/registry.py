@@ -61,6 +61,9 @@ def load_eval_case(path: str | Path) -> EvalCase:
     missing = [field for field in REQUIRED_FIELDS if field not in payload]
     if missing:
         raise ValueError(f"{case_path}: missing required fields: {', '.join(missing)}")
+    extra = sorted(set(str(field) for field in payload) - set(REQUIRED_FIELDS))
+    if extra:
+        raise ValueError(f"{case_path}: unknown fields: {', '.join(extra)}")
 
     case_id = str(payload["id"]).strip()
     if case_id != case_path.stem:
