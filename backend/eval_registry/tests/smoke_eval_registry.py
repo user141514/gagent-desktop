@@ -205,6 +205,19 @@ def _assert_validator_rejects_unknown_contract_fields(cases) -> None:
             raise AssertionError(f"validator accepted unknown {field_name} field")
 
 
+def _assert_validator_rejects_invalid_score_weights(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    checks = [
+        {"answer_or_tool_behavior": -10, "ledger": 110},
+        {"answer_or_tool_behavior": 0, "ledger": 100},
+    ]
+    for score in checks:
+        bad_case = replace(base_case, score=score)
+        errors = _validate_loaded_case(bad_case)
+        if not any("score weights must be answer_or_tool_behavior=60 and ledger=40" in error for error in errors):
+            raise AssertionError(f"validator accepted invalid score weights: {score}")
+
+
 def _assert_loader_rejects_unknown_top_level_fields(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     payload = json.loads(Path(base_case.source_path).read_text(encoding="utf-8"))
@@ -416,6 +429,7 @@ def main() -> int:
     _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_rejects_unknown_expected_result_fields(cases)
     _assert_validator_rejects_unknown_contract_fields(cases)
+    _assert_validator_rejects_invalid_score_weights(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)
     _assert_validator_rejects_unknown_input_fields(cases)
     _assert_validator_rejects_unsupported_type_and_version(cases)

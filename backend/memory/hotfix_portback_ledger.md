@@ -2853,3 +2853,43 @@ Status:
 ```text
 eval case type/version whitelist applied; source port-back required
 ```
+
+---
+
+### Eval case score weight contract
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case score weights could sum to 100 while still being semantically invalid, such as -10/110 or 0/100. The validator now requires the current 60/40 harness contract; smoke_eval_registry covers both invalid distributions.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove SCORE_WEIGHTS validation and the invalid-score smoke assertion.
+```
+
+Status:
+
+```text
+eval case score weight contract applied; source port-back required
+```

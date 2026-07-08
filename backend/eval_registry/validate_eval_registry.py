@@ -44,7 +44,8 @@ EXPECTED_RESULT_FIELDS = {
     "require_navigation_success",
     "require_runtime_events",
 }
-SCORE_FIELDS = {"answer_or_tool_behavior", "ledger"}
+SCORE_WEIGHTS = {"answer_or_tool_behavior": 60, "ledger": 40}
+SCORE_FIELDS = set(SCORE_WEIGHTS)
 
 
 def validate() -> list[str]:
@@ -125,9 +126,8 @@ def _validate_loaded_case(loaded) -> list[str]:
             errors.append(
                 f"{loaded.id}: required_decision_forbidden_actions must be a subset of expected_tools.forbidden: {', '.join(drift)}"
             )
-    total_score = int(loaded.score.get("answer_or_tool_behavior", 0)) + int(loaded.score.get("ledger", 0))
-    if total_score != 100:
-        errors.append(f"{loaded.id}: score weights must sum to 100, got {total_score}")
+    if loaded.score != SCORE_WEIGHTS:
+        errors.append(f"{loaded.id}: score weights must be answer_or_tool_behavior=60 and ledger=40")
     unknown_expected_result = sorted(set(str(key) for key in loaded.expected_result) - EXPECTED_RESULT_FIELDS)
     if unknown_expected_result:
         errors.append(f"{loaded.id}: expected_result contains unknown field: {', '.join(unknown_expected_result)}")
