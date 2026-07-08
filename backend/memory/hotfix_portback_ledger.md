@@ -1911,3 +1911,42 @@ Status:
 ```text
 convergence runner score mode validation applied; source port-back required
 ```
+
+---
+
+### Full convergence clean-source gate
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Functionality score evidence included source_git.dirty, but full convergence did not reject dirty worktrees. run_convergence_checks.py now rejects strict score output when evidence.source_git.dirty is true, so a full completion gate must bind to committed source.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the strict dirty check in _validate_score_evidence and the strict_dirty self-test case.
+```
+
+Status:
+
+```text
+full convergence clean-source gate applied; source port-back required
+```

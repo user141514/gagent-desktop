@@ -100,7 +100,7 @@ def _success_output_for(command: list[str], stdout: str) -> str:
         raise ValueError("score_functionality output is not a JSON object")
     _validate_score_mode(command, score)
     _validate_score_components(score)
-    _validate_score_evidence(score)
+    _validate_score_evidence(command, score)
     return json.dumps(score, indent=2, ensure_ascii=False)
 
 
@@ -162,7 +162,7 @@ def _validate_score_components(score: dict) -> None:
         raise ValueError("score_functionality blockers do not match component blockers")
 
 
-def _validate_score_evidence(score: dict) -> None:
+def _validate_score_evidence(command: list[str], score: dict) -> None:
     evidence = score.get("evidence")
     if not isinstance(evidence, dict):
         raise ValueError("score_functionality evidence is missing")
@@ -190,6 +190,8 @@ def _validate_score_evidence(score: dict) -> None:
         raise ValueError("score_functionality evidence.source_git.branch is missing")
     if not isinstance(source_git.get("dirty"), bool):
         raise ValueError("score_functionality evidence.source_git.dirty is missing")
+    if "--strict" in command and source_git["dirty"]:
+        raise ValueError("score_functionality evidence.source_git.dirty must be false for strict convergence")
 
     input_reports = evidence.get("input_reports")
     if not isinstance(input_reports, dict):
@@ -227,6 +229,13 @@ def _self_test() -> None:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight
     assert json.loads(_success_output_for(score_command, _score_output_fixture()))["status"] == "needs_work"
     assert json.loads(_success_output_for(strict_score_command, _score_output_fixture(strict=True)))["strict"] is True
+    strict_dirty = json.loads(_score_output_fixture(strict=True, dirty=True))
+    try:
+        _success_output_for(strict_score_command, json.dumps(strict_dirty))
+    except ValueError as exc:
+        assert "dirty" in str(exc)
+    else:
+        raise AssertionError("strict score output with dirty git unexpectedly passed")
     assert _success_output_for(smoke_command, "noisy child output") == ""
     try:
         _success_output_for(score_command, "log before json\n{\"status\":\"needs_work\"}")
@@ -331,7 +340,7 @@ def _self_test() -> None:
         raise AssertionError("score output with wrong blockers unexpectedly passed")
 
 
-def _score_output_fixture(*, strict: bool = False) -> str:
+def _score_output_fixture(*, strict: bool = False, dirty: bool = False) -> str:
     internal_score = SCORE_COMPONENT_WEIGHTS["internal_eval"]
     components = [
         {
@@ -378,7 +387,7 @@ def _score_output_fixture(*, strict: bool = False) -> str:
                     "available": True,
                     "head": "abcdef1234567890",
                     "branch": "main",
-                    "dirty": False,
+                    "dirty": dirty,
                 },
                 "input_reports": {
                     name: {
