@@ -200,6 +200,23 @@ def _assert_validator_rejects_tool_specific_expected_result_drift(cases) -> None
             raise AssertionError(f"validator accepted misplaced expected_result.{field_name}")
 
 
+def _assert_validator_rejects_unknown_runtime_events(cases) -> None:
+    base_case = next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search")
+    bad_case = replace(
+        base_case,
+        expected_result={
+            **base_case.expected_result,
+            "require_runtime_events": [
+                *base_case.expected_result.get("require_runtime_events", []),
+                "mind_read_started",
+            ],
+        },
+    )
+    errors = _validate_loaded_case(bad_case)
+    if not any("expected_result.require_runtime_events contains unsupported runtime event" in error for error in errors):
+        raise AssertionError("validator accepted unknown required RuntimeHost event")
+
+
 def _assert_validator_requires_allowed_target_tool(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_tool_boundary")
     bad_case = replace(base_case, expected_tools={**base_case.expected_tools, "allowed": ["web_scan"]})
@@ -312,6 +329,7 @@ def main() -> int:
     _assert_score_rejects_required_final_status_mismatch(cases)
     _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
+    _assert_validator_rejects_unknown_runtime_events(cases)
     _assert_validator_requires_allowed_target_tool(cases)
     _assert_validator_rejects_allowed_forbidden_overlap(cases)
     _assert_validator_rejects_unknown_expected_tools(cases)

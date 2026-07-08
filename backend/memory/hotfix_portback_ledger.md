@@ -2573,3 +2573,43 @@ Status:
 ```text
 eval case required final status scoring applied; source port-back required
 ```
+
+---
+
+### Eval case runtime event-name validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Agent-loop eval cases could require RuntimeHost event names that RuntimeHost would never emit. The validator now checks expected_result.require_runtime_events against core.runtime.event_schema.RuntimeEventType; smoke_eval_registry covers the regression with a mutated agent_loop_eval case.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the RuntimeEventType require_runtime_events check and the smoke mutation assertion.
+```
+
+Status:
+
+```text
+eval case runtime event-name validation applied; source port-back required
+```

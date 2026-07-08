@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import get_args
 
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -10,10 +11,12 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from eval_registry.registry import default_cases_dir, load_eval_case, load_eval_cases  # noqa: E402
+from core.runtime.event_schema import RuntimeEventType  # noqa: E402
 from runtime_ledger.ledger import _ALLOWED_EVENT_TYPES  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
+RUNTIME_EVENT_TYPES = set(str(event) for event in get_args(RuntimeEventType))
 
 
 def validate() -> list[str]:
@@ -110,6 +113,18 @@ def _validate_loaded_case(loaded) -> list[str]:
         errors.append(f"{loaded.id}: expected_result.require_browser_agent_success requires browser_agent tool_handler_eval")
     if loaded.expected_result.get("require_runtime_events") and loaded.type != "agent_loop_eval":
         errors.append(f"{loaded.id}: expected_result.require_runtime_events requires agent_loop_eval")
+    if isinstance(loaded.expected_result.get("require_runtime_events"), list):
+        unknown_runtime_events = sorted(
+            {
+                str(event)
+                for event in loaded.expected_result.get("require_runtime_events") or []
+                if str(event) not in RUNTIME_EVENT_TYPES
+            }
+        )
+        if unknown_runtime_events:
+            errors.append(
+                f"{loaded.id}: expected_result.require_runtime_events contains unsupported runtime event: {', '.join(unknown_runtime_events)}"
+            )
     if loaded.expected_result.get("require_balanced_turn_events") is True and loaded.type != "agent_loop_eval":
         errors.append(f"{loaded.id}: expected_result.require_balanced_turn_events requires agent_loop_eval")
     if "require_final_status" in loaded.expected_result:
