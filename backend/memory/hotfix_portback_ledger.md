@@ -2613,3 +2613,43 @@ Status:
 ```text
 eval case runtime event-name validation applied; source port-back required
 ```
+
+---
+
+### Eval case balanced-turn observability validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Agent-loop eval cases could set expected_result.require_balanced_turn_events=true without requiring the llm_call_started and llm_call_completed RuntimeHost events that make the balance check observable. The validator now requires both events; smoke_eval_registry covers the regression with a mutated agent_loop_eval case.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the balanced-turn require_runtime_events subset check and the smoke mutation assertion.
+```
+
+Status:
+
+```text
+eval case balanced-turn observability validation applied; source port-back required
+```

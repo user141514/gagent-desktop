@@ -45,6 +45,7 @@ Pass criteria:
 - eval registry validator rejects tool-specific `expected_result` fields on mismatched target tools or case types;
 - eval registry scoring rejects ledger `final_status` values that do not match `expected_result.require_final_status`;
 - eval registry validator rejects unsupported RuntimeHost event names in `expected_result.require_runtime_events`;
+- eval registry validator rejects `expected_result.require_balanced_turn_events` unless `require_runtime_events` includes both LLM turn events;
 - eval registry validator rejects unsupported `expected_ledger.required_events` and `expected_ledger.required_on_failure` event names;
 - eval registry validator rejects `expected_ledger.required_decision_forbidden_actions` entries outside `expected_tools.forbidden`;
 - eval registry smoke exits 0;

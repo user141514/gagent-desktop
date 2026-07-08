@@ -217,6 +217,21 @@ def _assert_validator_rejects_unknown_runtime_events(cases) -> None:
         raise AssertionError("validator accepted unknown required RuntimeHost event")
 
 
+def _assert_validator_rejects_unobservable_balanced_turns(cases) -> None:
+    base_case = next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search")
+    bad_case = replace(
+        base_case,
+        expected_result={
+            **base_case.expected_result,
+            "require_runtime_events": ["tool_requested", "tool_completed"],
+            "require_balanced_turn_events": True,
+        },
+    )
+    errors = _validate_loaded_case(bad_case)
+    if not any("require_balanced_turn_events requires llm_call_started and llm_call_completed" in error for error in errors):
+        raise AssertionError("validator accepted balanced-turn check without LLM turn events")
+
+
 def _assert_validator_requires_allowed_target_tool(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_tool_boundary")
     bad_case = replace(base_case, expected_tools={**base_case.expected_tools, "allowed": ["web_scan"]})
@@ -330,6 +345,7 @@ def main() -> int:
     _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_rejects_unknown_runtime_events(cases)
+    _assert_validator_rejects_unobservable_balanced_turns(cases)
     _assert_validator_requires_allowed_target_tool(cases)
     _assert_validator_rejects_allowed_forbidden_overlap(cases)
     _assert_validator_rejects_unknown_expected_tools(cases)

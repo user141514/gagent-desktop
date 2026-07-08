@@ -127,6 +127,13 @@ def _validate_loaded_case(loaded) -> list[str]:
             )
     if loaded.expected_result.get("require_balanced_turn_events") is True and loaded.type != "agent_loop_eval":
         errors.append(f"{loaded.id}: expected_result.require_balanced_turn_events requires agent_loop_eval")
+    if loaded.expected_result.get("require_balanced_turn_events") is True:
+        required_runtime_events = set(str(event) for event in loaded.expected_result.get("require_runtime_events") or [])
+        required_turn_events = {"llm_call_started", "llm_call_completed"}
+        if not required_turn_events.issubset(required_runtime_events):
+            errors.append(
+                f"{loaded.id}: expected_result.require_balanced_turn_events requires llm_call_started and llm_call_completed"
+            )
     if "require_final_status" in loaded.expected_result:
         required_final_status = loaded.expected_result.get("require_final_status")
         if not isinstance(required_final_status, str) or not required_final_status.strip():
