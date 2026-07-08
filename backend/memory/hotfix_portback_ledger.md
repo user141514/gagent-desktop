@@ -2252,3 +2252,43 @@ Status:
 ```text
 internal eval summary consistency scoring applied; source port-back required
 ```
+
+---
+
+### Eval case allowed-target validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval cases could set target_tool to one tool while expected_tools.allowed listed a different tool. That made the boundary contract ambiguous. The validator now exposes a per-case helper and rejects cases whose allowed list does not include target_tool; smoke_eval_registry covers the regression with a mutated case.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Inline _validate_loaded_case back into validate(), remove the allowed-target check, and remove the smoke mutation assertion.
+```
+
+Status:
+
+```text
+eval case allowed-target validation applied; source port-back required
+```

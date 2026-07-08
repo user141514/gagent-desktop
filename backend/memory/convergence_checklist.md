@@ -38,6 +38,7 @@ Pass criteria:
 - quality registry validator exits 0;
 - web tool smoke exits 0;
 - eval registry validator exits 0;
+- eval registry validator rejects cases whose `expected_tools.allowed` does not include `target_tool`;
 - eval registry smoke exits 0;
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
 - functionality score requires internal eval reports to cover every registry case id exactly once;

@@ -15,7 +15,7 @@ from eval_registry.registry import load_eval_cases  # noqa: E402
 from eval_registry.run_eval_cases import _AgentLoopEvalHandler, _FakeAgentLoopClient, _FakeDriver, run_eval_cases  # noqa: E402
 from eval_registry.score_final_answer import score_final_answer  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
-from eval_registry.validate_eval_registry import validate  # noqa: E402
+from eval_registry.validate_eval_registry import _validate_loaded_case, validate  # noqa: E402
 from core import ga  # noqa: E402
 from core.agent_loop import agent_runner_loop, exhaust  # noqa: E402
 from runtime_ledger import read_run_events  # noqa: E402
@@ -139,6 +139,14 @@ def _assert_score_rejects_disallowed_failure(cases) -> None:
         raise AssertionError("score accepted a structured failure when allow_structured_failure=false")
 
 
+def _assert_validator_requires_allowed_target_tool(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_tool_boundary")
+    bad_case = replace(base_case, expected_tools={**base_case.expected_tools, "allowed": ["web_scan"]})
+    errors = _validate_loaded_case(bad_case)
+    if not any("allowed must include target_tool" in error for error in errors):
+        raise AssertionError("validator accepted allowed tools without target_tool")
+
+
 def _assert_agent_loop_writes_runtime_ledger(cases) -> None:
     from core.protocol.formatter import NullFormatter
 
@@ -180,6 +188,7 @@ def main() -> int:
     _assert_answer_score_rejects_false_success(cases)
     _assert_answer_score_rejects_forbidden_fallback(cases)
     _assert_score_rejects_disallowed_failure(cases)
+    _assert_validator_requires_allowed_target_tool(cases)
     _assert_agent_loop_writes_runtime_ledger(cases)
     summary = run_eval_cases(write_report=True)
     results = summary.get("results") or []

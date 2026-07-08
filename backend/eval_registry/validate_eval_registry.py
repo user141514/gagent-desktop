@@ -36,28 +36,36 @@ def validate() -> list[str]:
         except ValueError as exc:
             errors.append(str(exc))
             continue
-        if loaded.id != Path(loaded.source_path).stem:
-            errors.append(f"{loaded.source_path}: id and filename mismatch")
-        tool_path = ROOT / "backend" / "tool_registry" / "tools" / f"{loaded.target_tool}.yml"
-        if not tool_path.exists():
-            errors.append(f"{loaded.id}: target_tool registry missing: {tool_path}")
-        allowed = loaded.expected_tools.get("allowed")
-        forbidden = loaded.expected_tools.get("forbidden")
-        if not isinstance(allowed, list) or not allowed:
-            errors.append(f"{loaded.id}: expected_tools.allowed must be a non-empty list")
-        if not isinstance(forbidden, list) or not forbidden:
-            errors.append(f"{loaded.id}: expected_tools.forbidden must be a non-empty list")
-        total_score = int(loaded.score.get("answer_or_tool_behavior", 0)) + int(loaded.score.get("ledger", 0))
-        if total_score != 100:
-            errors.append(f"{loaded.id}: score weights must sum to 100, got {total_score}")
-        required_events = loaded.expected_ledger.get("required_events")
-        if not isinstance(required_events, list):
-            errors.append(f"{loaded.id}: expected_ledger.required_events must be a list")
-        else:
-            for event_name in ("tool_call", "tool_result"):
-                if event_name not in required_events:
-                    errors.append(f"{loaded.id}: required_events must include {event_name}")
+        errors.extend(_validate_loaded_case(loaded))
 
+    return errors
+
+
+def _validate_loaded_case(loaded) -> list[str]:
+    errors: list[str] = []
+    if loaded.id != Path(loaded.source_path).stem:
+        errors.append(f"{loaded.source_path}: id and filename mismatch")
+    tool_path = ROOT / "backend" / "tool_registry" / "tools" / f"{loaded.target_tool}.yml"
+    if not tool_path.exists():
+        errors.append(f"{loaded.id}: target_tool registry missing: {tool_path}")
+    allowed = loaded.expected_tools.get("allowed")
+    forbidden = loaded.expected_tools.get("forbidden")
+    if not isinstance(allowed, list) or not allowed:
+        errors.append(f"{loaded.id}: expected_tools.allowed must be a non-empty list")
+    elif loaded.target_tool not in [str(tool) for tool in allowed]:
+        errors.append(f"{loaded.id}: expected_tools.allowed must include target_tool {loaded.target_tool}")
+    if not isinstance(forbidden, list) or not forbidden:
+        errors.append(f"{loaded.id}: expected_tools.forbidden must be a non-empty list")
+    total_score = int(loaded.score.get("answer_or_tool_behavior", 0)) + int(loaded.score.get("ledger", 0))
+    if total_score != 100:
+        errors.append(f"{loaded.id}: score weights must sum to 100, got {total_score}")
+    required_events = loaded.expected_ledger.get("required_events")
+    if not isinstance(required_events, list):
+        errors.append(f"{loaded.id}: expected_ledger.required_events must be a list")
+    else:
+        for event_name in ("tool_call", "tool_result"):
+            if event_name not in required_events:
+                errors.append(f"{loaded.id}: required_events must include {event_name}")
     return errors
 
 
