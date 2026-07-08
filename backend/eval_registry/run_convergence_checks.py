@@ -118,6 +118,7 @@ def _validate_score_components(score: dict) -> None:
 
     seen: set[str] = set()
     total = 0
+    blockers: list[str] = []
     for component in components:
         if not isinstance(component, dict):
             raise ValueError("score_functionality component is invalid")
@@ -133,6 +134,10 @@ def _validate_score_components(score: dict) -> None:
         if not isinstance(component_score, int) or component_score < 0 or component_score > SCORE_COMPONENT_WEIGHTS[name]:
             raise ValueError(f"score_functionality component {name} score is invalid")
         total += component_score
+        component_blockers = component.get("blockers")
+        if not isinstance(component_blockers, list) or not all(isinstance(item, str) for item in component_blockers):
+            raise ValueError(f"score_functionality component {name} blockers are invalid")
+        blockers.extend(component_blockers)
 
     max_total = sum(SCORE_COMPONENT_WEIGHTS.values())
     if score.get("total") != total:
@@ -142,6 +147,8 @@ def _validate_score_components(score: dict) -> None:
     expected_status = "ok" if total == max_total else "needs_work"
     if score.get("status") != expected_status:
         raise ValueError("score_functionality status does not match total")
+    if score.get("blockers") != blockers:
+        raise ValueError("score_functionality blockers do not match component blockers")
 
 
 def _validate_score_evidence(score: dict) -> None:
@@ -262,6 +269,14 @@ def _self_test() -> None:
         assert "component" in str(exc)
     else:
         raise AssertionError("score output with invalid component score unexpectedly passed")
+    bad_blockers = json.loads(_score_output_fixture())
+    bad_blockers["blockers"] = ["hidden blocker"]
+    try:
+        _success_output_for(score_command, json.dumps(bad_blockers))
+    except ValueError as exc:
+        assert "blockers" in str(exc)
+    else:
+        raise AssertionError("score output with wrong blockers unexpectedly passed")
 
 
 def _score_output_fixture() -> str:
@@ -270,10 +285,11 @@ def _score_output_fixture() -> str:
             "status": "needs_work",
             "total": 70,
             "max_total": 100,
+            "blockers": [],
             "components": [
-                {"name": "internal_eval", "weight": 70, "score": 70},
-                {"name": "openai_orchestrated_e2e", "weight": 15, "score": 0},
-                {"name": "browser_agent_e2e", "weight": 15, "score": 0},
+                {"name": "internal_eval", "weight": 70, "score": 70, "blockers": []},
+                {"name": "openai_orchestrated_e2e", "weight": 15, "score": 0, "blockers": []},
+                {"name": "browser_agent_e2e", "weight": 15, "score": 0, "blockers": []},
             ],
             "evidence": {
                 "generated_at_utc": "2026-01-01T00:00:00Z",

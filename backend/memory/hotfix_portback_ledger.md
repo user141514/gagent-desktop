@@ -1716,3 +1716,41 @@ Status:
 ```text
 convergence runner score total consistency applied; source port-back required
 ```
+
+---
+
+### Convergence runner blocker consistency
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+score_functionality.py computes top-level blockers from component blockers, but run_convergence_checks.py did not verify that relationship. The runner now rejects reports where component blockers are malformed or top-level blockers do not exactly match the flattened component blockers list.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the component blockers validation, top-level blockers comparison, and bad_blockers self-test case.
+```
+
+Status:
+
+```text
+convergence runner blocker consistency applied; source port-back required
+```
