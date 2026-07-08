@@ -2063,3 +2063,40 @@ Status:
 ```text
 agent-loop actual final-answer eval applied; source port-back required
 ```
+
+---
+
+### Optional E2E passed-evidence scoring
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The functionality score granted full optional E2E credit to any report with status=passed. A thin report without run_id or runtime_ledger evidence could therefore look complete. Optional E2E passed reports now need run_id, matching successful ledger_summary, plus OpenAI sentinel or browser_agent successful tool_result evidence.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+```
+
+Rollback:
+
+```text
+Remove _passed_optional_e2e_errors and restore the self-test passed E2E fixtures to status-only reports.
+```
+
+Status:
+
+```text
+optional E2E passed-evidence scoring applied; source port-back required
+```

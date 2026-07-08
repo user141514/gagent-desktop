@@ -133,6 +133,9 @@ def _score_optional_e2e(name: str, report: dict[str, Any] | None, weight: int, m
         return _component(name, weight, 0, "missing", [missing_msg])
     status = str(report.get("status") or "unknown")
     if status == "passed":
+        evidence_errors = _passed_optional_e2e_errors(name, report)
+        if evidence_errors:
+            return _component(name, weight, 0, "invalid_evidence", evidence_errors)
         return _component(name, weight, weight, "passed", [])
     reason = str(report.get("startup_error") or report.get("reason") or missing_msg)
     failure_class = str(report.get("failure_class") or status)
@@ -140,6 +143,34 @@ def _score_optional_e2e(name: str, report: dict[str, Any] | None, weight: int, m
         **_component(name, weight, 0, failure_class, [reason]),
         "evidence_status": status,
     }
+
+
+def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    run_id = str(report.get("run_id") or "").strip()
+    if not run_id:
+        errors.append(f"{name} passed report missing run_id")
+    ledger = report.get("ledger_summary")
+    if not isinstance(ledger, dict):
+        errors.append(f"{name} passed report missing ledger_summary")
+        return errors
+    if run_id and str(ledger.get("run_id") or "") != run_id:
+        errors.append(f"{name} ledger_summary.run_id does not match run_id")
+    if not isinstance(ledger.get("event_count"), int) or int(ledger.get("event_count") or 0) <= 0:
+        errors.append(f"{name} passed report missing ledger events")
+    if str(ledger.get("final_status") or "") != "success":
+        errors.append(f"{name} passed report final_status is not success")
+    if name == "openai_orchestrated_e2e" and "OPENAI_E2E_OK" not in str(report.get("done") or ""):
+        errors.append(f"{name} passed report missing OPENAI_E2E_OK sentinel")
+    if name == "browser_agent_e2e":
+        tool_result = report.get("tool_result")
+        if not isinstance(tool_result, dict) or not (
+            tool_result.get("success") is True or str(tool_result.get("status") or "").lower() == "success"
+        ):
+            errors.append(f"{name} passed report missing successful tool_result")
+        if not isinstance(report.get("ledger_event_count"), int) or int(report.get("ledger_event_count") or 0) <= 0:
+            errors.append(f"{name} passed report missing ledger_event_count")
+    return errors
 
 
 def _component(name: str, weight: int, score: int, status: str, blockers: list[str]) -> dict[str, Any]:
@@ -289,14 +320,35 @@ def _captured_process_output_sections(exc: subprocess.CalledProcessError) -> lis
     return sections
 
 
+def _passed_e2e_report(name: str) -> dict[str, Any]:
+    run_id = f"{name}_run"
+    report: dict[str, Any] = {
+        "status": "passed",
+        "run_id": run_id,
+        "ledger_summary": {
+            "run_id": run_id,
+            "event_count": 2,
+            "final_status": "success",
+        },
+    }
+    if name == "openai_orchestrated_e2e":
+        report["done"] = "OPENAI_E2E_OK"
+    if name == "browser_agent_e2e":
+        report["tool_result"] = {"success": True}
+        report["ledger_event_count"] = 4
+    return report
+
+
 def _self_test() -> None:
+    openai_passed = _passed_e2e_report("openai_orchestrated_e2e")
+    browser_passed = _passed_e2e_report("browser_agent_e2e")
     passing_eval = {
         "results": [
             {"case_id": "a", "total": 100, "verdict": "pass"},
             {"case_id": "b", "total": 80, "verdict": "pass"},
         ]
     }
-    passed = score_reports(passing_eval, {"status": "passed"}, {"status": "passed"})
+    passed = score_reports(passing_eval, openai_passed, browser_passed)
     assert passed["status"] == "needs_work"
     assert passed["total"] == 93
     assert passed["components"][0]["status"] == "partial"
@@ -306,11 +358,19 @@ def _self_test() -> None:
 
     complete = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
-        {"status": "passed"},
-        {"status": "passed"},
+        openai_passed,
+        browser_passed,
     )
     assert complete["status"] == "ok"
     assert _exit_code_for_report(complete, strict=True) == 0
+
+    thin_e2e_evidence = score_reports(
+        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        {"status": "passed"},
+        {"status": "passed"},
+    )
+    assert thin_e2e_evidence["status"] == "needs_work"
+    assert any("missing run_id" in blocker for blocker in thin_e2e_evidence["blockers"])
 
     skipped_optional = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
@@ -326,8 +386,8 @@ def _self_test() -> None:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight + 5
         shifted_weights = score_reports(
             {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
-            {"status": "passed"},
-            {"status": "passed"},
+            openai_passed,
+            browser_passed,
         )
         assert shifted_weights["max_total"] == sum(SCORE_COMPONENT_WEIGHTS.values())
         assert shifted_weights["status"] == "ok"
@@ -345,7 +405,7 @@ def _self_test() -> None:
     startup_detail = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
         {"status": "failed", "reason": "not ready", "startup_error": "agents module missing"},
-        {"status": "passed"},
+        browser_passed,
     )
     assert "agents module missing" in startup_detail["blockers"]
 
@@ -395,11 +455,11 @@ def _self_test() -> None:
             encoding="utf-8",
         )
         (tmp_path / "latest_openai_e2e_report.json").write_text(
-            json.dumps({"status": "passed"}),
+            json.dumps(openai_passed),
             encoding="utf-8",
         )
         (tmp_path / "latest_browser_agent_e2e_report.json").write_text(
-            json.dumps({"status": "passed"}),
+            json.dumps(browser_passed),
             encoding="utf-8",
         )
         advisory = subprocess.run(
