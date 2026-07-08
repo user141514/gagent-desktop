@@ -115,6 +115,15 @@ def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str
     average = sum(float(item.get("total") or 0) for item in results) / len(results)
     score = round(weight * average / 100)
     failed = [str(item.get("case_id") or "") for item in results if item.get("verdict") != "pass"]
+    coverage_blockers = _internal_eval_coverage_blockers(report, results)
+    if coverage_blockers:
+        return {
+            **_component("internal_eval", weight, 0, "invalid_evidence", coverage_blockers),
+            "case_count": len(results),
+            "passed": len(results) - len(failed),
+            "failed": len(failed),
+            "average_case_score": round(average, 2),
+        }
     blockers = [f"eval case not passing: {case_id}" for case_id in failed if case_id]
     if average < 100:
         blockers.append(f"internal eval average score below 100: {round(average, 2)}")
@@ -126,6 +135,35 @@ def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str
         "failed": len(failed),
         "average_case_score": round(average, 2),
     }
+
+
+def _internal_eval_coverage_blockers(report: dict[str, Any], results: list[dict[str, Any]]) -> list[str]:
+    expected = _expected_eval_case_ids()
+    if not expected:
+        return ["internal eval registry cases are missing"]
+    blockers: list[str] = []
+    reported_case_count = report.get("case_count")
+    if reported_case_count != len(expected):
+        blockers.append(f"internal eval case_count does not match registry cases: {reported_case_count} != {len(expected)}")
+    if len(results) != len(expected):
+        blockers.append(f"internal eval result count does not match registry cases: {len(results)} != {len(expected)}")
+    result_ids = [str(item.get("case_id") or "") for item in results]
+    expected_set = set(expected)
+    result_set = set(result_ids)
+    missing = sorted(expected_set - result_set)
+    unexpected = sorted(result_set - expected_set)
+    duplicates = sorted({case_id for case_id in result_ids if case_id and result_ids.count(case_id) > 1})
+    if missing:
+        blockers.append("internal eval missing cases: " + ", ".join(missing))
+    if unexpected:
+        blockers.append("internal eval unexpected cases: " + ", ".join(unexpected))
+    if duplicates:
+        blockers.append("internal eval duplicate cases: " + ", ".join(duplicates))
+    return blockers
+
+
+def _expected_eval_case_ids() -> list[str]:
+    return sorted(path.stem for path in (ROOT / "backend" / "eval_registry" / "cases").glob("*.json"))
 
 
 def _score_optional_e2e(name: str, report: dict[str, Any] | None, weight: int, missing_msg: str) -> dict[str, Any]:
@@ -377,33 +415,54 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
     return report
 
 
+def _passed_internal_eval_report(*, partial: bool = False) -> dict[str, Any]:
+    results = []
+    for index, case_id in enumerate(_expected_eval_case_ids()):
+        results.append({
+            "case_id": case_id,
+            "total": 80 if partial and index == 0 else 100,
+            "verdict": "pass",
+        })
+    return {
+        "status": "ok",
+        "case_count": len(results),
+        "passed": len(results),
+        "failed": 0,
+        "skipped": 0,
+        "results": results,
+    }
+
+
 def _self_test() -> None:
     openai_passed = _passed_e2e_report("openai_orchestrated_e2e")
     browser_passed = _passed_e2e_report("browser_agent_e2e")
-    passing_eval = {
-        "results": [
-            {"case_id": "a", "total": 100, "verdict": "pass"},
-            {"case_id": "b", "total": 80, "verdict": "pass"},
-        ]
-    }
+    full_internal_eval = _passed_internal_eval_report()
+    passing_eval = _passed_internal_eval_report(partial=True)
     passed = score_reports(passing_eval, openai_passed, browser_passed)
     assert passed["status"] == "needs_work"
-    assert passed["total"] == 93
     assert passed["components"][0]["status"] == "partial"
-    assert passed["blockers"] == ["internal eval average score below 100: 90.0"]
+    assert any("average score below 100" in blocker for blocker in passed["blockers"])
     assert _exit_code_for_report(passed, strict=False) == 0
     assert _exit_code_for_report(passed, strict=True) == 1
 
     complete = score_reports(
-        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        full_internal_eval,
         openai_passed,
         browser_passed,
     )
     assert complete["status"] == "ok"
     assert _exit_code_for_report(complete, strict=True) == 0
 
-    thin_e2e_evidence = score_reports(
+    thin_internal_eval = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        openai_passed,
+        browser_passed,
+    )
+    assert thin_internal_eval["status"] == "needs_work"
+    assert any("missing cases" in blocker for blocker in thin_internal_eval["blockers"])
+
+    thin_e2e_evidence = score_reports(
+        full_internal_eval,
         {"status": "passed"},
         {"status": "passed"},
     )
@@ -413,7 +472,7 @@ def _self_test() -> None:
     openai_without_observability = dict(openai_passed)
     openai_without_observability.pop("observability", None)
     missing_openai_observability = score_reports(
-        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        full_internal_eval,
         openai_without_observability,
         browser_passed,
     )
@@ -424,7 +483,7 @@ def _self_test() -> None:
     browser_without_result["tool_result"] = {"success": True}
     browser_without_result.pop("ledger_event_count", None)
     thin_browser_result = score_reports(
-        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        full_internal_eval,
         openai_passed,
         browser_without_result,
     )
@@ -432,7 +491,7 @@ def _self_test() -> None:
     assert any("browser_agent result" in blocker for blocker in thin_browser_result["blockers"])
 
     skipped_optional = score_reports(
-        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        full_internal_eval,
         {"status": "skipped", "reason": "openai e2e disabled"},
         {"status": "skipped", "reason": "browser e2e disabled"},
     )
@@ -444,7 +503,7 @@ def _self_test() -> None:
     try:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight + 5
         shifted_weights = score_reports(
-            {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+            full_internal_eval,
             openai_passed,
             browser_passed,
         )
@@ -454,7 +513,7 @@ def _self_test() -> None:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight
 
     failed_optional = score_reports(
-        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        full_internal_eval,
         {"status": "failed", "failure_class": "readiness_failure", "reason": "openai-agents missing"},
         {"status": "failed", "failure_class": "readiness_failure", "reason": "browser-use missing"},
     )
@@ -462,7 +521,7 @@ def _self_test() -> None:
     assert len(failed_optional["blockers"]) == 2
 
     startup_detail = score_reports(
-        {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
+        full_internal_eval,
         {"status": "failed", "reason": "not ready", "startup_error": "agents module missing"},
         browser_passed,
     )

@@ -2176,3 +2176,41 @@ Status:
 ```text
 browser-agent E2E output score evidence applied; source port-back required
 ```
+
+---
+
+### Internal eval registry coverage scoring
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Internal eval scoring trusted the result average only. A thin latest_eval_report.json with one passing case could score the full internal_eval weight. The scorer now derives expected case ids from backend/eval_registry/cases/*.json and rejects missing, unexpected, duplicate, or mismatched case_count evidence.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _internal_eval_coverage_blockers, _expected_eval_case_ids, and the registry-derived internal eval self-test fixtures.
+```
+
+Status:
+
+```text
+internal eval registry coverage scoring applied; source port-back required
+```
