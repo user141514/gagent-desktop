@@ -2653,3 +2653,43 @@ Status:
 ```text
 eval case balanced-turn observability validation applied; source port-back required
 ```
+
+---
+
+### Eval case expected-result field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval cases could misspell expected_result keys and the validator/scorer would silently ignore those keys. The validator now rejects unknown expected_result fields; smoke_eval_registry covers the regression with a mutated typo field.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the EXPECTED_RESULT_FIELDS check and the smoke mutation assertion.
+```
+
+Status:
+
+```text
+eval case expected-result field whitelist applied; source port-back required
+```

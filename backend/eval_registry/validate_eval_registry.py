@@ -17,6 +17,21 @@ from runtime_ledger.ledger import _ALLOWED_EVENT_TYPES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_EVENT_TYPES = set(str(event) for event in get_args(RuntimeEventType))
+EXPECTED_RESULT_FIELDS = {
+    "allow_success",
+    "allow_structured_failure",
+    "forbid_baidu_success",
+    "forbid_page_content_success",
+    "forbid_search_homepage_success",
+    "forbid_search_shaped_success",
+    "require_balanced_turn_events",
+    "require_browser_agent_success",
+    "require_contract_terms",
+    "require_contract_valid",
+    "require_final_status",
+    "require_navigation_success",
+    "require_runtime_events",
+}
 
 
 def validate() -> list[str]:
@@ -81,6 +96,9 @@ def _validate_loaded_case(loaded) -> list[str]:
     total_score = int(loaded.score.get("answer_or_tool_behavior", 0)) + int(loaded.score.get("ledger", 0))
     if total_score != 100:
         errors.append(f"{loaded.id}: score weights must sum to 100, got {total_score}")
+    unknown_expected_result = sorted(set(str(key) for key in loaded.expected_result) - EXPECTED_RESULT_FIELDS)
+    if unknown_expected_result:
+        errors.append(f"{loaded.id}: expected_result contains unknown field: {', '.join(unknown_expected_result)}")
     allow_success = loaded.expected_result.get("allow_success")
     allow_structured_failure = loaded.expected_result.get("allow_structured_failure")
     if not isinstance(allow_success, bool):

@@ -48,6 +48,7 @@ Pass criteria:
 - eval registry validator rejects `expected_result.require_balanced_turn_events` unless `require_runtime_events` includes both LLM turn events;
 - eval registry validator rejects unsupported `expected_ledger.required_events` and `expected_ledger.required_on_failure` event names;
 - eval registry validator rejects `expected_ledger.required_decision_forbidden_actions` entries outside `expected_tools.forbidden`;
+- eval registry validator rejects unknown `expected_result` fields;
 - eval registry smoke exits 0;
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
 - functionality score requires internal eval reports to cover every registry case id exactly once;
