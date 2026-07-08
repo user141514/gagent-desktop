@@ -44,6 +44,7 @@ Pass criteria:
 - eval registry validator rejects score weights that differ from the current 60/40 harness contract;
 - eval registry validator rejects cases whose `expected_tools.allowed` does not include `target_tool`;
 - eval registry validator rejects overlap between `expected_tools.allowed` and `expected_tools.forbidden`;
+- eval registry validator rejects duplicate items in `expected_tools.allowed` and `expected_tools.forbidden`;
 - eval registry validator rejects `expected_tools.allowed` or `expected_tools.forbidden` entries missing from `backend/tool_registry/tools/*.yml`;
 - eval registry validator rejects `expected_result` cases that allow neither success nor structured failure;
 - eval registry validator rejects tool-specific `expected_result` fields on mismatched target tools or case types;

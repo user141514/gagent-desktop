@@ -110,6 +110,11 @@ def _validate_loaded_case(loaded) -> list[str]:
         errors.append(f"{loaded.id}: expected_tools.allowed must include target_tool {loaded.target_tool}")
     if not isinstance(forbidden, list) or not forbidden:
         errors.append(f"{loaded.id}: expected_tools.forbidden must be a non-empty list")
+    for field_name, tools in (("allowed", allowed), ("forbidden", forbidden)):
+        if isinstance(tools, list):
+            duplicates = _duplicate_strings(tools)
+            if duplicates:
+                errors.append(f"{loaded.id}: expected_tools.{field_name} contains duplicate item: {', '.join(duplicates)}")
     if isinstance(allowed, list) and isinstance(forbidden, list):
         overlap = sorted(set(str(tool) for tool in allowed) & set(str(tool) for tool in forbidden))
         if overlap:

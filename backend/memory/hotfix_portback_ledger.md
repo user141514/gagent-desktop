@@ -2933,3 +2933,43 @@ Status:
 ```text
 eval ledger list duplicate validation applied; source port-back required
 ```
+
+---
+
+### Eval expected-tools duplicate validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case expected_tools.allowed and expected_tools.forbidden could repeat tool names, making the contract noisy without adding coverage. The validator now rejects duplicate items in both lists; smoke_eval_registry covers both mutations.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove expected_tools duplicate validation and the duplicate-expected-tools smoke assertion.
+```
+
+Status:
+
+```text
+eval expected-tools duplicate validation applied; source port-back required
+```

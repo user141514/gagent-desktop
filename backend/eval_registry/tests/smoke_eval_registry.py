@@ -353,6 +353,22 @@ def _assert_validator_rejects_unknown_expected_tools(cases) -> None:
             raise AssertionError(f"validator accepted unknown expected_tools.{field_name} tool")
 
 
+def _assert_validator_rejects_duplicate_expected_tools(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_tool_boundary")
+    checks = {
+        "allowed": [*base_case.expected_tools.get("allowed", []), base_case.target_tool],
+        "forbidden": [*base_case.expected_tools.get("forbidden", []), "web_scan"],
+    }
+    for field_name, field_value in checks.items():
+        bad_case = replace(
+            base_case,
+            expected_tools={**base_case.expected_tools, field_name: field_value},
+        )
+        errors = _validate_loaded_case(bad_case)
+        if not any(f"expected_tools.{field_name} contains duplicate item" in error for error in errors):
+            raise AssertionError(f"validator accepted duplicate expected_tools.{field_name} item")
+
+
 def _assert_validator_rejects_decision_forbidden_drift(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_yobot_github_failure")
     bad_case = replace(
@@ -459,6 +475,7 @@ def main() -> int:
     _assert_validator_requires_allowed_target_tool(cases)
     _assert_validator_rejects_allowed_forbidden_overlap(cases)
     _assert_validator_rejects_unknown_expected_tools(cases)
+    _assert_validator_rejects_duplicate_expected_tools(cases)
     _assert_validator_rejects_decision_forbidden_drift(cases)
     _assert_validator_rejects_unknown_ledger_events(cases)
     _assert_validator_rejects_duplicate_ledger_lists(cases)
