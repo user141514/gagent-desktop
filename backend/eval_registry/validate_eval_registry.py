@@ -45,7 +45,9 @@ def _validate_loaded_case(loaded) -> list[str]:
     errors: list[str] = []
     if loaded.id != Path(loaded.source_path).stem:
         errors.append(f"{loaded.source_path}: id and filename mismatch")
-    tool_path = ROOT / "backend" / "tool_registry" / "tools" / f"{loaded.target_tool}.yml"
+    tool_dir = ROOT / "backend" / "tool_registry" / "tools"
+    registry_tools = {path.stem for path in tool_dir.glob("*.yml")}
+    tool_path = tool_dir / f"{loaded.target_tool}.yml"
     if not tool_path.exists():
         errors.append(f"{loaded.id}: target_tool registry missing: {tool_path}")
     allowed = loaded.expected_tools.get("allowed")
@@ -60,6 +62,11 @@ def _validate_loaded_case(loaded) -> list[str]:
         overlap = sorted(set(str(tool) for tool in allowed) & set(str(tool) for tool in forbidden))
         if overlap:
             errors.append(f"{loaded.id}: expected_tools.allowed and forbidden must not overlap: {', '.join(overlap)}")
+    for field_name, tools in (("allowed", allowed), ("forbidden", forbidden)):
+        if isinstance(tools, list):
+            unknown = sorted({str(tool) for tool in tools if str(tool) not in registry_tools})
+            if unknown:
+                errors.append(f"{loaded.id}: expected_tools.{field_name} contains unknown tool: {', '.join(unknown)}")
     total_score = int(loaded.score.get("answer_or_tool_behavior", 0)) + int(loaded.score.get("ledger", 0))
     if total_score != 100:
         errors.append(f"{loaded.id}: score weights must sum to 100, got {total_score}")

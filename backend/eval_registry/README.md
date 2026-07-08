@@ -3,7 +3,7 @@
 Owner layer: Layer 4 quality gates plus Layer 3 runtime observability.
 
 This is the first internal evaluation harness for gagent-desktop. It runs deterministic eval cases from `cases/*.json`, executes supported web tool boundary paths, reads `runtime_ledger` JSONL events, and scores tool behavior, ledger completeness, and final-answer consistency.
-Each eval case `expected_tools.allowed` list must include its `target_tool`; `expected_tools.allowed` and `expected_tools.forbidden` must be disjoint. The validator treats mismatches as contract drift.
+Each eval case `expected_tools.allowed` list must include its `target_tool`; `expected_tools.allowed` and `expected_tools.forbidden` must be disjoint; every referenced tool must exist in `backend/tool_registry/tools/*.yml`. The validator treats mismatches as contract drift.
 
 Supported executable targets:
 

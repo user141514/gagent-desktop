@@ -2332,3 +2332,43 @@ Status:
 ```text
 eval case allowed-forbidden disjoint validation applied; source port-back required
 ```
+
+---
+
+### Eval case expected-tool registry validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval cases could reference tool names in expected_tools.allowed or expected_tools.forbidden that had no registry definition. The validator now resolves known tools from backend/tool_registry/tools/*.yml and rejects unknown expected tool names; smoke_eval_registry covers both allowed and forbidden lists with a mutated case.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the expected_tools registry-name check and the smoke mutation assertion.
+```
+
+Status:
+
+```text
+eval case expected-tool registry validation applied; source port-back required
+```
