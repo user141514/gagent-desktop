@@ -86,6 +86,32 @@ def _validate_loaded_case(loaded) -> list[str]:
         errors.append(f"{loaded.id}: expected_result.allow_structured_failure must be a boolean")
     if allow_success is False and allow_structured_failure is False:
         errors.append(f"{loaded.id}: expected_result must allow success or structured failure")
+    if loaded.expected_result.get("forbid_baidu_success") is True and loaded.target_tool != "web_search":
+        errors.append(f"{loaded.id}: expected_result.forbid_baidu_success requires target_tool web_search")
+    if loaded.expected_result.get("forbid_search_homepage_success") is True and loaded.target_tool != "web_search":
+        errors.append(f"{loaded.id}: expected_result.forbid_search_homepage_success requires target_tool web_search")
+    if loaded.expected_result.get("forbid_search_shaped_success") is True and loaded.target_tool != "web_scan":
+        errors.append(f"{loaded.id}: expected_result.forbid_search_shaped_success requires target_tool web_scan")
+    if loaded.expected_result.get("forbid_page_content_success") is True and loaded.target_tool != "web_scan":
+        errors.append(f"{loaded.id}: expected_result.forbid_page_content_success requires target_tool web_scan")
+    if loaded.expected_result.get("require_navigation_success") is True and loaded.target_tool != "web_execute_js":
+        errors.append(f"{loaded.id}: expected_result.require_navigation_success requires target_tool web_execute_js")
+    if loaded.expected_result.get("require_contract_valid") is True and (
+        loaded.target_tool != "browser_agent" or loaded.type != "tool_contract_eval"
+    ):
+        errors.append(f"{loaded.id}: expected_result.require_contract_valid requires browser_agent tool_contract_eval")
+    if loaded.expected_result.get("require_contract_terms") and (
+        loaded.target_tool != "browser_agent" or loaded.type != "tool_contract_eval"
+    ):
+        errors.append(f"{loaded.id}: expected_result.require_contract_terms requires browser_agent tool_contract_eval")
+    if loaded.expected_result.get("require_browser_agent_success") is True and (
+        loaded.target_tool != "browser_agent" or loaded.type != "tool_handler_eval"
+    ):
+        errors.append(f"{loaded.id}: expected_result.require_browser_agent_success requires browser_agent tool_handler_eval")
+    if loaded.expected_result.get("require_runtime_events") and loaded.type != "agent_loop_eval":
+        errors.append(f"{loaded.id}: expected_result.require_runtime_events requires agent_loop_eval")
+    if loaded.expected_result.get("require_balanced_turn_events") is True and loaded.type != "agent_loop_eval":
+        errors.append(f"{loaded.id}: expected_result.require_balanced_turn_events requires agent_loop_eval")
     required_events = loaded.expected_ledger.get("required_events")
     if not isinstance(required_events, list):
         errors.append(f"{loaded.id}: expected_ledger.required_events must be a list")

@@ -150,6 +150,24 @@ def _assert_validator_rejects_impossible_expected_result(cases) -> None:
         raise AssertionError("validator accepted impossible expected_result outcomes")
 
 
+def _assert_validator_rejects_tool_specific_expected_result_drift(cases) -> None:
+    base_case = next(item for item in cases if item.id == "web_search_openai_docs")
+    checks = [
+        ("require_navigation_success", "requires target_tool web_execute_js"),
+        ("require_contract_valid", "requires browser_agent tool_contract_eval"),
+        ("require_browser_agent_success", "requires browser_agent tool_handler_eval"),
+        ("forbid_search_shaped_success", "requires target_tool web_scan"),
+    ]
+    for field_name, expected_error in checks:
+        bad_case = replace(
+            base_case,
+            expected_result={**base_case.expected_result, field_name: True},
+        )
+        errors = _validate_loaded_case(bad_case)
+        if not any(expected_error in error for error in errors):
+            raise AssertionError(f"validator accepted misplaced expected_result.{field_name}")
+
+
 def _assert_validator_requires_allowed_target_tool(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_tool_boundary")
     bad_case = replace(base_case, expected_tools={**base_case.expected_tools, "allowed": ["web_scan"]})
@@ -260,6 +278,7 @@ def main() -> int:
     _assert_answer_score_rejects_forbidden_fallback(cases)
     _assert_score_rejects_disallowed_failure(cases)
     _assert_validator_rejects_impossible_expected_result(cases)
+    _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_requires_allowed_target_tool(cases)
     _assert_validator_rejects_allowed_forbidden_overlap(cases)
     _assert_validator_rejects_unknown_expected_tools(cases)

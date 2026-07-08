@@ -2492,3 +2492,43 @@ Status:
 ```text
 eval case expected-result outcome validation applied; source port-back required
 ```
+
+---
+
+### Eval case tool-specific expected-result validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval cases could attach tool-specific expected_result checks to the wrong target tool or case type, such as require_navigation_success on web_search. The validator now rejects misplaced search, scan, navigation, browser_agent contract, browser_agent handler, and agent-loop expected_result fields; smoke_eval_registry covers the drift with mutated cases.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the tool-specific expected_result target/type checks and the smoke mutation assertion.
+```
+
+Status:
+
+```text
+eval case tool-specific expected-result validation applied; source port-back required
+```
