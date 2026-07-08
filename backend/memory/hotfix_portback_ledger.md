@@ -2973,3 +2973,43 @@ Status:
 ```text
 eval expected-tools duplicate validation applied; source port-back required
 ```
+
+---
+
+### Eval expected-result duplicate validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case expected_result list fields could repeat required runtime events or contract terms, making a case look stricter without adding coverage. The validator now rejects duplicate items in require_runtime_events and require_contract_terms; smoke_eval_registry covers both mutations.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove expected_result duplicate validation and the duplicate-expected-result smoke assertion.
+```
+
+Status:
+
+```text
+eval expected-result duplicate validation applied; source port-back required
+```

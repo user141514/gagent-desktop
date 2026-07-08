@@ -136,6 +136,12 @@ def _validate_loaded_case(loaded) -> list[str]:
     unknown_expected_result = sorted(set(str(key) for key in loaded.expected_result) - EXPECTED_RESULT_FIELDS)
     if unknown_expected_result:
         errors.append(f"{loaded.id}: expected_result contains unknown field: {', '.join(unknown_expected_result)}")
+    for field_name in ("require_contract_terms", "require_runtime_events"):
+        values = loaded.expected_result.get(field_name)
+        if isinstance(values, list):
+            duplicates = _duplicate_strings(values)
+            if duplicates:
+                errors.append(f"{loaded.id}: expected_result.{field_name} contains duplicate item: {', '.join(duplicates)}")
     allow_success = loaded.expected_result.get("allow_success")
     allow_structured_failure = loaded.expected_result.get("allow_structured_failure")
     if not isinstance(allow_success, bool):

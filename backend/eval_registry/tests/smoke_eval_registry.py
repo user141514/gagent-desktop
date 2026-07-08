@@ -192,6 +192,32 @@ def _assert_validator_rejects_unknown_expected_result_fields(cases) -> None:
         raise AssertionError("validator accepted unknown expected_result field")
 
 
+def _assert_validator_rejects_duplicate_expected_result_lists(cases) -> None:
+    checks = [
+        (
+            next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search"),
+            "require_runtime_events",
+            "tool_requested",
+        ),
+        (
+            next(item for item in cases if item.id == "browser_agent_contract_boundary"),
+            "require_contract_terms",
+            "complex",
+        ),
+    ]
+    for base_case, field_name, duplicate_value in checks:
+        bad_case = replace(
+            base_case,
+            expected_result={
+                **base_case.expected_result,
+                field_name: [*base_case.expected_result.get(field_name, []), duplicate_value],
+            },
+        )
+        errors = _validate_loaded_case(bad_case)
+        if not any(f"expected_result.{field_name} contains duplicate item" in error for error in errors):
+            raise AssertionError(f"validator accepted duplicate expected_result.{field_name} item")
+
+
 def _assert_validator_rejects_unknown_contract_fields(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -464,6 +490,7 @@ def main() -> int:
     _assert_score_rejects_required_final_status_mismatch(cases)
     _assert_validator_rejects_impossible_expected_result(cases)
     _assert_validator_rejects_unknown_expected_result_fields(cases)
+    _assert_validator_rejects_duplicate_expected_result_lists(cases)
     _assert_validator_rejects_unknown_contract_fields(cases)
     _assert_validator_rejects_invalid_score_weights(cases)
     _assert_loader_rejects_unknown_top_level_fields(cases)
