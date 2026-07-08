@@ -1987,3 +1987,41 @@ Status:
 ```text
 functionality score partial blocker diagnostics applied; source port-back required
 ```
+
+---
+
+### Final-answer forbidden fallback scoring
+
+Files changed:
+
+```text
+backend/eval_registry/score_final_answer.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Tool and ledger scoring rejected forbidden fallback usage, but final-answer scoring could still pass a failed web_search answer that recommended forbidden fallback tools such as web_scan or browser_agent. The final-answer scorer now rejects recommendation phrasing for tools listed in expected_tools.forbidden.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+```
+
+Rollback:
+
+```text
+Remove _forbidden_tool_recommendations, its call from score_final_answer, and the smoke assertion for forbidden fallback recommendations.
+```
+
+Status:
+
+```text
+final-answer forbidden fallback scoring applied; source port-back required
+```

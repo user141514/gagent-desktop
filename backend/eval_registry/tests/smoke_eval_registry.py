@@ -95,6 +95,17 @@ def _assert_answer_score_rejects_false_success(cases) -> None:
         raise AssertionError("final-answer score accepted a false success claim")
 
 
+def _assert_answer_score_rejects_forbidden_fallback(cases) -> None:
+    case = next(item for item in cases if item.id == "web_search_yobot_github_failure")
+    score = score_final_answer(
+        case,
+        "web_search failed. Try web_scan or browser_agent next.",
+        {"status": "error", "msg": "All configured HTTP search engines failed.", "error_category": "search_backend_unavailable"},
+    )
+    if score.get("verdict") != "fail":
+        raise AssertionError("final-answer score accepted a forbidden fallback recommendation")
+
+
 def _assert_score_rejects_disallowed_failure(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     case = replace(base_case, expected_result={**base_case.expected_result, "allow_structured_failure": False})
@@ -167,6 +178,7 @@ def main() -> int:
     _assert_score_rejects_nested_baidu(cases)
     _assert_handler_writes_browser_bridge_ledger()
     _assert_answer_score_rejects_false_success(cases)
+    _assert_answer_score_rejects_forbidden_fallback(cases)
     _assert_score_rejects_disallowed_failure(cases)
     _assert_agent_loop_writes_runtime_ledger(cases)
     summary = run_eval_cases(write_report=True)

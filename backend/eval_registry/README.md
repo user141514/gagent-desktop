@@ -17,7 +17,7 @@ agent_loop runtime mapper success/failure
 
 `web_scan` and `web_execute_js` use a fake local browser bridge but still call the real `GenericAgentHandler` methods, so their boundary evals are offline, deterministic, and covered by handler-level `runtime_ledger` events. `browser_agent` has a registry contract eval plus a stubbed handler eval; the real high-cost browser/LLM workflow is not launched.
 
-Final-answer scoring is rule-based and deterministic. It checks that a successful tool result is not described as a failure, that successful source URLs are surfaced, and that structured failures are not reported as successful findings.
+Final-answer scoring is rule-based and deterministic. It checks that a successful tool result is not described as a failure, that successful source URLs are surfaced, that structured failures are not reported as successful findings, and that failure answers do not recommend forbidden fallback tools from the eval case.
 
 `agent_loop runtime mapper` is a local fake-client/fake-handler path through the real `agent_runner_loop`. It verifies that runtime mapper turn and tool events are emitted, started/completed LLM turns stay balanced, and `agent_runner_loop(runtime_ledger_run_id=...)` writes turn-tagged `runtime_ledger` tool events. It covers both success and structured web_search failure paths.
 
@@ -74,6 +74,7 @@ Source of truth:
 backend/eval_registry/cases/*.json
 backend/eval_registry/tests/smoke_openai_orchestrated_e2e.py
 backend/eval_registry/tests/smoke_browser_agent_e2e.py
+backend/eval_registry/score_final_answer.py
 backend/eval_registry/score_functionality.py
 backend/requirements-e2e.txt
 ```

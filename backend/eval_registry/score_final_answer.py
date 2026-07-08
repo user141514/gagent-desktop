@@ -88,6 +88,11 @@ def score_final_answer(case: EvalCase, answer_text: str, tool_result: dict) -> d
         if not penalties:
             reasons.append("answer discloses structured failure")
 
+    forbidden_recommendations = _forbidden_tool_recommendations(case, lowered)
+    if forbidden_recommendations:
+        total -= 60
+        penalties.append("answer recommends forbidden fallback tools: " + ", ".join(forbidden_recommendations))
+
     total = max(0, total)
     return {
         "case_id": case.id,
@@ -104,6 +109,17 @@ def _claims_success(lowered_answer: str) -> bool:
     if not re.search(r"\bfound\b", lowered_answer):
         return False
     return not any(phrase in lowered_answer for phrase in NEGATED_FOUND_PHRASES)
+
+
+def _forbidden_tool_recommendations(case: EvalCase, lowered_answer: str) -> list[str]:
+    hits: list[str] = []
+    for tool in [str(item).lower() for item in case.expected_tools.get("forbidden") or []]:
+        escaped = re.escape(tool)
+        if re.search(rf"\b(try|use|run|call|open|switch to|fall back to|fallback to)\s+{escaped}\b", lowered_answer):
+            hits.append(tool)
+        elif re.search(rf"\b{escaped}\s+(next|instead|as fallback|as a fallback)\b", lowered_answer):
+            hits.append(tool)
+    return hits
 
 
 def _status(tool_result: dict) -> str:
