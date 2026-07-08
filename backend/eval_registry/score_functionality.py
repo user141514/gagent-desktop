@@ -116,8 +116,11 @@ def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str
     score = round(weight * average / 100)
     failed = [str(item.get("case_id") or "") for item in results if item.get("verdict") != "pass"]
     blockers = [f"eval case not passing: {case_id}" for case_id in failed if case_id]
+    if average < 100:
+        blockers.append(f"internal eval average score below 100: {round(average, 2)}")
+    status = "failed" if failed else ("partial" if average < 100 else "passed")
     return {
-        **_component("internal_eval", weight, score, "passed" if not failed else "failed", blockers),
+        **_component("internal_eval", weight, score, status, blockers),
         "case_count": len(results),
         "passed": len(results) - len(failed),
         "failed": len(failed),
@@ -296,6 +299,8 @@ def _self_test() -> None:
     passed = score_reports(passing_eval, {"status": "passed"}, {"status": "passed"})
     assert passed["status"] == "needs_work"
     assert passed["total"] == 93
+    assert passed["components"][0]["status"] == "partial"
+    assert passed["blockers"] == ["internal eval average score below 100: 90.0"]
     assert _exit_code_for_report(passed, strict=False) == 0
     assert _exit_code_for_report(passed, strict=True) == 1
 

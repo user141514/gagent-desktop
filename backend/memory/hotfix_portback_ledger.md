@@ -1950,3 +1950,40 @@ Status:
 ```text
 full convergence clean-source gate applied; source port-back required
 ```
+
+---
+
+### Functionality score partial blocker diagnostics
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Internal eval cases could all have verdict=pass while the average score stayed below 100. Strict scoring failed correctly, but the component blockers could be empty, making the remaining gap hard to diagnose.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+```
+
+Rollback:
+
+```text
+Remove the internal eval average-score blocker/status branch and the self-test assertion for partial blockers.
+```
+
+Status:
+
+```text
+functionality score partial blocker diagnostics applied; source port-back required
+```
