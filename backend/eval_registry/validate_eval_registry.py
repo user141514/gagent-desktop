@@ -27,6 +27,14 @@ INPUT_FIELDS_BY_CASE = {
     ("tool_contract_eval", "browser_agent"): {"registry_file"},
     ("tool_handler_eval", "browser_agent"): {"headless", "max_steps", "task"},
 }
+REQUIRED_INPUT_FIELDS_BY_CASE = {
+    ("agent_loop_eval", "web_search"): {"engine", "max_results", "query"},
+    ("tool_boundary_eval", "web_execute_js"): {"script"},
+    ("tool_boundary_eval", "web_scan"): {"tabs_only"},
+    ("tool_boundary_eval", "web_search"): {"engine", "max_results", "query", "timeout"},
+    ("tool_contract_eval", "browser_agent"): {"registry_file"},
+    ("tool_handler_eval", "browser_agent"): {"headless", "max_steps", "task"},
+}
 EXPECTED_TOOLS_FIELDS = {"allowed", "forbidden"}
 EXPECTED_LEDGER_FIELDS = {"required_decision_forbidden_actions", "required_events", "required_on_failure"}
 EXPECTED_RESULT_FIELDS = {
@@ -103,6 +111,9 @@ def _validate_loaded_case(loaded) -> list[str]:
     if input_fields is None:
         errors.append(f"{loaded.id}: input contract missing for {loaded.type}/{loaded.target_tool}")
     else:
+        missing_input = sorted(REQUIRED_INPUT_FIELDS_BY_CASE.get((loaded.type, loaded.target_tool), set()) - set(loaded.input))
+        for field_name in missing_input:
+            errors.append(f"{loaded.id}: input.{field_name} is required")
         unknown_input = sorted(set(str(key) for key in loaded.input) - input_fields)
         if unknown_input:
             errors.append(f"{loaded.id}: input contains unknown field: {', '.join(unknown_input)}")

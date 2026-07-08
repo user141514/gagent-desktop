@@ -3173,3 +3173,43 @@ Status:
 ```text
 eval input value type validation applied; source port-back required
 ```
+
+---
+
+### Eval required input field validation
+
+Files changed:
+
+```text
+backend/eval_registry/validate_eval_registry.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Eval case input values were typed when present, but critical fields such as query, script, registry_file, task, and tool limit controls could still be omitted and fall through to runtime defaults. The validator now rejects missing required input fields per (type, target_tool).
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/validate_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove REQUIRED_INPUT_FIELDS_BY_CASE and the missing required input smoke assertion.
+```
+
+Status:
+
+```text
+eval required input field validation applied; source port-back required
+```

@@ -480,6 +480,29 @@ def _assert_validator_rejects_invalid_input_values(cases) -> None:
             raise AssertionError(f"validator accepted invalid {base_case.id} input: {changed_input}")
 
 
+def _assert_validator_rejects_missing_required_input_fields(cases) -> None:
+    checks = [
+        (next(item for item in cases if item.id == "web_search_openai_docs"), "query"),
+        (next(item for item in cases if item.id == "web_search_openai_docs"), "engine"),
+        (next(item for item in cases if item.id == "web_search_openai_docs"), "max_results"),
+        (next(item for item in cases if item.id == "web_search_openai_docs"), "timeout"),
+        (next(item for item in cases if item.id == "agent_loop_runtime_mapper_web_search"), "query"),
+        (next(item for item in cases if item.id == "web_scan_current_tab_boundary"), "tabs_only"),
+        (next(item for item in cases if item.id == "web_execute_js_navigation_boundary"), "script"),
+        (next(item for item in cases if item.id == "browser_agent_contract_boundary"), "registry_file"),
+        (next(item for item in cases if item.id == "browser_agent_handler_stub_boundary"), "task"),
+        (next(item for item in cases if item.id == "browser_agent_handler_stub_boundary"), "max_steps"),
+        (next(item for item in cases if item.id == "browser_agent_handler_stub_boundary"), "headless"),
+    ]
+    for base_case, field_name in checks:
+        changed_input = dict(base_case.input)
+        changed_input.pop(field_name, None)
+        bad_case = replace(base_case, input=changed_input)
+        errors = _validate_loaded_case(bad_case)
+        if not any(f"input.{field_name} is required" in error for error in errors):
+            raise AssertionError(f"validator accepted missing {base_case.id} input.{field_name}")
+
+
 def _assert_validator_rejects_unsupported_type_and_version(cases) -> None:
     base_case = next(item for item in cases if item.id == "web_search_openai_docs")
     checks = [
@@ -699,6 +722,7 @@ def main() -> int:
     _assert_loader_rejects_unknown_top_level_fields(cases)
     _assert_validator_rejects_unknown_input_fields(cases)
     _assert_validator_rejects_invalid_input_values(cases)
+    _assert_validator_rejects_missing_required_input_fields(cases)
     _assert_validator_rejects_unsupported_type_and_version(cases)
     _assert_validator_rejects_tool_specific_expected_result_drift(cases)
     _assert_validator_rejects_unknown_runtime_events(cases)
