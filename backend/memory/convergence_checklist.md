@@ -88,7 +88,7 @@ Pass criteria:
 - full convergence runner includes baseline validators before strict functionality scoring;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
 - full convergence runner rejects strict score evidence unless opt-in E2E env switches are enabled and score input reports exist with non-empty contents;
-- full convergence runner rejects score evidence whose Git HEAD differs from the current checkout, and rejects refreshed score evidence built from stale or future-dated input reports;
+- full convergence runner rejects score evidence whose Git HEAD or branch differs from the current checkout, and rejects refreshed score evidence built from stale or future-dated input reports;
 - full convergence runner rejects score evidence whose results directory or Python executable do not match the current repository's eval results path and bundled `python-runtime`;
 - full convergence runner rejects refreshed score evidence whose input report bytes or modified timestamps do not match the actual files on disk;
 - full convergence runner rejects refreshed score output unless `latest_functionality_score.json` matches the validated score stdout exactly;

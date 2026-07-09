@@ -4090,3 +4090,42 @@ Status:
 ```text
 convergence score artifact binding applied; source port-back required
 ```
+
+---
+
+### Convergence source branch binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner compared score evidence source_git.head with the current checkout HEAD, but only checked that source_git.branch was a string. A score output with the correct commit but wrong branch provenance could therefore pass. run_convergence_checks.py now reads the current checkout branch and rejects score evidence whose source_git.branch differs.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _current_git_branch/_git_output, remove the source_git.branch equality check, and remove the related self-test fixture.
+```
+
+Status:
+
+```text
+convergence source branch binding applied; source port-back required
+```

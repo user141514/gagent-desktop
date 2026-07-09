@@ -226,6 +226,11 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
         raise ValueError("score_functionality evidence.source_git.head does not match current HEAD")
     if not isinstance(source_git.get("branch"), str):
         raise ValueError("score_functionality evidence.source_git.branch is missing")
+    current_branch = _current_git_branch()
+    if current_branch is None:
+        raise ValueError("current git branch is unavailable")
+    if source_git["branch"] != current_branch:
+        raise ValueError("score_functionality evidence.source_git.branch does not match current branch")
     if not isinstance(source_git.get("dirty"), bool):
         raise ValueError("score_functionality evidence.source_git.dirty is missing")
     if "--strict" in command and source_git["dirty"]:
@@ -329,6 +334,27 @@ def _current_git_head() -> str | None:
     if result.returncode != 0:
         return None
     return result.stdout.strip() or None
+
+
+def _current_git_branch() -> str | None:
+    branch = _git_output("branch", "--show-current")
+    if branch:
+        return branch
+    return _git_output("rev-parse", "--abbrev-ref", "HEAD")
+
+
+def _git_output(*args: str) -> str | None:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
 
 
 def _self_test() -> None:
@@ -501,6 +527,13 @@ def _self_test() -> None:
         assert "head" in str(exc)
     else:
         raise AssertionError("score output with mismatched source_git head unexpectedly passed")
+    wrong_branch = json.loads(_score_output_fixture(source_branch="wrong-branch"))
+    try:
+        _success_output_for(score_command, json.dumps(wrong_branch))
+    except ValueError as exc:
+        assert "branch" in str(exc)
+    else:
+        raise AssertionError("score output with mismatched source_git branch unexpectedly passed")
     bad_weight = json.loads(_score_output_fixture())
     bad_weight["components"][0]["weight"] = 99
     try:
@@ -604,6 +637,7 @@ def _score_output_fixture(
     dirty: bool = False,
     e2e_enabled: bool = True,
     source_head: str | None = None,
+    source_branch: str | None = None,
     results_dir: str | None = None,
     python_executable: str | None = None,
 ) -> str:
@@ -655,7 +689,7 @@ def _score_output_fixture(
                 "source_git": {
                     "available": True,
                     "head": source_head if source_head is not None else (_current_git_head() or "abcdef1234567890"),
-                    "branch": "main",
+                    "branch": source_branch if source_branch is not None else (_current_git_branch() or "main"),
                     "dirty": dirty,
                 },
                 "input_reports": input_report_evidence,
