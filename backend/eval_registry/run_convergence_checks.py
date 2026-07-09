@@ -185,6 +185,12 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     for key in SCORE_E2E_ENV_KEYS:
         if not isinstance(e2e_env.get(key), str):
             raise ValueError(f"score_functionality evidence.e2e_env.{key} is missing")
+    if "--strict" in command:
+        if not e2e_env.get("GAGENT_E2E_DEPS", "").strip():
+            raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS is required for strict convergence")
+        for key in ["GAGENT_RUN_OPENAI_E2E", "GAGENT_RUN_BROWSER_AGENT_E2E"]:
+            if e2e_env.get(key) != "1":
+                raise ValueError(f"score_functionality evidence.e2e_env.{key} must be 1 for strict convergence")
 
     source_git = evidence.get("source_git")
     if not isinstance(source_git, dict):
@@ -223,12 +229,13 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
             )
         if not isinstance(report.get("exists"), bool):
             raise ValueError(f"score_functionality evidence.input_reports.{name}.exists is missing")
-        if report["exists"]:
-            if not isinstance(report.get("bytes"), int) or report["bytes"] < 0:
-                raise ValueError(f"score_functionality evidence.input_reports.{name}.bytes is invalid")
-            modified_at_utc = report.get("modified_at_utc")
-            if not isinstance(modified_at_utc, str) or not modified_at_utc.endswith("Z"):
-                raise ValueError(f"score_functionality evidence.input_reports.{name}.modified_at_utc is invalid")
+        if not report["exists"]:
+            raise ValueError(f"score_functionality evidence.input_reports.{name} is missing")
+        if not isinstance(report.get("bytes"), int) or report["bytes"] <= 0:
+            raise ValueError(f"score_functionality evidence.input_reports.{name}.bytes is invalid")
+        modified_at_utc = report.get("modified_at_utc")
+        if not isinstance(modified_at_utc, str) or not modified_at_utc.endswith("Z"):
+            raise ValueError(f"score_functionality evidence.input_reports.{name}.modified_at_utc is invalid")
 
 
 def _self_test() -> None:
@@ -257,6 +264,21 @@ def _self_test() -> None:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight
     assert json.loads(_success_output_for(score_command, _score_output_fixture()))["status"] == "needs_work"
     assert json.loads(_success_output_for(strict_score_command, _score_output_fixture(strict=True)))["strict"] is True
+    strict_missing_e2e_env = json.loads(_score_output_fixture(strict=True, e2e_enabled=False))
+    try:
+        _success_output_for(strict_score_command, json.dumps(strict_missing_e2e_env))
+    except ValueError as exc:
+        assert "GAGENT_E2E_DEPS" in str(exc)
+    else:
+        raise AssertionError("strict score output without e2e opt-in env unexpectedly passed")
+    strict_missing_openai_env = json.loads(_score_output_fixture(strict=True))
+    strict_missing_openai_env["evidence"]["e2e_env"]["GAGENT_RUN_OPENAI_E2E"] = ""
+    try:
+        _success_output_for(strict_score_command, json.dumps(strict_missing_openai_env))
+    except ValueError as exc:
+        assert "GAGENT_RUN_OPENAI_E2E" in str(exc)
+    else:
+        raise AssertionError("strict score output without OpenAI e2e opt-in unexpectedly passed")
     strict_dirty = json.loads(_score_output_fixture(strict=True, dirty=True))
     try:
         _success_output_for(strict_score_command, json.dumps(strict_dirty))
@@ -295,6 +317,8 @@ def _self_test() -> None:
     extra_input_report_field = json.loads(_score_output_fixture())
     extra_input_report_field["evidence"]["input_reports"]["latest_eval_report.json"]["mystery_field"] = True
     evidence_drift_cases.append((extra_input_report_field, "input report field unknown"))
+    missing_input_report = json.loads(_score_output_fixture())
+    missing_input_report["evidence"]["input_reports"]["latest_eval_report.json"] = {"exists": False}
     for fixture, label in evidence_drift_cases:
         try:
             _success_output_for(score_command, json.dumps(fixture))
@@ -302,6 +326,12 @@ def _self_test() -> None:
             assert "evidence" in str(exc) and "unknown" in str(exc)
         else:
             raise AssertionError(f"score output with {label} unexpectedly passed")
+    try:
+        _success_output_for(score_command, json.dumps(missing_input_report))
+    except ValueError as exc:
+        assert "input_reports.latest_eval_report.json" in str(exc)
+    else:
+        raise AssertionError("score output with missing input report unexpectedly passed")
     bad_weight = json.loads(_score_output_fixture())
     bad_weight["components"][0]["weight"] = 99
     try:
@@ -399,7 +429,7 @@ def _self_test() -> None:
         raise AssertionError("score output with wrong blockers unexpectedly passed")
 
 
-def _score_output_fixture(*, strict: bool = False, dirty: bool = False) -> str:
+def _score_output_fixture(*, strict: bool = False, dirty: bool = False, e2e_enabled: bool = True) -> str:
     internal_score = SCORE_COMPONENT_WEIGHTS["internal_eval"]
     components = [
         {
@@ -438,9 +468,9 @@ def _score_output_fixture(*, strict: bool = False, dirty: bool = False) -> str:
                 "results_dir": "backend/eval_registry/results",
                 "python_executable": "python-runtime/python.exe",
                 "e2e_env": {
-                    "GAGENT_E2E_DEPS": "",
-                    "GAGENT_RUN_OPENAI_E2E": "",
-                    "GAGENT_RUN_BROWSER_AGENT_E2E": "",
+                    "GAGENT_E2E_DEPS": "backend/temp/e2e_deps" if e2e_enabled else "",
+                    "GAGENT_RUN_OPENAI_E2E": "1" if e2e_enabled else "",
+                    "GAGENT_RUN_BROWSER_AGENT_E2E": "1" if e2e_enabled else "",
                 },
                 "source_git": {
                     "available": True,

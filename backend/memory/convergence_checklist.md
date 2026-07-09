@@ -87,6 +87,7 @@ Pass criteria:
 - internal eval list evidence field sets are defined in `run_eval_cases.py`; functionality scoring rejects non-list values and wrong element types;
 - full convergence runner includes baseline validators before strict functionality scoring;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
+- full convergence runner rejects strict score evidence unless opt-in E2E env switches are enabled and score input reports exist with non-empty contents;
 - passed optional E2E score reports include run id, successful runtime_ledger evidence, and target-specific success evidence; OpenAI reports also include RuntimeHost observability alignment, and browser_agent reports include non-empty output plus positive step count;
 - passed optional E2E score reports reject unknown top-level fields;
 - passed optional E2E score reports reject unknown `ledger_summary` fields using `runtime_ledger.RUNTIME_LEDGER_SUMMARY_FIELDS` as the source of truth;
