@@ -27,6 +27,7 @@ SOURCE_GIT_FIELDS = score_functionality.SOURCE_GIT_FIELDS
 INPUT_REPORT_FIELDS = score_functionality.INPUT_REPORT_FIELDS
 REFRESH_REPORT_MAX_AGE = timedelta(minutes=30)
 REFRESH_REPORT_FUTURE_SKEW = timedelta(minutes=2)
+INPUT_REPORT_STAT_SKEW = timedelta(seconds=2)
 
 
 def main() -> int:
@@ -227,6 +228,7 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     if "--strict" in command and source_git["dirty"]:
         raise ValueError("score_functionality evidence.source_git.dirty must be false for strict convergence")
 
+    results_dir = Path(evidence["results_dir"])
     input_reports = evidence.get("input_reports")
     if not isinstance(input_reports, dict):
         raise ValueError("score_functionality evidence.input_reports is missing")
@@ -258,6 +260,7 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
         )
         if "--refresh" in command:
             _validate_refresh_report_timing(name, generated_at, modified_at)
+            _validate_input_report_file_stat(name, results_dir, report, modified_at)
 
 
 def _parse_utc_timestamp(value: str, label: str) -> datetime:
@@ -270,6 +273,10 @@ def _parse_utc_timestamp(value: str, label: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+def _format_utc(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def _canonical_path(value: str | Path) -> str:
     return os.path.normcase(os.path.abspath(str(value)))
 
@@ -279,6 +286,21 @@ def _validate_refresh_report_timing(name: str, generated_at: datetime, modified_
         raise ValueError(f"score_functionality evidence.input_reports.{name} modified_at is in the future")
     if generated_at - modified_at > REFRESH_REPORT_MAX_AGE:
         raise ValueError(f"score_functionality evidence.input_reports.{name} is stale for refreshed score output")
+
+
+def _validate_input_report_file_stat(name: str, results_dir: Path, report: dict, modified_at: datetime) -> None:
+    path = results_dir / name
+    try:
+        stat = path.stat()
+    except OSError as exc:
+        raise ValueError(f"score_functionality evidence.input_reports.{name} file is missing on disk") from exc
+    if stat.st_size != report.get("bytes"):
+        raise ValueError(f"score_functionality evidence.input_reports.{name}.bytes does not match disk file")
+    actual_modified_at = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
+    if abs(actual_modified_at - modified_at) > INPUT_REPORT_STAT_SKEW:
+        raise ValueError(
+            f"score_functionality evidence.input_reports.{name}.modified_at_utc does not match disk file"
+        )
 
 
 def _current_git_head() -> str | None:
@@ -403,6 +425,28 @@ def _self_test() -> None:
         assert "input_reports.latest_eval_report.json" in str(exc)
     else:
         raise AssertionError("score output with missing input report unexpectedly passed")
+    wrong_input_report_bytes = json.loads(_score_output_fixture())
+    wrong_input_report_bytes["evidence"]["input_reports"]["latest_eval_report.json"]["bytes"] += 1
+    try:
+        _success_output_for(score_command, json.dumps(wrong_input_report_bytes))
+    except ValueError as exc:
+        assert "bytes" in str(exc)
+    else:
+        raise AssertionError("score output with mismatched input report bytes unexpectedly passed")
+    wrong_input_report_mtime = json.loads(_score_output_fixture())
+    current_mtime = _parse_utc_timestamp(
+        wrong_input_report_mtime["evidence"]["input_reports"]["latest_eval_report.json"]["modified_at_utc"],
+        "fixture modified_at_utc",
+    )
+    wrong_input_report_mtime["evidence"]["input_reports"]["latest_eval_report.json"]["modified_at_utc"] = _format_utc(
+        current_mtime + timedelta(seconds=10)
+    )
+    try:
+        _success_output_for(score_command, json.dumps(wrong_input_report_mtime))
+    except ValueError as exc:
+        assert "modified_at_utc" in str(exc)
+    else:
+        raise AssertionError("score output with mismatched input report mtime unexpectedly passed")
     stale_input_report = json.loads(_score_output_fixture())
     stale_input_report["evidence"]["input_reports"]["latest_eval_report.json"]["modified_at_utc"] = "2025-12-31T23:00:00Z"
     try:
@@ -412,7 +456,10 @@ def _self_test() -> None:
     else:
         raise AssertionError("score output with stale input report unexpectedly passed")
     future_input_report = json.loads(_score_output_fixture())
-    future_input_report["evidence"]["input_reports"]["latest_eval_report.json"]["modified_at_utc"] = "2026-01-01T00:03:00Z"
+    generated_at = _parse_utc_timestamp(future_input_report["evidence"]["generated_at_utc"], "fixture generated_at")
+    future_input_report["evidence"]["input_reports"]["latest_eval_report.json"]["modified_at_utc"] = _format_utc(
+        generated_at + timedelta(minutes=3)
+    )
     try:
         _success_output_for(score_command, json.dumps(future_input_report))
     except ValueError as exc:
@@ -534,6 +581,8 @@ def _score_output_fixture(
 ) -> str:
     internal_score = SCORE_COMPONENT_WEIGHTS["internal_eval"]
     expected_results_dir = ROOT / "backend" / "eval_registry" / "results"
+    input_report_evidence = _input_report_fixture_evidence(expected_results_dir)
+    generated_at_utc = _fixture_generated_at_utc(input_report_evidence)
     components = [
         {
             "name": "internal_eval",
@@ -567,7 +616,7 @@ def _score_output_fixture(
             "strict": strict,
             "components": components,
             "evidence": {
-                "generated_at_utc": "2026-01-01T00:00:00Z",
+                "generated_at_utc": generated_at_utc,
                 "results_dir": results_dir if results_dir is not None else str(expected_results_dir.resolve()),
                 "python_executable": python_executable if python_executable is not None else str(PYTHON.resolve()),
                 "e2e_env": {
@@ -581,17 +630,42 @@ def _score_output_fixture(
                     "branch": "main",
                     "dirty": dirty,
                 },
-                "input_reports": {
-                    name: {
-                        "exists": True,
-                        "bytes": 1,
-                        "modified_at_utc": "2026-01-01T00:00:00Z",
-                    }
-                    for name in SCORE_INPUT_REPORTS
-                },
+                "input_reports": input_report_evidence,
             },
         }
     )
+
+
+def _input_report_fixture_evidence(results_dir: Path) -> dict[str, dict[str, object]]:
+    evidence: dict[str, dict[str, object]] = {}
+    for name in SCORE_INPUT_REPORTS:
+        path = results_dir / name
+        try:
+            stat = path.stat()
+        except OSError:
+            evidence[name] = {
+                "exists": True,
+                "bytes": 1,
+                "modified_at_utc": "2026-01-01T00:00:00Z",
+            }
+            continue
+        evidence[name] = {
+            "exists": True,
+            "bytes": stat.st_size,
+            "modified_at_utc": _format_utc(datetime.fromtimestamp(stat.st_mtime, timezone.utc)),
+        }
+    return evidence
+
+
+def _fixture_generated_at_utc(input_reports: dict[str, dict[str, object]]) -> str:
+    modified_times: list[datetime] = []
+    for report in input_reports.values():
+        modified_at = report.get("modified_at_utc")
+        if isinstance(modified_at, str):
+            modified_times.append(_parse_utc_timestamp(modified_at, "fixture modified_at_utc"))
+    if not modified_times:
+        return "2026-01-01T00:00:01Z"
+    return _format_utc(max(modified_times) + timedelta(seconds=1))
 
 
 if __name__ == "__main__":

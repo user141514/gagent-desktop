@@ -4012,3 +4012,42 @@ Status:
 ```text
 convergence score path binding applied; source port-back required
 ```
+
+---
+
+### Convergence report file-stat binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner validated input report evidence shape, freshness, and path binding, but did not compare evidence bytes/modified_at_utc with the actual report files in backend/eval_registry/results. A refreshed score output could therefore claim fresh report metadata that was not backed by the files on disk. run_convergence_checks.py now checks refreshed input report evidence against disk stat size and mtime with a small filesystem timestamp tolerance.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _validate_input_report_file_stat, INPUT_REPORT_STAT_SKEW, and the related self-test fixtures.
+```
+
+Status:
+
+```text
+convergence report file-stat binding applied; source port-back required
+```
