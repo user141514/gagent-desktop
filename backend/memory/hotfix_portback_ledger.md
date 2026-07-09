@@ -3372,3 +3372,42 @@ Status:
 ```text
 eval report result-shape scoring validation applied; source port-back required
 ```
+
+---
+
+### Eval report results-list pollution validation
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Functionality scoring filtered non-object entries out of latest_eval_report.json results before validating coverage, allowing a polluted report to pass when all expected case objects were still present. The scorer now requires results to be a list and rejects any non-object result entries.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Restore the previous filtered-results path in _score_internal_eval and remove the polluted/non-list self-test fixtures.
+```
+
+Status:
+
+```text
+eval report results-list pollution validation applied; source port-back required
+```

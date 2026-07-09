@@ -109,10 +109,13 @@ def _max_total() -> int:
 def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str, Any]:
     if not report:
         return _component("internal_eval", weight, 0, "missing", ["latest_eval_report.json is missing"])
-    results = [item for item in report.get("results") or [] if isinstance(item, dict)]
-    if not results:
+    raw_results = report.get("results")
+    if not isinstance(raw_results, list):
+        return _component("internal_eval", weight, 0, "invalid_evidence", ["latest_eval_report.json results must be a list"])
+    if not raw_results:
         return _component("internal_eval", weight, 0, "missing", ["latest_eval_report.json has no results"])
-    shape_blockers = _internal_eval_result_shape_blockers(results)
+    results = [item for item in raw_results if isinstance(item, dict)]
+    shape_blockers = _internal_eval_result_shape_blockers(raw_results)
     coverage_blockers = _internal_eval_coverage_blockers(report, results)
     if shape_blockers or coverage_blockers:
         failed = [str(item.get("case_id") or "") for item in results if item.get("verdict") != "pass"]
@@ -139,9 +142,12 @@ def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str
     }
 
 
-def _internal_eval_result_shape_blockers(results: list[dict[str, Any]]) -> list[str]:
+def _internal_eval_result_shape_blockers(results: list[Any]) -> list[str]:
     blockers: list[str] = []
     for index, item in enumerate(results, start=1):
+        if not isinstance(item, dict):
+            blockers.append(f"internal eval result entry is invalid at index {index}")
+            continue
         case_id = str(item.get("case_id") or f"#{index}")
         total = item.get("total")
         if isinstance(total, bool) or not isinstance(total, (int, float)) or not 0 <= float(total) <= 100:
@@ -499,6 +505,26 @@ def _self_test() -> None:
     )
     assert invalid_verdict_score["status"] == "needs_work"
     assert any("result verdict" in blocker for blocker in invalid_verdict_score["blockers"])
+
+    polluted_internal_results = _passed_internal_eval_report()
+    polluted_internal_results["results"].append("polluted result row")
+    polluted_score = score_reports(
+        polluted_internal_results,
+        openai_passed,
+        browser_passed,
+    )
+    assert polluted_score["status"] == "needs_work"
+    assert any("result entry" in blocker for blocker in polluted_score["blockers"])
+
+    non_list_internal_results = _passed_internal_eval_report()
+    non_list_internal_results["results"] = {"case_id": "not-a-list"}
+    non_list_score = score_reports(
+        non_list_internal_results,
+        openai_passed,
+        browser_passed,
+    )
+    assert non_list_score["status"] == "needs_work"
+    assert any("results must be a list" in blocker for blocker in non_list_score["blockers"])
 
     thin_internal_eval = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},
