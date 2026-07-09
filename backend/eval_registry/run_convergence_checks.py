@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 EVAL_REGISTRY_DIR = Path(__file__).resolve().parent
@@ -24,6 +25,8 @@ COMPONENT_EXTRA_FIELDS = score_functionality.COMPONENT_EXTRA_FIELDS
 SCORE_EVIDENCE_FIELDS = score_functionality.SCORE_EVIDENCE_FIELDS
 SOURCE_GIT_FIELDS = score_functionality.SOURCE_GIT_FIELDS
 INPUT_REPORT_FIELDS = score_functionality.INPUT_REPORT_FIELDS
+REFRESH_REPORT_MAX_AGE = timedelta(minutes=30)
+REFRESH_REPORT_FUTURE_SKEW = timedelta(minutes=2)
 
 
 def main() -> int:
@@ -175,6 +178,10 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
             raise ValueError(f"score_functionality evidence.{key} is missing")
     if not evidence["generated_at_utc"].endswith("Z"):
         raise ValueError("score_functionality evidence.generated_at_utc must be UTC")
+    generated_at = _parse_utc_timestamp(
+        evidence["generated_at_utc"],
+        "score_functionality evidence.generated_at_utc",
+    )
 
     e2e_env = evidence.get("e2e_env")
     if not isinstance(e2e_env, dict):
@@ -204,6 +211,11 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
         raise ValueError("score_functionality evidence.source_git is unavailable")
     if not isinstance(source_git.get("head"), str) or len(source_git["head"]) < 7:
         raise ValueError("score_functionality evidence.source_git.head is missing")
+    current_head = _current_git_head()
+    if not current_head:
+        raise ValueError("current git HEAD is unavailable")
+    if source_git["head"] != current_head:
+        raise ValueError("score_functionality evidence.source_git.head does not match current HEAD")
     if not isinstance(source_git.get("branch"), str):
         raise ValueError("score_functionality evidence.source_git.branch is missing")
     if not isinstance(source_git.get("dirty"), bool):
@@ -236,6 +248,43 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
         modified_at_utc = report.get("modified_at_utc")
         if not isinstance(modified_at_utc, str) or not modified_at_utc.endswith("Z"):
             raise ValueError(f"score_functionality evidence.input_reports.{name}.modified_at_utc is invalid")
+        modified_at = _parse_utc_timestamp(
+            modified_at_utc,
+            f"score_functionality evidence.input_reports.{name}.modified_at_utc",
+        )
+        if "--refresh" in command:
+            _validate_refresh_report_timing(name, generated_at, modified_at)
+
+
+def _parse_utc_timestamp(value: str, label: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
+    except ValueError as exc:
+        raise ValueError(f"{label} is invalid") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"{label} must include timezone")
+    return parsed.astimezone(timezone.utc)
+
+
+def _validate_refresh_report_timing(name: str, generated_at: datetime, modified_at: datetime) -> None:
+    if modified_at > generated_at + REFRESH_REPORT_FUTURE_SKEW:
+        raise ValueError(f"score_functionality evidence.input_reports.{name} modified_at is in the future")
+    if generated_at - modified_at > REFRESH_REPORT_MAX_AGE:
+        raise ValueError(f"score_functionality evidence.input_reports.{name} is stale for refreshed score output")
+
+
+def _current_git_head() -> str | None:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
 
 
 def _self_test() -> None:
@@ -332,6 +381,29 @@ def _self_test() -> None:
         assert "input_reports.latest_eval_report.json" in str(exc)
     else:
         raise AssertionError("score output with missing input report unexpectedly passed")
+    stale_input_report = json.loads(_score_output_fixture())
+    stale_input_report["evidence"]["input_reports"]["latest_eval_report.json"]["modified_at_utc"] = "2025-12-31T23:00:00Z"
+    try:
+        _success_output_for(score_command, json.dumps(stale_input_report))
+    except ValueError as exc:
+        assert "stale" in str(exc)
+    else:
+        raise AssertionError("score output with stale input report unexpectedly passed")
+    future_input_report = json.loads(_score_output_fixture())
+    future_input_report["evidence"]["input_reports"]["latest_eval_report.json"]["modified_at_utc"] = "2026-01-01T00:03:00Z"
+    try:
+        _success_output_for(score_command, json.dumps(future_input_report))
+    except ValueError as exc:
+        assert "future" in str(exc)
+    else:
+        raise AssertionError("score output with future-dated input report unexpectedly passed")
+    wrong_head = json.loads(_score_output_fixture(source_head="0000000"))
+    try:
+        _success_output_for(score_command, json.dumps(wrong_head))
+    except ValueError as exc:
+        assert "head" in str(exc)
+    else:
+        raise AssertionError("score output with mismatched source_git head unexpectedly passed")
     bad_weight = json.loads(_score_output_fixture())
     bad_weight["components"][0]["weight"] = 99
     try:
@@ -429,7 +501,13 @@ def _self_test() -> None:
         raise AssertionError("score output with wrong blockers unexpectedly passed")
 
 
-def _score_output_fixture(*, strict: bool = False, dirty: bool = False, e2e_enabled: bool = True) -> str:
+def _score_output_fixture(
+    *,
+    strict: bool = False,
+    dirty: bool = False,
+    e2e_enabled: bool = True,
+    source_head: str | None = None,
+) -> str:
     internal_score = SCORE_COMPONENT_WEIGHTS["internal_eval"]
     components = [
         {
@@ -474,7 +552,7 @@ def _score_output_fixture(*, strict: bool = False, dirty: bool = False, e2e_enab
                 },
                 "source_git": {
                     "available": True,
-                    "head": "abcdef1234567890",
+                    "head": source_head if source_head is not None else (_current_git_head() or "abcdef1234567890"),
                     "branch": "main",
                     "dirty": dirty,
                 },

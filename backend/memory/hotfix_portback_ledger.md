@@ -3934,3 +3934,42 @@ Status:
 ```text
 strict convergence evidence hardening applied; source port-back required
 ```
+
+---
+
+### Refreshed score evidence freshness
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner required input reports to exist, but did not prove those reports were produced near the current score refresh, and did not compare the score's source_git.head with the runner's current checkout. A stale score output or stale input report evidence could therefore look fresh enough to pass structure checks. run_convergence_checks.py now rejects refreshed score evidence when input report timestamps are stale/future-dated, and rejects score evidence whose source_git.head differs from the current repository HEAD.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the refreshed input-report timestamp checks, remove the current HEAD comparison, and remove the related self-test fixtures.
+```
+
+Status:
+
+```text
+refreshed score evidence freshness applied; source port-back required
+```
