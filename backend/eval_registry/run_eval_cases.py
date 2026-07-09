@@ -24,6 +24,8 @@ from runtime_ledger import LedgerEvent, read_run_events, summarize_observability
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
 EVAL_REPORT_FIELDS = frozenset({"status", "case_count", "passed", "failed", "skipped", "results"})
 EVAL_FINAL_ANSWER_FIELDS = frozenset({"text", "total", "verdict", "reasons", "penalties"})
+EVAL_STRING_LIST_FIELDS = frozenset({"attempt_engines", "forbidden_tools_used", "runtime_event_types"})
+EVAL_INT_LIST_FIELDS = frozenset({"ledger_tool_turns", "runtime_completed_turns", "runtime_started_turns"})
 EVAL_RESULT_FIELDS = frozenset({
     "answer_or_tool_behavior",
     "attempt_engines",

@@ -18,7 +18,13 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from core.browser_agent import BROWSER_AGENT_RESULT_FIELDS  # noqa: E402
-from eval_registry.run_eval_cases import EVAL_FINAL_ANSWER_FIELDS, EVAL_REPORT_FIELDS, EVAL_RESULT_FIELDS  # noqa: E402
+from eval_registry.run_eval_cases import (  # noqa: E402
+    EVAL_FINAL_ANSWER_FIELDS,
+    EVAL_INT_LIST_FIELDS,
+    EVAL_REPORT_FIELDS,
+    EVAL_RESULT_FIELDS,
+    EVAL_STRING_LIST_FIELDS,
+)
 from runtime_ledger import (  # noqa: E402
     RUNTIME_HOST_SUMMARY_FIELDS,
     RUNTIME_LEDGER_SUMMARY_FIELDS,
@@ -243,12 +249,34 @@ def _internal_eval_result_shape_blockers(results: list[Any]) -> list[str]:
         observability = item.get("observability")
         if "observability" in item:
             blockers.extend(_observability_shape_errors("internal eval", observability, item.get("run_id")))
+        blockers.extend(_internal_eval_list_field_blockers(case_id, item))
         total = item.get("total")
         if isinstance(total, bool) or not isinstance(total, (int, float)) or not 0 <= float(total) <= 100:
             blockers.append(f"internal eval result total is invalid for {case_id}")
         verdict = item.get("verdict")
         if verdict not in {"pass", "fail", "skip"}:
             blockers.append(f"internal eval result verdict is invalid for {case_id}")
+    return blockers
+
+
+def _internal_eval_list_field_blockers(case_id: str, item: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    for field in sorted(EVAL_STRING_LIST_FIELDS):
+        if field not in item:
+            continue
+        value = item.get(field)
+        if not isinstance(value, list):
+            blockers.append(f"internal eval {field} must be a list for {case_id}")
+        elif not all(isinstance(entry, str) for entry in value):
+            blockers.append(f"internal eval {field} must contain strings for {case_id}")
+    for field in sorted(EVAL_INT_LIST_FIELDS):
+        if field not in item:
+            continue
+        value = item.get(field)
+        if not isinstance(value, list):
+            blockers.append(f"internal eval {field} must be a list for {case_id}")
+        elif not all(isinstance(entry, int) and not isinstance(entry, bool) and entry >= 0 for entry in value):
+            blockers.append(f"internal eval {field} must contain non-negative integers for {case_id}")
     return blockers
 
 
@@ -725,6 +753,26 @@ def _self_test() -> None:
     )
     assert internal_observability_extra_score["status"] == "needs_work"
     assert any("observability unknown field" in blocker for blocker in internal_observability_extra_score["blockers"])
+
+    internal_bad_string_list = _passed_internal_eval_report()
+    internal_bad_string_list["results"][0]["runtime_event_types"] = "session_completed"
+    internal_bad_string_list_score = score_reports(
+        internal_bad_string_list,
+        openai_passed,
+        browser_passed,
+    )
+    assert internal_bad_string_list_score["status"] == "needs_work"
+    assert any("runtime_event_types" in blocker for blocker in internal_bad_string_list_score["blockers"])
+
+    internal_bad_int_list = _passed_internal_eval_report()
+    internal_bad_int_list["results"][0]["ledger_tool_turns"] = ["1"]
+    internal_bad_int_list_score = score_reports(
+        internal_bad_int_list,
+        openai_passed,
+        browser_passed,
+    )
+    assert internal_bad_int_list_score["status"] == "needs_work"
+    assert any("ledger_tool_turns" in blocker for blocker in internal_bad_int_list_score["blockers"])
 
     openai_extra_field = dict(openai_passed)
     openai_extra_field["mystery_field"] = True

@@ -3856,3 +3856,43 @@ Status:
 ```text
 internal eval observability field whitelist applied; source port-back required
 ```
+
+---
+
+### Internal eval list evidence field validation
+
+Files changed:
+
+```text
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Internal eval result entries rejected unknown fields but still accepted malformed list evidence, such as runtime_event_types as a string or ledger_tool_turns containing string values. run_eval_cases.py now exports string-list and integer-list evidence field sets, and score_functionality.py validates those fields before awarding internal eval score.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove EVAL_STRING_LIST_FIELDS/EVAL_INT_LIST_FIELDS and remove _internal_eval_list_field_blockers plus its self-test fixtures.
+```
+
+Status:
+
+```text
+internal eval list evidence validation applied; source port-back required
+```
