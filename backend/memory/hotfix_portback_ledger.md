@@ -4129,3 +4129,42 @@ Status:
 ```text
 convergence source branch binding applied; source port-back required
 ```
+
+---
+
+### Convergence E2E deps path binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Strict convergence required GAGENT_E2E_DEPS to be non-empty, but did not verify that the score evidence pointed at this checkout's standard backend/temp/e2e_deps target. A strict score output could therefore report the opt-in E2E env as enabled while naming a different dependency directory. run_convergence_checks.py now canonicalizes GAGENT_E2E_DEPS and rejects strict score evidence unless it matches backend/temp/e2e_deps in the current repository.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the GAGENT_E2E_DEPS canonical path comparison and remove the related self-test fixture.
+```
+
+Status:
+
+```text
+convergence E2E deps path binding applied; source port-back required
+```

@@ -203,6 +203,8 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     if "--strict" in command:
         if not e2e_env.get("GAGENT_E2E_DEPS", "").strip():
             raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS is required for strict convergence")
+        if _canonical_path(e2e_env["GAGENT_E2E_DEPS"]) != _canonical_path(ROOT / "backend" / "temp" / "e2e_deps"):
+            raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS does not match expected e2e deps path")
         for key in ["GAGENT_RUN_OPENAI_E2E", "GAGENT_RUN_BROWSER_AGENT_E2E"]:
             if e2e_env.get(key) != "1":
                 raise ValueError(f"score_functionality evidence.e2e_env.{key} must be 1 for strict convergence")
@@ -398,6 +400,14 @@ def _self_test() -> None:
         assert "GAGENT_RUN_OPENAI_E2E" in str(exc)
     else:
         raise AssertionError("strict score output without OpenAI e2e opt-in unexpectedly passed")
+    strict_wrong_e2e_deps = json.loads(_score_output_fixture(strict=True))
+    strict_wrong_e2e_deps["evidence"]["e2e_env"]["GAGENT_E2E_DEPS"] = "C:/tmp/e2e_deps"
+    try:
+        _success_output_for(strict_score_command, json.dumps(strict_wrong_e2e_deps))
+    except ValueError as exc:
+        assert "GAGENT_E2E_DEPS" in str(exc)
+    else:
+        raise AssertionError("strict score output with wrong e2e deps path unexpectedly passed")
     strict_dirty = json.loads(_score_output_fixture(strict=True, dirty=True))
     try:
         _success_output_for(strict_score_command, json.dumps(strict_dirty))
