@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import runtime_ledger as runtime_ledger_package  # noqa: E402
 from runtime_ledger import LedgerEvent, new_run_id, read_run_events, summarize_run, write_event  # noqa: E402
 
 
@@ -61,6 +62,11 @@ def validate() -> list[str]:
         if len(events) != 3:
             errors.append(f"read_run_events expected 3 events, got {len(events)}")
         summary = summarize_run(run_id, ledger_dir=ledger_dir)
+        summary_fields = getattr(runtime_ledger_package, "RUNTIME_LEDGER_SUMMARY_FIELDS", None)
+        if summary_fields is None:
+            errors.append("RUNTIME_LEDGER_SUMMARY_FIELDS is not exported")
+        elif set(summary) != set(summary_fields):
+            errors.append("RUNTIME_LEDGER_SUMMARY_FIELDS does not match summarize_run output")
         if summary.get("failure_count") != 1:
             errors.append(f"expected one failure, got {summary.get('failure_count')}")
         if summary.get("tools", {}).get("web_search") != 1:

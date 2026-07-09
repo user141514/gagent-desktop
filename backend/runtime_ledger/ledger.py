@@ -23,6 +23,18 @@ _ALLOWED_EVENT_TYPES = {
 }
 
 _SAFE_ID_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+RUNTIME_LEDGER_SUMMARY_FIELDS = frozenset({
+    "run_id",
+    "event_count",
+    "task",
+    "owner_layer",
+    "tools",
+    "failure_count",
+    "failures",
+    "decisions",
+    "smoke_tests",
+    "final_status",
+})
 
 
 def _utc_now_iso() -> str:

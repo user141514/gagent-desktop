@@ -3647,3 +3647,47 @@ Status:
 ```text
 optional E2E ledger summary field whitelist applied; source port-back required
 ```
+
+---
+
+### Runtime ledger summary schema source
+
+Files changed:
+
+```text
+backend/runtime_ledger/ledger.py
+backend/runtime_ledger/__init__.py
+backend/runtime_ledger/validate_runtime_ledger.py
+backend/runtime_ledger/README.md
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The optional E2E score check used the right ledger_summary field list but owned that list inside score_functionality.py. runtime_ledger now exports RUNTIME_LEDGER_SUMMARY_FIELDS as the summarize_run() output-field source of truth, validate_runtime_ledger.py verifies it matches actual summary output, and score_functionality.py imports it instead of carrying a duplicate schema.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/validate_runtime_ledger.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove RUNTIME_LEDGER_SUMMARY_FIELDS from runtime_ledger, restore the local score_functionality.py ledger summary field list, and remove the validator/export checks.
+```
+
+Status:
+
+```text
+runtime ledger summary schema source applied; source port-back required
+```

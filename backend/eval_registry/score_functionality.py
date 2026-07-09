@@ -13,6 +13,12 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
+BACKEND = ROOT / "backend"
+if str(BACKEND) not in sys.path:
+    sys.path.insert(0, str(BACKEND))
+
+from runtime_ledger import RUNTIME_LEDGER_SUMMARY_FIELDS  # noqa: E402
+
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
 OUTPUT_PATH = RESULTS_DIR / "latest_functionality_score.json"
 
@@ -76,19 +82,6 @@ OPTIONAL_E2E_NONPASSED_FIELDS = {
         "ledger_summary",
     },
 }
-LEDGER_SUMMARY_FIELDS = {
-    "run_id",
-    "event_count",
-    "task",
-    "owner_layer",
-    "tools",
-    "failure_count",
-    "failures",
-    "decisions",
-    "smoke_tests",
-    "final_status",
-}
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Score current gagent-desktop functionality from eval reports.")
@@ -301,7 +294,7 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
     if not isinstance(ledger, dict):
         errors.append(f"{name} passed report missing ledger_summary")
         return errors
-    unknown_ledger_fields = sorted(set(ledger) - LEDGER_SUMMARY_FIELDS)
+    unknown_ledger_fields = sorted(set(ledger) - RUNTIME_LEDGER_SUMMARY_FIELDS)
     if unknown_ledger_fields:
         errors.append(f"{name} ledger_summary unknown field: {', '.join(unknown_ledger_fields)}")
     if run_id and str(ledger.get("run_id") or "") != run_id:
