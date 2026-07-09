@@ -4402,3 +4402,42 @@ Status:
 ```text
 optional E2E run id prefix binding applied; source port-back required
 ```
+
+---
+
+### Optional E2E ledger tools binding
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Passed optional E2E reports proved run_id, event_count, and final_status, but did not verify the runtime_ledger tool summary. An OpenAI E2E report could claim success while showing unexpected tool usage, and a browser_agent E2E report could claim success without ledger evidence that browser_agent actually ran. score_functionality.py now requires OpenAI passed reports to have empty ledger_summary.tools and browser_agent passed reports to have only positive browser_agent tool evidence.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the passed optional E2E ledger_summary.tools validation and the related score_functionality self-test fixtures; restore the passed E2E fixture ledger summaries to the previous minimal shape if desired.
+```
+
+Status:
+
+```text
+optional E2E ledger tools binding applied; source port-back required
+```

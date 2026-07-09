@@ -373,6 +373,19 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
         errors.append(f"{name} passed report missing ledger events")
     if str(ledger.get("final_status") or "") != "success":
         errors.append(f"{name} passed report final_status is not success")
+    tools = ledger.get("tools")
+    if not isinstance(tools, dict):
+        errors.append(f"{name} passed report missing ledger_summary.tools")
+    elif not all(isinstance(tool, str) and type(count) is int and count >= 0 for tool, count in tools.items()):
+        errors.append(f"{name} ledger_summary.tools is invalid")
+    elif name == "openai_orchestrated_e2e" and tools:
+        errors.append(f"{name} ledger_summary.tools must be empty")
+    elif name == "browser_agent_e2e":
+        unknown_tools = sorted(set(tools) - {"browser_agent"})
+        if unknown_tools:
+            errors.append(f"{name} ledger_summary.tools has unexpected tool: {', '.join(unknown_tools)}")
+        if int(tools.get("browser_agent") or 0) <= 0:
+            errors.append(f"{name} passed report missing browser_agent tool evidence")
     if name == "openai_orchestrated_e2e" and "OPENAI_E2E_OK" not in str(report.get("done") or ""):
         errors.append(f"{name} passed report missing OPENAI_E2E_OK sentinel")
     if name == "openai_orchestrated_e2e":
@@ -610,6 +623,7 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
         "ledger_summary": {
             "run_id": run_id,
             "event_count": 2,
+            "tools": {},
             "final_status": "success",
         },
     }
@@ -636,6 +650,7 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
         }
     if name == "browser_agent_e2e":
         report["ledger_summary"]["event_count"] = 4
+        report["ledger_summary"]["tools"] = {"browser_agent": 3}
         report["tool_result"] = {
             "success": True,
             "result": "Example Domain",
@@ -904,6 +919,37 @@ def _self_test() -> None:
     )
     assert bad_browser_run_id_score["status"] == "needs_work"
     assert any("run_id prefix" in blocker for blocker in bad_browser_run_id_score["blockers"])
+
+    openai_with_tools = json.loads(json.dumps(openai_passed))
+    openai_with_tools["ledger_summary"]["tools"] = {"web_search": 1}
+    openai_with_tools["observability"]["ledger"]["tools"] = {"web_search": 1}
+    bad_openai_tools_score = score_reports(
+        full_internal_eval,
+        openai_with_tools,
+        browser_passed,
+    )
+    assert bad_openai_tools_score["status"] == "needs_work"
+    assert any("tools" in blocker for blocker in bad_openai_tools_score["blockers"])
+
+    browser_without_browser_tool = json.loads(json.dumps(browser_passed))
+    browser_without_browser_tool["ledger_summary"]["tools"] = {}
+    bad_browser_tools_score = score_reports(
+        full_internal_eval,
+        openai_passed,
+        browser_without_browser_tool,
+    )
+    assert bad_browser_tools_score["status"] == "needs_work"
+    assert any("browser_agent tool" in blocker for blocker in bad_browser_tools_score["blockers"])
+
+    browser_bool_tool_count = json.loads(json.dumps(browser_passed))
+    browser_bool_tool_count["ledger_summary"]["tools"] = {"browser_agent": True}
+    bad_browser_tool_count_score = score_reports(
+        full_internal_eval,
+        openai_passed,
+        browser_bool_tool_count,
+    )
+    assert bad_browser_tool_count_score["status"] == "needs_work"
+    assert any("tools is invalid" in blocker for blocker in bad_browser_tool_count_score["blockers"])
 
     impossible_internal_total = _passed_internal_eval_report()
     impossible_internal_total["results"][0]["total"] = 150
