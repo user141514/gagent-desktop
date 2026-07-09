@@ -51,6 +51,31 @@ OPTIONAL_E2E_PASSED_FIELDS = {
     "openai_orchestrated_e2e": {"status", "run_id", "done", "ledger_summary", "observability"},
     "browser_agent_e2e": {"status", "run_id", "tool_result", "ledger_summary", "ledger_event_count"},
 }
+OPTIONAL_E2E_NONPASSED_FIELDS = {
+    "openai_orchestrated_e2e": {
+        "status",
+        "reason",
+        "required",
+        "failure_class",
+        "startup_error",
+        "run_id",
+        "done",
+        "ledger_event_count",
+        "ledger_summary",
+        "observability",
+        "missing_events",
+    },
+    "browser_agent_e2e": {
+        "status",
+        "reason",
+        "required",
+        "failure_class",
+        "run_id",
+        "tool_result",
+        "ledger_event_count",
+        "ledger_summary",
+    },
+}
 
 
 def main() -> int:
@@ -238,6 +263,12 @@ def _score_optional_e2e(name: str, report: dict[str, Any] | None, weight: int, m
         if evidence_errors:
             return _component(name, weight, 0, "invalid_evidence", evidence_errors)
         return _component(name, weight, weight, "passed", [])
+    evidence_errors = _nonpassed_optional_e2e_errors(name, report)
+    if evidence_errors:
+        return {
+            **_component(name, weight, 0, "invalid_evidence", evidence_errors),
+            "evidence_status": status,
+        }
     reason = str(report.get("startup_error") or report.get("reason") or missing_msg)
     failure_class = str(report.get("failure_class") or status)
     return {
@@ -281,6 +312,13 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
         if not isinstance(report.get("ledger_event_count"), int) or int(report.get("ledger_event_count") or 0) <= 0:
             errors.append(f"{name} passed report missing ledger_event_count")
     return errors
+
+
+def _nonpassed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
+    unknown_fields = sorted(set(report) - OPTIONAL_E2E_NONPASSED_FIELDS.get(name, set(report)))
+    if unknown_fields:
+        return [f"{name} report has unknown field: {', '.join(unknown_fields)}"]
+    return []
 
 
 def _openai_observability_errors(name: str, report: dict[str, Any]) -> list[str]:
@@ -630,6 +668,15 @@ def _self_test() -> None:
     assert skipped_optional["total"] == 70
     assert _exit_code_for_report(skipped_optional, strict=True) == 1
 
+    skipped_with_extra_field = score_reports(
+        full_internal_eval,
+        {"status": "skipped", "reason": "openai e2e disabled", "mystery_field": True},
+        {"status": "skipped", "reason": "browser e2e disabled"},
+    )
+    assert skipped_with_extra_field["status"] == "needs_work"
+    assert skipped_with_extra_field["total"] == 70
+    assert any("unknown field" in blocker for blocker in skipped_with_extra_field["blockers"])
+
     original_weight = SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
     try:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight + 5
@@ -650,6 +697,20 @@ def _self_test() -> None:
     )
     assert failed_optional["total"] == 70
     assert len(failed_optional["blockers"]) == 2
+
+    failed_with_extra_field = score_reports(
+        full_internal_eval,
+        {
+            "status": "failed",
+            "failure_class": "readiness_failure",
+            "reason": "openai-agents missing",
+            "mystery_field": True,
+        },
+        {"status": "failed", "failure_class": "readiness_failure", "reason": "browser-use missing"},
+    )
+    assert failed_with_extra_field["status"] == "needs_work"
+    assert failed_with_extra_field["total"] == 70
+    assert any("unknown field" in blocker for blocker in failed_with_extra_field["blockers"])
 
     startup_detail = score_reports(
         full_internal_eval,

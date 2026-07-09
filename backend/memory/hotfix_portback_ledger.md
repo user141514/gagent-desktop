@@ -3569,3 +3569,42 @@ Status:
 ```text
 optional E2E passed report field whitelist applied; source port-back required
 ```
+
+---
+
+### Optional E2E non-passed report field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Skipped and failed optional E2E reports could include unknown top-level fields while still contributing their explanation blockers. score_functionality.py now rejects unknown top-level fields in non-passed optional E2E reports.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove OPTIONAL_E2E_NONPASSED_FIELDS, _nonpassed_optional_e2e_errors, and the skipped/failed extra-field self-test fixtures.
+```
+
+Status:
+
+```text
+optional E2E non-passed report field whitelist applied; source port-back required
+```
