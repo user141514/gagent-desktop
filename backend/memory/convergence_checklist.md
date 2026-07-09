@@ -75,6 +75,7 @@ Pass criteria:
 - functionality score rejects internal eval summary counts/status that do not match result verdicts;
 - functionality score reports partial internal eval blockers when all cases pass but average score is below 100;
 - baseline convergence runner validates and prints the advisory functionality score JSON, including refreshed/strict mode flags, expected component names/weights/status fields, total/max_total/status/blockers consistency, and required evidence fields, on success;
+- baseline convergence runner rejects unknown fields in functionality score component objects;
 - full convergence runner rejects strict functionality scores from dirty Git worktrees;
 - functionality score component weights are defined in `score_functionality.py`; score max_total/status and the convergence runner use that same source;
 - convergence runner score fixtures are generated from the shared component weights;

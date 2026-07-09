@@ -27,6 +27,12 @@ SCORE_E2E_ENV_KEYS = [
     "GAGENT_RUN_BROWSER_AGENT_E2E",
 ]
 SCORE_COMPONENT_WEIGHTS = score_functionality.SCORE_COMPONENT_WEIGHTS
+BASE_COMPONENT_FIELDS = {"name", "weight", "score", "status", "blockers"}
+COMPONENT_EXTRA_FIELDS = {
+    "internal_eval": {"case_count", "passed", "failed", "average_case_score"},
+    "openai_orchestrated_e2e": {"evidence_status"},
+    "browser_agent_e2e": {"evidence_status"},
+}
 
 
 def main() -> int:
@@ -133,6 +139,10 @@ def _validate_score_components(score: dict) -> None:
         name = component.get("name")
         if not isinstance(name, str) or name not in SCORE_COMPONENT_WEIGHTS:
             raise ValueError("score_functionality component name is invalid")
+        allowed_fields = BASE_COMPONENT_FIELDS | COMPONENT_EXTRA_FIELDS.get(name, set())
+        unknown_fields = sorted(set(component) - allowed_fields)
+        if unknown_fields:
+            raise ValueError(f"score_functionality component {name} has unknown fields: {', '.join(unknown_fields)}")
         status = component.get("status")
         if not isinstance(status, str) or not status:
             raise ValueError(f"score_functionality component {name} status is invalid")
@@ -307,6 +317,14 @@ def _self_test() -> None:
         assert "component" in str(exc)
     else:
         raise AssertionError("score output with invalid component status unexpectedly passed")
+    extra_component_field = json.loads(_score_output_fixture())
+    extra_component_field["components"][0]["mystery_field"] = True
+    try:
+        _success_output_for(score_command, json.dumps(extra_component_field))
+    except ValueError as exc:
+        assert "component" in str(exc) and "unknown" in str(exc)
+    else:
+        raise AssertionError("score output with unknown component field unexpectedly passed")
     bad_refreshed = json.loads(_score_output_fixture())
     bad_refreshed["refreshed"] = False
     try:

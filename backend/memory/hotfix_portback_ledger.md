@@ -3411,3 +3411,42 @@ Status:
 ```text
 eval report results-list pollution validation applied; source port-back required
 ```
+
+---
+
+### Functionality score component field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner validated required score component fields but allowed unknown fields in component objects, leaving room for final score JSON schema drift. Component objects now use explicit field whitelists per component name.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove BASE_COMPONENT_FIELDS, COMPONENT_EXTRA_FIELDS, and the unknown component field self-test.
+```
+
+Status:
+
+```text
+functionality score component field whitelist applied; source port-back required
+```
