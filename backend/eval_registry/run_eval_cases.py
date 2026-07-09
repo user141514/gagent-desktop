@@ -22,6 +22,33 @@ from runtime_ledger import LedgerEvent, read_run_events, summarize_observability
 
 
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
+EVAL_REPORT_FIELDS = frozenset({"status", "case_count", "passed", "failed", "skipped", "results"})
+EVAL_RESULT_FIELDS = frozenset({
+    "answer_or_tool_behavior",
+    "attempt_engines",
+    "case_id",
+    "contract_valid",
+    "error_category",
+    "final_answer",
+    "final_status",
+    "forbidden_tools_used",
+    "ledger",
+    "ledger_event_count",
+    "ledger_tool_turns",
+    "observability",
+    "penalties",
+    "reason",
+    "reasons",
+    "run_id",
+    "runtime_completed_turns",
+    "runtime_event_types",
+    "runtime_started_turns",
+    "steps_taken",
+    "target_tool",
+    "tool_status",
+    "total",
+    "verdict",
+})
 
 
 class _DummyParent:

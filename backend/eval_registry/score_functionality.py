@@ -18,6 +18,7 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from core.browser_agent import BROWSER_AGENT_RESULT_FIELDS  # noqa: E402
+from eval_registry.run_eval_cases import EVAL_REPORT_FIELDS, EVAL_RESULT_FIELDS  # noqa: E402
 from runtime_ledger import (  # noqa: E402
     RUNTIME_HOST_SUMMARY_FIELDS,
     RUNTIME_LEDGER_SUMMARY_FIELDS,
@@ -181,7 +182,10 @@ def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str
     if not raw_results:
         return _component("internal_eval", weight, 0, "missing", ["latest_eval_report.json has no results"])
     results = [item for item in raw_results if isinstance(item, dict)]
-    shape_blockers = _internal_eval_result_shape_blockers(raw_results)
+    shape_blockers = [
+        *_internal_eval_report_shape_blockers(report),
+        *_internal_eval_result_shape_blockers(raw_results),
+    ]
     coverage_blockers = _internal_eval_coverage_blockers(report, results)
     if shape_blockers or coverage_blockers:
         failed = [str(item.get("case_id") or "") for item in results if item.get("verdict") != "pass"]
@@ -208,6 +212,13 @@ def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str
     }
 
 
+def _internal_eval_report_shape_blockers(report: dict[str, Any]) -> list[str]:
+    unknown_fields = sorted(set(report) - EVAL_REPORT_FIELDS)
+    if unknown_fields:
+        return ["internal eval report unknown field: " + ", ".join(unknown_fields)]
+    return []
+
+
 def _internal_eval_result_shape_blockers(results: list[Any]) -> list[str]:
     blockers: list[str] = []
     for index, item in enumerate(results, start=1):
@@ -215,6 +226,9 @@ def _internal_eval_result_shape_blockers(results: list[Any]) -> list[str]:
             blockers.append(f"internal eval result entry is invalid at index {index}")
             continue
         case_id = str(item.get("case_id") or f"#{index}")
+        unknown_fields = sorted(set(item) - EVAL_RESULT_FIELDS)
+        if unknown_fields:
+            blockers.append(f"internal eval result unknown field for {case_id}: {', '.join(unknown_fields)}")
         total = item.get("total")
         if isinstance(total, bool) or not isinstance(total, (int, float)) or not 0 <= float(total) <= 100:
             blockers.append(f"internal eval result total is invalid for {case_id}")
@@ -608,6 +622,26 @@ def _self_test() -> None:
     )
     assert complete["status"] == "ok"
     assert _exit_code_for_report(complete, strict=True) == 0
+
+    internal_extra_field = dict(full_internal_eval)
+    internal_extra_field["mystery_field"] = True
+    internal_extra_score = score_reports(
+        internal_extra_field,
+        openai_passed,
+        browser_passed,
+    )
+    assert internal_extra_score["status"] == "needs_work"
+    assert any("internal eval report unknown field" in blocker for blocker in internal_extra_score["blockers"])
+
+    internal_result_extra_field = _passed_internal_eval_report()
+    internal_result_extra_field["results"][0]["mystery_field"] = True
+    internal_result_extra_score = score_reports(
+        internal_result_extra_field,
+        openai_passed,
+        browser_passed,
+    )
+    assert internal_result_extra_score["status"] == "needs_work"
+    assert any("internal eval result unknown field" in blocker for blocker in internal_result_extra_score["blockers"])
 
     openai_extra_field = dict(openai_passed)
     openai_extra_field["mystery_field"] = True

@@ -3736,3 +3736,43 @@ Status:
 ```text
 optional E2E nested evidence field whitelist applied; source port-back required
 ```
+
+---
+
+### Internal eval report field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The functionality score checked internal eval counts and verdicts but accepted unknown latest_eval_report.json top-level fields and per-result fields. run_eval_cases.py now exports EVAL_REPORT_FIELDS and EVAL_RESULT_FIELDS as the report-output source of truth, and score_functionality.py rejects unknown internal eval evidence fields before awarding internal eval score.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove EVAL_REPORT_FIELDS/EVAL_RESULT_FIELDS from run_eval_cases.py and remove the internal eval unknown-field checks/self-test fixtures from score_functionality.py.
+```
+
+Status:
+
+```text
+internal eval report field whitelist applied; source port-back required
+```
