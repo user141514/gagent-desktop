@@ -4051,3 +4051,42 @@ Status:
 ```text
 convergence report file-stat binding applied; source port-back required
 ```
+
+---
+
+### Convergence score artifact binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner parsed and validated score_functionality.py stdout, but did not verify that the refreshed latest_functionality_score.json artifact matched that stdout. A run could therefore print a valid score while leaving a stale or mismatched score artifact on disk. run_convergence_checks.py now compares the JSON object in latest_functionality_score.json with the validated score stdout whenever it runs the refreshed score command.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _validate_score_artifact_matches_stdout, the validate_written_artifact flag, and the related self-test fixture.
+```
+
+Status:
+
+```text
+convergence score artifact binding applied; source port-back required
+```

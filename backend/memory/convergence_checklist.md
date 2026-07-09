@@ -91,6 +91,7 @@ Pass criteria:
 - full convergence runner rejects score evidence whose Git HEAD differs from the current checkout, and rejects refreshed score evidence built from stale or future-dated input reports;
 - full convergence runner rejects score evidence whose results directory or Python executable do not match the current repository's eval results path and bundled `python-runtime`;
 - full convergence runner rejects refreshed score evidence whose input report bytes or modified timestamps do not match the actual files on disk;
+- full convergence runner rejects refreshed score output unless `latest_functionality_score.json` matches the validated score stdout exactly;
 - passed optional E2E score reports include run id, successful runtime_ledger evidence, and target-specific success evidence; OpenAI reports also include RuntimeHost observability alignment, and browser_agent reports include non-empty output plus positive step count;
 - passed optional E2E score reports reject unknown top-level fields;
 - passed optional E2E score reports reject unknown `ledger_summary` fields using `runtime_ledger.RUNTIME_LEDGER_SUMMARY_FIELDS` as the source of truth;

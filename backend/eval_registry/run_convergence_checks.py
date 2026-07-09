@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -63,7 +64,7 @@ def main() -> int:
             return int(result.returncode or 1)
         print(f"[run_convergence_checks] ok: {label}")
         try:
-            success_output = _success_output_for(command, result.stdout)
+            success_output = _success_output_for(command, result.stdout, validate_written_artifact=True)
         except ValueError as exc:
             print(f"[run_convergence_checks] failed: {label}", file=sys.stderr)
             print(str(exc), file=sys.stderr)
@@ -90,7 +91,7 @@ def _commands(*, full: bool) -> list[list[str]]:
     ]
 
 
-def _success_output_for(command: list[str], stdout: str) -> str:
+def _success_output_for(command: list[str], stdout: str, *, validate_written_artifact: bool = False) -> str:
     if not _is_score_command(command):
         return ""
     try:
@@ -102,6 +103,8 @@ def _success_output_for(command: list[str], stdout: str) -> str:
     _validate_score_mode(command, score)
     _validate_score_components(score)
     _validate_score_evidence(command, score)
+    if validate_written_artifact and "--refresh" in command:
+        _validate_score_artifact_matches_stdout(score_functionality.OUTPUT_PATH, score)
     return json.dumps(score, indent=2, ensure_ascii=False)
 
 
@@ -263,6 +266,17 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
             _validate_input_report_file_stat(name, results_dir, report, modified_at)
 
 
+def _validate_score_artifact_matches_stdout(path: Path, expected_score: dict) -> None:
+    try:
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("latest_functionality_score.json is missing or invalid") from exc
+    if not isinstance(artifact, dict):
+        raise ValueError("latest_functionality_score.json is not a JSON object")
+    if artifact != expected_score:
+        raise ValueError("latest_functionality_score.json does not match score_functionality stdout")
+
+
 def _parse_utc_timestamp(value: str, label: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
@@ -380,6 +394,20 @@ def _self_test() -> None:
         assert "evidence is missing" in str(exc)
     else:
         raise AssertionError("score output without evidence unexpectedly passed")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        score_artifact = Path(tmp_dir) / "latest_functionality_score.json"
+        expected_score = json.loads(_score_output_fixture())
+        score_artifact.write_text(json.dumps(expected_score, indent=2, ensure_ascii=False), encoding="utf-8")
+        _validate_score_artifact_matches_stdout(score_artifact, expected_score)
+        mismatched_score = dict(expected_score)
+        mismatched_score["total"] = 0
+        score_artifact.write_text(json.dumps(mismatched_score, indent=2, ensure_ascii=False), encoding="utf-8")
+        try:
+            _validate_score_artifact_matches_stdout(score_artifact, expected_score)
+        except ValueError as exc:
+            assert "latest_functionality_score.json" in str(exc)
+        else:
+            raise AssertionError("mismatched latest_functionality_score.json unexpectedly passed")
     wrong_results_dir = json.loads(_score_output_fixture(results_dir="C:/tmp/gagent-results"))
     try:
         _success_output_for(score_command, json.dumps(wrong_results_dir))
