@@ -4519,3 +4519,42 @@ Status:
 ```text
 optional E2E raw ledger binding applied; source port-back required
 ```
+
+---
+
+### Optional E2E raw event sequence binding
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The optional E2E raw ledger binding compared report ledger_summary with summarize_run(run_id), but summarize_run does not preserve event order. A raw browser_agent ledger could therefore contain tool_result before tool_call while still producing the same summary. score_functionality.py now validates the raw event sequence: OpenAI must be run_started -> run_finished, and browser_agent must be run_started -> tool_call -> tool_result -> run_finished with browser_agent tool evidence on the tool-bearing events.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove OPTIONAL_E2E_EVENT_SEQUENCES, _raw_ledger_event_sequence_errors, the raw event read in _raw_ledger_summary_errors, and the related wrong-sequence score_functionality self-test fixture.
+```
+
+Status:
+
+```text
+optional E2E raw event sequence binding applied; source port-back required
+```

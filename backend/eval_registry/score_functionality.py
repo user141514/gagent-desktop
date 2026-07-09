@@ -27,6 +27,7 @@ from eval_registry.run_eval_cases import (  # noqa: E402
 )
 from runtime_ledger import (  # noqa: E402
     default_ledger_dir,
+    read_run_events,
     RUNTIME_HOST_SUMMARY_FIELDS,
     RUNTIME_LEDGER_SUMMARY_FIELDS,
     RUNTIME_OBSERVABILITY_ALIGNED_FIELDS,
@@ -105,6 +106,10 @@ OPTIONAL_E2E_RUN_ID_PREFIXES = {
 OPTIONAL_E2E_OWNER_LAYERS = {
     "openai_orchestrated_e2e": "Layer 3 runtime controller",
     "browser_agent_e2e": "Layer 1 capability contract",
+}
+OPTIONAL_E2E_EVENT_SEQUENCES = {
+    "openai_orchestrated_e2e": ["run_started", "run_finished"],
+    "browser_agent_e2e": ["run_started", "tool_call", "tool_result", "run_finished"],
 }
 
 def main() -> int:
@@ -458,16 +463,35 @@ def _raw_ledger_summary_errors(
     if not run_id:
         return []
     try:
+        raw_events = read_run_events(run_id, ledger_dir=raw_ledger_dir)
         raw_summary = summarize_run(run_id, ledger_dir=raw_ledger_dir)
     except ValueError as exc:
         return [f"{name} raw runtime_ledger is invalid: {exc}"]
-    if int(raw_summary.get("event_count") or 0) <= 0:
+    if not raw_events or int(raw_summary.get("event_count") or 0) <= 0:
         return [f"{name} raw runtime_ledger events are missing for run_id"]
     errors: list[str] = []
     for field in sorted(RUNTIME_LEDGER_SUMMARY_FIELDS):
         if ledger.get(field) != raw_summary.get(field):
             errors.append(f"{name} ledger_summary.{field} does not match raw runtime_ledger")
+    errors.extend(_raw_ledger_event_sequence_errors(name, raw_events))
     return errors
+
+
+def _raw_ledger_event_sequence_errors(name: str, raw_events: list[dict[str, Any]]) -> list[str]:
+    expected_sequence = OPTIONAL_E2E_EVENT_SEQUENCES.get(name)
+    if not expected_sequence:
+        return []
+    event_sequence = [str(event.get("event_type") or "") for event in raw_events]
+    if event_sequence != expected_sequence:
+        return [
+            f"{name} raw runtime_ledger event sequence must be {' -> '.join(expected_sequence)}"
+        ]
+    if name != "browser_agent_e2e":
+        return []
+    tool_events = raw_events[1:]
+    if any(str(event.get("tool") or "") != "browser_agent" for event in tool_events):
+        return [f"{name} raw runtime_ledger browser_agent events must use browser_agent tool"]
+    return []
 
 
 def _nonpassed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
@@ -856,6 +880,33 @@ def _self_test() -> None:
         )
         assert raw_task_drift["status"] == "needs_work"
         assert any("raw runtime_ledger" in blocker for blocker in raw_task_drift["blockers"])
+    with tempfile.TemporaryDirectory() as tmp_ledger_dir:
+        _write_passed_e2e_raw_ledger(openai_passed, tmp_ledger_dir)
+        run_id = str(browser_passed["run_id"])
+        ledger = browser_passed["ledger_summary"]
+        write_event(
+            {
+                "run_id": run_id,
+                "event_type": "run_started",
+                "task": ledger["task"],
+                "owner_layer": ledger["owner_layer"],
+            },
+            ledger_dir=tmp_ledger_dir,
+        )
+        write_event({"run_id": run_id, "event_type": "tool_result", "tool": "browser_agent"}, ledger_dir=tmp_ledger_dir)
+        write_event({"run_id": run_id, "event_type": "tool_call", "tool": "browser_agent"}, ledger_dir=tmp_ledger_dir)
+        write_event(
+            {"run_id": run_id, "event_type": "run_finished", "tool": "browser_agent", "final_status": "success"},
+            ledger_dir=tmp_ledger_dir,
+        )
+        raw_sequence_drift = score_reports(
+            full_internal_eval,
+            openai_passed,
+            browser_passed,
+            raw_ledger_dir=tmp_ledger_dir,
+        )
+        assert raw_sequence_drift["status"] == "needs_work"
+        assert any("event sequence" in blocker for blocker in raw_sequence_drift["blockers"])
 
     internal_extra_field = dict(full_internal_eval)
     internal_extra_field["mystery_field"] = True
