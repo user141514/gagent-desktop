@@ -86,6 +86,8 @@ Pass criteria:
 - passed optional E2E score reports include run id, successful runtime_ledger evidence, and target-specific success evidence; OpenAI reports also include RuntimeHost observability alignment, and browser_agent reports include non-empty output plus positive step count;
 - passed optional E2E score reports reject unknown top-level fields;
 - passed optional E2E score reports reject unknown `ledger_summary` fields using `runtime_ledger.RUNTIME_LEDGER_SUMMARY_FIELDS` as the source of truth;
+- passed optional E2E score reports reject unknown OpenAI observability fields using runtime_ledger observability field constants;
+- passed optional browser_agent E2E score reports reject unknown `tool_result` fields using `core.browser_agent.BROWSER_AGENT_RESULT_FIELDS`;
 - skipped/failed optional E2E score reports reject unknown top-level fields;
 - refreshed functionality score success output stays machine-readable as one JSON report; child stdout/stderr appears only on refresh failure;
 - functionality score self-test verifies refresh child failure captures stdout/stderr locally;

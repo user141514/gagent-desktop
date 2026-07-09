@@ -3691,3 +3691,48 @@ Status:
 ```text
 runtime ledger summary schema source applied; source port-back required
 ```
+
+---
+
+### Optional E2E nested evidence field whitelist
+
+Files changed:
+
+```text
+backend/runtime_ledger/observability.py
+backend/runtime_ledger/__init__.py
+backend/runtime_ledger/validate_runtime_ledger.py
+backend/runtime_ledger/README.md
+backend/core/browser_agent.py
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Passed optional E2E score reports rejected top-level and ledger_summary drift but still accepted unknown nested OpenAI observability fields and browser_agent tool_result fields. runtime_ledger now exports observability/runtime_host/aligned field contracts, core.browser_agent exports its result field contract, and score_functionality.py rejects unknown nested evidence fields before awarding optional E2E score.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/runtime_ledger/validate_runtime_ledger.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the runtime_ledger observability field constants, BROWSER_AGENT_RESULT_FIELDS, the nested evidence field checks, and their self-test/validator assertions.
+```
+
+Status:
+
+```text
+optional E2E nested evidence field whitelist applied; source port-back required
+```

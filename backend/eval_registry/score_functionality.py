@@ -17,7 +17,13 @@ BACKEND = ROOT / "backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-from runtime_ledger import RUNTIME_LEDGER_SUMMARY_FIELDS  # noqa: E402
+from core.browser_agent import BROWSER_AGENT_RESULT_FIELDS  # noqa: E402
+from runtime_ledger import (  # noqa: E402
+    RUNTIME_HOST_SUMMARY_FIELDS,
+    RUNTIME_LEDGER_SUMMARY_FIELDS,
+    RUNTIME_OBSERVABILITY_ALIGNED_FIELDS,
+    RUNTIME_OBSERVABILITY_FIELDS,
+)
 
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
 OUTPUT_PATH = RESULTS_DIR / "latest_functionality_score.json"
@@ -313,10 +319,14 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
             tool_result.get("success") is True or str(tool_result.get("status") or "").lower() == "success"
         ):
             errors.append(f"{name} passed report missing successful tool_result")
-        elif not str(tool_result.get("result") or "").strip():
-            errors.append(f"{name} passed report missing browser_agent result")
-        elif not isinstance(tool_result.get("steps_taken"), int) or int(tool_result.get("steps_taken") or 0) <= 0:
-            errors.append(f"{name} passed report missing positive steps_taken")
+        else:
+            unknown_tool_result_fields = sorted(set(tool_result) - BROWSER_AGENT_RESULT_FIELDS)
+            if unknown_tool_result_fields:
+                errors.append(f"{name} tool_result unknown field: {', '.join(unknown_tool_result_fields)}")
+            if not str(tool_result.get("result") or "").strip():
+                errors.append(f"{name} passed report missing browser_agent result")
+            if not isinstance(tool_result.get("steps_taken"), int) or int(tool_result.get("steps_taken") or 0) <= 0:
+                errors.append(f"{name} passed report missing positive steps_taken")
         if not isinstance(report.get("ledger_event_count"), int) or int(report.get("ledger_event_count") or 0) <= 0:
             errors.append(f"{name} passed report missing ledger_event_count")
     return errors
@@ -333,20 +343,48 @@ def _openai_observability_errors(name: str, report: dict[str, Any]) -> list[str]
     observability = report.get("observability")
     if not isinstance(observability, dict):
         return [f"{name} passed report missing observability"]
+    errors: list[str] = []
+    unknown_observability_fields = sorted(set(observability) - RUNTIME_OBSERVABILITY_FIELDS)
+    if unknown_observability_fields:
+        errors.append(f"{name} observability unknown field: {', '.join(unknown_observability_fields)}")
+    missing_observability_fields = sorted(RUNTIME_OBSERVABILITY_FIELDS - set(observability))
+    if missing_observability_fields:
+        errors.append(f"{name} observability missing field: {', '.join(missing_observability_fields)}")
+    if str(observability.get("run_id") or "") != str(report.get("run_id") or ""):
+        errors.append(f"{name} observability.run_id does not match run_id")
+    ledger = observability.get("ledger")
+    if isinstance(ledger, dict):
+        unknown_ledger_fields = sorted(set(ledger) - RUNTIME_LEDGER_SUMMARY_FIELDS)
+        if unknown_ledger_fields:
+            errors.append(f"{name} observability.ledger unknown field: {', '.join(unknown_ledger_fields)}")
+    elif "ledger" in observability:
+        errors.append(f"{name} observability.ledger is invalid")
+    runtime_host = observability.get("runtime_host")
+    if isinstance(runtime_host, dict):
+        unknown_runtime_host_fields = sorted(set(runtime_host) - RUNTIME_HOST_SUMMARY_FIELDS)
+        if unknown_runtime_host_fields:
+            errors.append(f"{name} observability.runtime_host unknown field: {', '.join(unknown_runtime_host_fields)}")
+    elif "runtime_host" in observability:
+        errors.append(f"{name} observability.runtime_host is invalid")
     aligned = observability.get("aligned")
     if not isinstance(aligned, dict):
-        return [f"{name} passed report missing observability alignment"]
+        errors.append(f"{name} passed report missing observability alignment")
+        return errors
+    unknown_aligned_fields = sorted(set(aligned) - RUNTIME_OBSERVABILITY_ALIGNED_FIELDS)
+    if unknown_aligned_fields:
+        errors.append(f"{name} observability.aligned unknown field: {', '.join(unknown_aligned_fields)}")
     required = [
         "has_ledger_events",
         "has_runtime_host_events",
         "ledger_run_id_matches_requested",
         "runtime_session_matches_run_id",
     ]
-    return [
+    errors.extend([
         f"{name} observability alignment missing {key}"
         for key in required
         if aligned.get(key) is not True
-    ]
+    ])
+    return errors
 
 
 def _component(name: str, weight: int, score: int, status: str, blockers: list[str]) -> dict[str, Any]:
@@ -505,6 +543,17 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
     if name == "openai_orchestrated_e2e":
         report["done"] = "OPENAI_E2E_OK"
         report["observability"] = {
+            "run_id": run_id,
+            "ledger": dict(report["ledger_summary"]),
+            "runtime_host": {
+                "event_count": 1,
+                "event_types": ["session_completed"],
+                "session_ids": [run_id],
+                "tools": {},
+                "started_turns": [1],
+                "completed_turns": [1],
+                "final_status": "completed",
+            },
             "aligned": {
                 "has_ledger_events": True,
                 "has_runtime_host_events": True,
@@ -603,6 +652,45 @@ def _self_test() -> None:
     )
     assert bad_browser_ledger_score["status"] == "needs_work"
     assert any("ledger_summary unknown field" in blocker for blocker in bad_browser_ledger_score["blockers"])
+
+    openai_bad_observability = {
+        **openai_passed,
+        "observability": {**openai_passed["observability"], "mystery_field": True},
+    }
+    bad_openai_observability_score = score_reports(
+        full_internal_eval,
+        openai_bad_observability,
+        browser_passed,
+    )
+    assert bad_openai_observability_score["status"] == "needs_work"
+    assert any("observability unknown field" in blocker for blocker in bad_openai_observability_score["blockers"])
+
+    openai_bad_alignment = {
+        **openai_passed,
+        "observability": {
+            **openai_passed["observability"],
+            "aligned": {**openai_passed["observability"]["aligned"], "mystery_field": True},
+        },
+    }
+    bad_openai_alignment_score = score_reports(
+        full_internal_eval,
+        openai_bad_alignment,
+        browser_passed,
+    )
+    assert bad_openai_alignment_score["status"] == "needs_work"
+    assert any("observability.aligned unknown field" in blocker for blocker in bad_openai_alignment_score["blockers"])
+
+    browser_bad_tool_result = {
+        **browser_passed,
+        "tool_result": {**browser_passed["tool_result"], "mystery_field": True},
+    }
+    bad_browser_tool_result_score = score_reports(
+        full_internal_eval,
+        openai_passed,
+        browser_bad_tool_result,
+    )
+    assert bad_browser_tool_result_score["status"] == "needs_work"
+    assert any("tool_result unknown field" in blocker for blocker in bad_browser_tool_result_score["blockers"])
 
     impossible_internal_total = _passed_internal_eval_report()
     impossible_internal_total["results"][0]["total"] = 150

@@ -36,7 +36,7 @@ GenericAgentHandler.do_browser_agent
 
 `summarize_observability()` joins `runtime_ledger` events with RuntimeHost `events.jsonl` for one run id. It is a read-only view; it does not change either event format.
 
-`RUNTIME_LEDGER_SUMMARY_FIELDS` is the source of truth for `summarize_run()` output field names. Downstream score/eval checks should import it instead of duplicating the summary schema.
+`RUNTIME_LEDGER_SUMMARY_FIELDS`, `RUNTIME_OBSERVABILITY_FIELDS`, `RUNTIME_OBSERVABILITY_ALIGNED_FIELDS`, and `RUNTIME_HOST_SUMMARY_FIELDS` are the source of truth for runtime ledger summary field names. Downstream score/eval checks should import them instead of duplicating those schemas.
 
 Checks:
 

@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import runtime_ledger as runtime_ledger_package  # noqa: E402
-from runtime_ledger import LedgerEvent, new_run_id, read_run_events, summarize_run, write_event  # noqa: E402
+from runtime_ledger import LedgerEvent, new_run_id, read_run_events, summarize_observability, summarize_run, write_event  # noqa: E402
 
 
 def validate() -> list[str]:
@@ -67,6 +67,22 @@ def validate() -> list[str]:
             errors.append("RUNTIME_LEDGER_SUMMARY_FIELDS is not exported")
         elif set(summary) != set(summary_fields):
             errors.append("RUNTIME_LEDGER_SUMMARY_FIELDS does not match summarize_run output")
+        observability = summarize_observability(run_id, ledger_dir=ledger_dir)
+        observability_fields = getattr(runtime_ledger_package, "RUNTIME_OBSERVABILITY_FIELDS", None)
+        aligned_fields = getattr(runtime_ledger_package, "RUNTIME_OBSERVABILITY_ALIGNED_FIELDS", None)
+        runtime_host_fields = getattr(runtime_ledger_package, "RUNTIME_HOST_SUMMARY_FIELDS", None)
+        if observability_fields is None:
+            errors.append("RUNTIME_OBSERVABILITY_FIELDS is not exported")
+        elif set(observability) != set(observability_fields):
+            errors.append("RUNTIME_OBSERVABILITY_FIELDS does not match summarize_observability output")
+        if aligned_fields is None:
+            errors.append("RUNTIME_OBSERVABILITY_ALIGNED_FIELDS is not exported")
+        elif set(observability.get("aligned", {})) != set(aligned_fields):
+            errors.append("RUNTIME_OBSERVABILITY_ALIGNED_FIELDS does not match aligned output")
+        if runtime_host_fields is None:
+            errors.append("RUNTIME_HOST_SUMMARY_FIELDS is not exported")
+        elif set(observability.get("runtime_host", {})) != set(runtime_host_fields):
+            errors.append("RUNTIME_HOST_SUMMARY_FIELDS does not match runtime_host summary output")
         if summary.get("failure_count") != 1:
             errors.append(f"expected one failure, got {summary.get('failure_count')}")
         if summary.get("tools", {}).get("web_search") != 1:

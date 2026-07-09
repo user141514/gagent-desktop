@@ -10,6 +10,7 @@ import queue
 import threading
 
 logger = logging.getLogger(__name__)
+BROWSER_AGENT_RESULT_FIELDS = frozenset({"success", "result", "steps_taken"})
 
 
 def run_browser_agent(

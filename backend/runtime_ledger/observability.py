@@ -9,6 +9,27 @@ from .ledger import _safe_run_id, read_run_events, summarize_run
 
 
 TOOL_RUNTIME_EVENTS = {"tool_requested", "tool_allowed", "tool_started", "tool_completed", "tool_failed", "tool_blocked"}
+RUNTIME_HOST_SUMMARY_FIELDS = frozenset({
+    "event_count",
+    "event_types",
+    "session_ids",
+    "tools",
+    "started_turns",
+    "completed_turns",
+    "final_status",
+})
+RUNTIME_OBSERVABILITY_ALIGNED_FIELDS = frozenset({
+    "has_ledger_events",
+    "has_runtime_host_events",
+    "ledger_run_id_matches_requested",
+    "runtime_session_matches_run_id",
+})
+RUNTIME_OBSERVABILITY_FIELDS = frozenset({
+    "run_id",
+    "ledger",
+    "runtime_host",
+    "aligned",
+})
 
 
 def runtime_host_events_path(run_id: str, runtime_host_logs_root: str | Path) -> Path:
