@@ -4324,3 +4324,42 @@ Status:
 ```text
 convergence source dirty binding applied; source port-back required
 ```
+
+---
+
+### Browser agent E2E ledger count binding
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Passed browser_agent E2E reports carried both ledger_summary.event_count and ledger_event_count, but scoring only checked that each was positive. A report could therefore pass with contradictory event counts. score_functionality.py now rejects passed browser_agent E2E evidence unless ledger_event_count exactly matches ledger_summary.event_count.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the ledger_event_count equality check and the related score_functionality self-test fixture; restore the browser_agent E2E report fixture to the previous loose count behavior.
+```
+
+Status:
+
+```text
+browser_agent E2E ledger count binding applied; source port-back required
+```

@@ -385,6 +385,8 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
                 errors.append(f"{name} passed report missing positive steps_taken")
         if not isinstance(report.get("ledger_event_count"), int) or int(report.get("ledger_event_count") or 0) <= 0:
             errors.append(f"{name} passed report missing ledger_event_count")
+        elif report.get("ledger_event_count") != ledger.get("event_count"):
+            errors.append(f"{name} ledger_event_count does not match ledger_summary.event_count")
     return errors
 
 
@@ -625,6 +627,7 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
             }
         }
     if name == "browser_agent_e2e":
+        report["ledger_summary"]["event_count"] = 4
         report["tool_result"] = {
             "success": True,
             "result": "Example Domain",
@@ -856,6 +859,18 @@ def _self_test() -> None:
     )
     assert bad_browser_tool_result_score["status"] == "needs_work"
     assert any("tool_result unknown field" in blocker for blocker in bad_browser_tool_result_score["blockers"])
+
+    browser_bad_ledger_event_count = {
+        **browser_passed,
+        "ledger_event_count": int(browser_passed["ledger_summary"]["event_count"]) + 1,
+    }
+    bad_browser_ledger_event_count_score = score_reports(
+        full_internal_eval,
+        openai_passed,
+        browser_bad_ledger_event_count,
+    )
+    assert bad_browser_ledger_event_count_score["status"] == "needs_work"
+    assert any("ledger_event_count" in blocker for blocker in bad_browser_ledger_event_count_score["blockers"])
 
     impossible_internal_total = _passed_internal_eval_report()
     impossible_internal_total["results"][0]["total"] = 150
