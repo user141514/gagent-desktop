@@ -3973,3 +3973,42 @@ Status:
 ```text
 refreshed score evidence freshness applied; source port-back required
 ```
+
+---
+
+### Convergence score path binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner validated that score evidence included results_dir and python_executable, but only as non-empty strings. A score output from a different result directory or Python environment could therefore pass structure checks. run_convergence_checks.py now canonicalizes those paths and rejects score evidence unless results_dir points at this checkout's backend/eval_registry/results and python_executable points at this checkout's bundled python-runtime.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the results_dir/python_executable path comparisons and remove the related self-test fixtures.
+```
+
+Status:
+
+```text
+convergence score path binding applied; source port-back required
+```

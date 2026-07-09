@@ -176,6 +176,10 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     for key in ["generated_at_utc", "results_dir", "python_executable"]:
         if not isinstance(evidence.get(key), str) or not evidence[key]:
             raise ValueError(f"score_functionality evidence.{key} is missing")
+    if _canonical_path(evidence["results_dir"]) != _canonical_path(ROOT / "backend" / "eval_registry" / "results"):
+        raise ValueError("score_functionality evidence.results_dir does not match expected results directory")
+    if _canonical_path(evidence["python_executable"]) != _canonical_path(PYTHON):
+        raise ValueError("score_functionality evidence.python_executable does not match bundled Python")
     if not evidence["generated_at_utc"].endswith("Z"):
         raise ValueError("score_functionality evidence.generated_at_utc must be UTC")
     generated_at = _parse_utc_timestamp(
@@ -266,6 +270,10 @@ def _parse_utc_timestamp(value: str, label: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+def _canonical_path(value: str | Path) -> str:
+    return os.path.normcase(os.path.abspath(str(value)))
+
+
 def _validate_refresh_report_timing(name: str, generated_at: datetime, modified_at: datetime) -> None:
     if modified_at > generated_at + REFRESH_REPORT_FUTURE_SKEW:
         raise ValueError(f"score_functionality evidence.input_reports.{name} modified_at is in the future")
@@ -350,6 +358,20 @@ def _self_test() -> None:
         assert "evidence is missing" in str(exc)
     else:
         raise AssertionError("score output without evidence unexpectedly passed")
+    wrong_results_dir = json.loads(_score_output_fixture(results_dir="C:/tmp/gagent-results"))
+    try:
+        _success_output_for(score_command, json.dumps(wrong_results_dir))
+    except ValueError as exc:
+        assert "results_dir" in str(exc)
+    else:
+        raise AssertionError("score output with wrong results_dir unexpectedly passed")
+    wrong_python_executable = json.loads(_score_output_fixture(python_executable="C:/Python/python.exe"))
+    try:
+        _success_output_for(score_command, json.dumps(wrong_python_executable))
+    except ValueError as exc:
+        assert "python_executable" in str(exc)
+    else:
+        raise AssertionError("score output with wrong python_executable unexpectedly passed")
     evidence_drift_cases = []
     extra_evidence_field = json.loads(_score_output_fixture())
     extra_evidence_field["evidence"]["mystery_field"] = True
@@ -507,8 +529,11 @@ def _score_output_fixture(
     dirty: bool = False,
     e2e_enabled: bool = True,
     source_head: str | None = None,
+    results_dir: str | None = None,
+    python_executable: str | None = None,
 ) -> str:
     internal_score = SCORE_COMPONENT_WEIGHTS["internal_eval"]
+    expected_results_dir = ROOT / "backend" / "eval_registry" / "results"
     components = [
         {
             "name": "internal_eval",
@@ -543,8 +568,8 @@ def _score_output_fixture(
             "components": components,
             "evidence": {
                 "generated_at_utc": "2026-01-01T00:00:00Z",
-                "results_dir": "backend/eval_registry/results",
-                "python_executable": "python-runtime/python.exe",
+                "results_dir": results_dir if results_dir is not None else str(expected_results_dir.resolve()),
+                "python_executable": python_executable if python_executable is not None else str(PYTHON.resolve()),
                 "e2e_env": {
                     "GAGENT_E2E_DEPS": "backend/temp/e2e_deps" if e2e_enabled else "",
                     "GAGENT_RUN_OPENAI_E2E": "1" if e2e_enabled else "",
