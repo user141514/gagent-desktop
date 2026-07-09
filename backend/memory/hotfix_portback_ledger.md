@@ -4363,3 +4363,42 @@ Status:
 ```text
 browser_agent E2E ledger count binding applied; source port-back required
 ```
+
+---
+
+### Optional E2E run id prefix binding
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Passed optional E2E reports required a non-empty run_id and matching ledger_summary.run_id, but did not prove that the run_id came from the expected smoke type. A self-consistent OpenAI report could therefore be scored with a browser_agent-style run id, or vice versa. score_functionality.py now requires passed OpenAI E2E report ids to start with openai_e2e_ and passed browser_agent E2E report ids to start with browser_agent_e2e_.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove OPTIONAL_E2E_RUN_ID_PREFIXES, remove the passed-report run_id prefix check, and remove the related wrong-prefix score_functionality self-test fixtures.
+```
+
+Status:
+
+```text
+optional E2E run id prefix binding applied; source port-back required
+```

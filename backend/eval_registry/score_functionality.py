@@ -95,6 +95,10 @@ OPTIONAL_E2E_NONPASSED_FIELDS = {
         "ledger_summary",
     },
 }
+OPTIONAL_E2E_RUN_ID_PREFIXES = {
+    "openai_orchestrated_e2e": "openai_e2e_",
+    "browser_agent_e2e": "browser_agent_e2e_",
+}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Score current gagent-desktop functionality from eval reports.")
@@ -352,6 +356,10 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
     run_id = str(report.get("run_id") or "").strip()
     if not run_id:
         errors.append(f"{name} passed report missing run_id")
+    else:
+        expected_prefix = OPTIONAL_E2E_RUN_ID_PREFIXES.get(name)
+        if expected_prefix and not run_id.startswith(expected_prefix):
+            errors.append(f"{name} run_id prefix must be {expected_prefix}")
     ledger = report.get("ledger_summary")
     if not isinstance(ledger, dict):
         errors.append(f"{name} passed report missing ledger_summary")
@@ -595,7 +603,7 @@ def _captured_process_output_sections(exc: subprocess.CalledProcessError) -> lis
 
 
 def _passed_e2e_report(name: str) -> dict[str, Any]:
-    run_id = f"{name}_run"
+    run_id = f"{OPTIONAL_E2E_RUN_ID_PREFIXES.get(name, name + '_')}fixture_run"
     report: dict[str, Any] = {
         "status": "passed",
         "run_id": run_id,
@@ -871,6 +879,31 @@ def _self_test() -> None:
     )
     assert bad_browser_ledger_event_count_score["status"] == "needs_work"
     assert any("ledger_event_count" in blocker for blocker in bad_browser_ledger_event_count_score["blockers"])
+
+    openai_wrong_run_id = json.loads(json.dumps(openai_passed))
+    openai_wrong_run_id["run_id"] = "browser_agent_e2e_wrong_type"
+    openai_wrong_run_id["ledger_summary"]["run_id"] = openai_wrong_run_id["run_id"]
+    openai_wrong_run_id["observability"]["run_id"] = openai_wrong_run_id["run_id"]
+    openai_wrong_run_id["observability"]["ledger"]["run_id"] = openai_wrong_run_id["run_id"]
+    openai_wrong_run_id["observability"]["runtime_host"]["session_ids"] = [openai_wrong_run_id["run_id"]]
+    bad_openai_run_id_score = score_reports(
+        full_internal_eval,
+        openai_wrong_run_id,
+        browser_passed,
+    )
+    assert bad_openai_run_id_score["status"] == "needs_work"
+    assert any("run_id prefix" in blocker for blocker in bad_openai_run_id_score["blockers"])
+
+    browser_wrong_run_id = json.loads(json.dumps(browser_passed))
+    browser_wrong_run_id["run_id"] = "openai_e2e_wrong_type"
+    browser_wrong_run_id["ledger_summary"]["run_id"] = browser_wrong_run_id["run_id"]
+    bad_browser_run_id_score = score_reports(
+        full_internal_eval,
+        openai_passed,
+        browser_wrong_run_id,
+    )
+    assert bad_browser_run_id_score["status"] == "needs_work"
+    assert any("run_id prefix" in blocker for blocker in bad_browser_run_id_score["blockers"])
 
     impossible_internal_total = _passed_internal_eval_report()
     impossible_internal_total["results"][0]["total"] = 150
