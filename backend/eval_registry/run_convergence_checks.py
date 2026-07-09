@@ -293,6 +293,16 @@ def _validate_e2e_deps_dir(path: Path) -> None:
     missing = [marker for marker in E2E_DEPS_MARKERS if not (path / marker).exists()]
     if missing:
         raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS missing markers: " + ", ".join(missing))
+    missing_dist_info = [
+        dist_info
+        for dist_info in _expected_e2e_dist_info_dirs()
+        if not (path / dist_info).is_dir()
+    ]
+    if missing_dist_info:
+        raise ValueError(
+            "score_functionality evidence.e2e_env.GAGENT_E2E_DEPS missing pinned dist-info: "
+            + ", ".join(missing_dist_info)
+        )
 
 
 def _parse_utc_timestamp(value: str, label: str) -> datetime:
@@ -311,6 +321,23 @@ def _format_utc(value: datetime) -> str:
 
 def _canonical_path(value: str | Path) -> str:
     return os.path.normcase(os.path.abspath(str(value)))
+
+
+def _expected_e2e_dist_info_dirs() -> list[str]:
+    requirements = ROOT / "backend" / "requirements-e2e.txt"
+    expected: list[str] = []
+    for raw_line in requirements.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "==" not in line:
+            raise ValueError(f"unsupported e2e requirement: {line}")
+        name, version = [part.strip() for part in line.split("==", 1)]
+        if not name or not version:
+            raise ValueError(f"invalid e2e requirement: {line}")
+        normalized_name = name.replace("-", "_")
+        expected.append(f"{normalized_name}-{version}.dist-info")
+    return expected
 
 
 def _validate_refresh_report_timing(name: str, generated_at: datetime, modified_at: datetime) -> None:
@@ -429,6 +456,16 @@ def _self_test() -> None:
             assert "playwright" in str(exc)
         else:
             raise AssertionError("e2e deps dir without playwright marker unexpectedly passed")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_deps = Path(tmp_dir)
+        for marker in E2E_DEPS_MARKERS:
+            (tmp_deps / marker).mkdir()
+        try:
+            _validate_e2e_deps_dir(tmp_deps)
+        except ValueError as exc:
+            assert "openai_agents-0.18.0.dist-info" in str(exc)
+        else:
+            raise AssertionError("e2e deps dir without pinned dist-info unexpectedly passed")
     strict_dirty = json.loads(_score_output_fixture(strict=True, dirty=True))
     try:
         _success_output_for(strict_score_command, json.dumps(strict_dirty))

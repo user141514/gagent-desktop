@@ -4207,3 +4207,42 @@ Status:
 ```text
 convergence E2E deps marker binding applied; source port-back required
 ```
+
+---
+
+### Convergence E2E deps version binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Strict convergence verified dependency import markers in backend/temp/e2e_deps, but did not prove that the installed packages matched the pinned optional dependency manifest. A directory with marker packages but drifted versions could still satisfy the gate. run_convergence_checks.py now parses backend/requirements-e2e.txt and requires the corresponding normalized pinned .dist-info directories, such as openai_agents-0.18.0.dist-info, browser_use-0.11.13.dist-info, and playwright-1.61.0.dist-info.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _expected_e2e_dist_info_dirs and the pinned dist-info check in _validate_e2e_deps_dir, then remove the related self-test fixture.
+```
+
+Status:
+
+```text
+convergence E2E deps version binding applied; source port-back required
+```
