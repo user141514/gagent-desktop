@@ -92,11 +92,12 @@ Pass criteria:
 - full convergence runner rejects score evidence whose results directory or Python executable do not match the current repository's eval results path and bundled `python-runtime`;
 - full convergence runner rejects refreshed score evidence whose input report bytes or modified timestamps do not match the actual files on disk;
 - full convergence runner rejects refreshed score output unless `latest_functionality_score.json` matches the validated score stdout exactly;
-- passed optional E2E score reports include smoke-typed run id prefixes, successful runtime_ledger evidence, and target-specific success evidence; OpenAI reports also include RuntimeHost observability alignment plus empty ledger_summary.tools, and browser_agent reports include non-empty output, positive step count, positive browser_agent tool evidence, and ledger_event_count matching ledger_summary.event_count;
+- passed optional E2E score reports include smoke-typed run id prefixes, non-empty task, matching owner_layer, successful runtime_ledger evidence, and target-specific success evidence; OpenAI reports also include the OPENAI_E2E_OK task/result sentinel, RuntimeHost observability alignment, and empty ledger_summary.tools, while browser_agent reports include non-empty output, positive step count, positive browser_agent tool evidence, and ledger_event_count matching ledger_summary.event_count;
 - passed optional E2E score reports reject unknown top-level fields;
 - passed optional E2E score reports reject run_id prefixes that do not match their smoke type;
 - passed optional E2E score reports reject unknown `ledger_summary` fields using `runtime_ledger.RUNTIME_LEDGER_SUMMARY_FIELDS` as the source of truth;
 - passed optional E2E score reports reject ledger_summary.tools that contradict the smoke type;
+- passed optional E2E score reports reject missing task, wrong owner_layer, and OpenAI task evidence without OPENAI_E2E_OK;
 - passed optional E2E score reports reject unknown OpenAI observability fields using runtime_ledger observability field constants;
 - passed optional browser_agent E2E score reports reject unknown `tool_result` fields using `core.browser_agent.BROWSER_AGENT_RESULT_FIELDS`;
 - passed optional browser_agent E2E score reports reject mismatched ledger_event_count and ledger_summary.event_count;

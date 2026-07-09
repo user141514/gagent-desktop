@@ -4441,3 +4441,42 @@ Status:
 ```text
 optional E2E ledger tools binding applied; source port-back required
 ```
+
+---
+
+### Optional E2E task owner binding
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Passed optional E2E reports proved run_id, final_status, and tool summaries, but did not verify that the ledger summary task and owner_layer matched the smoke type. A self-consistent report could therefore score as passed with the wrong owner layer or an OpenAI task that did not contain the expected sentinel. score_functionality.py now requires passed E2E reports to include non-empty task, the expected owner_layer for each smoke, and OPENAI_E2E_OK in the OpenAI task evidence.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove OPTIONAL_E2E_OWNER_LAYERS, remove the passed optional E2E task/owner_layer checks, and remove the related score_functionality self-test fixtures.
+```
+
+Status:
+
+```text
+optional E2E task owner binding applied; source port-back required
+```

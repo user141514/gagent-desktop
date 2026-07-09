@@ -99,6 +99,10 @@ OPTIONAL_E2E_RUN_ID_PREFIXES = {
     "openai_orchestrated_e2e": "openai_e2e_",
     "browser_agent_e2e": "browser_agent_e2e_",
 }
+OPTIONAL_E2E_OWNER_LAYERS = {
+    "openai_orchestrated_e2e": "Layer 3 runtime controller",
+    "browser_agent_e2e": "Layer 1 capability contract",
+}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Score current gagent-desktop functionality from eval reports.")
@@ -373,6 +377,17 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
         errors.append(f"{name} passed report missing ledger events")
     if str(ledger.get("final_status") or "") != "success":
         errors.append(f"{name} passed report final_status is not success")
+    task = str(ledger.get("task") or "").strip()
+    if not task:
+        errors.append(f"{name} passed report missing ledger_summary.task")
+    elif name == "openai_orchestrated_e2e" and "OPENAI_E2E_OK" not in task:
+        errors.append(f"{name} ledger_summary.task missing OPENAI_E2E_OK")
+    owner_layer = str(ledger.get("owner_layer") or "").strip()
+    expected_owner_layer = OPTIONAL_E2E_OWNER_LAYERS.get(name)
+    if not owner_layer:
+        errors.append(f"{name} passed report missing ledger_summary.owner_layer")
+    elif expected_owner_layer and owner_layer != expected_owner_layer:
+        errors.append(f"{name} ledger_summary.owner_layer must be {expected_owner_layer}")
     tools = ledger.get("tools")
     if not isinstance(tools, dict):
         errors.append(f"{name} passed report missing ledger_summary.tools")
@@ -623,6 +638,8 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
         "ledger_summary": {
             "run_id": run_id,
             "event_count": 2,
+            "task": "Reply with exactly: OPENAI_E2E_OK. Do not call tools.",
+            "owner_layer": OPTIONAL_E2E_OWNER_LAYERS.get(name, ""),
             "tools": {},
             "final_status": "success",
         },
@@ -650,6 +667,7 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
         }
     if name == "browser_agent_e2e":
         report["ledger_summary"]["event_count"] = 4
+        report["ledger_summary"]["task"] = "Open https://example.com and report the page title."
         report["ledger_summary"]["tools"] = {"browser_agent": 3}
         report["tool_result"] = {
             "success": True,
@@ -950,6 +968,38 @@ def _self_test() -> None:
     )
     assert bad_browser_tool_count_score["status"] == "needs_work"
     assert any("tools is invalid" in blocker for blocker in bad_browser_tool_count_score["blockers"])
+
+    openai_bad_owner = json.loads(json.dumps(openai_passed))
+    openai_bad_owner["ledger_summary"]["owner_layer"] = "Layer 1 capability contract"
+    openai_bad_owner["observability"]["ledger"]["owner_layer"] = "Layer 1 capability contract"
+    bad_openai_owner_score = score_reports(
+        full_internal_eval,
+        openai_bad_owner,
+        browser_passed,
+    )
+    assert bad_openai_owner_score["status"] == "needs_work"
+    assert any("owner_layer" in blocker for blocker in bad_openai_owner_score["blockers"])
+
+    openai_bad_task = json.loads(json.dumps(openai_passed))
+    openai_bad_task["ledger_summary"]["task"] = "Reply with OK."
+    openai_bad_task["observability"]["ledger"]["task"] = "Reply with OK."
+    bad_openai_task_score = score_reports(
+        full_internal_eval,
+        openai_bad_task,
+        browser_passed,
+    )
+    assert bad_openai_task_score["status"] == "needs_work"
+    assert any("task" in blocker for blocker in bad_openai_task_score["blockers"])
+
+    browser_bad_owner = json.loads(json.dumps(browser_passed))
+    browser_bad_owner["ledger_summary"]["owner_layer"] = "Layer 3 runtime controller"
+    bad_browser_owner_score = score_reports(
+        full_internal_eval,
+        openai_passed,
+        browser_bad_owner,
+    )
+    assert bad_browser_owner_score["status"] == "needs_work"
+    assert any("owner_layer" in blocker for blocker in bad_browser_owner_score["blockers"])
 
     impossible_internal_total = _passed_internal_eval_report()
     impossible_internal_total["results"][0]["total"] = 150
