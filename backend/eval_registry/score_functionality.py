@@ -240,6 +240,9 @@ def _internal_eval_result_shape_blockers(results: list[Any]) -> list[str]:
                         f"internal eval final_answer unknown field for {case_id}: "
                         + ", ".join(unknown_final_answer_fields)
                     )
+        observability = item.get("observability")
+        if "observability" in item:
+            blockers.extend(_observability_shape_errors("internal eval", observability, item.get("run_id")))
         total = item.get("total")
         if isinstance(total, bool) or not isinstance(total, (int, float)) or not 0 <= float(total) <= 100:
             blockers.append(f"internal eval result total is invalid for {case_id}")
@@ -365,50 +368,57 @@ def _nonpassed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[st
 
 
 def _openai_observability_errors(name: str, report: dict[str, Any]) -> list[str]:
-    observability = report.get("observability")
-    if not isinstance(observability, dict):
-        return [f"{name} passed report missing observability"]
-    errors: list[str] = []
-    unknown_observability_fields = sorted(set(observability) - RUNTIME_OBSERVABILITY_FIELDS)
-    if unknown_observability_fields:
-        errors.append(f"{name} observability unknown field: {', '.join(unknown_observability_fields)}")
-    missing_observability_fields = sorted(RUNTIME_OBSERVABILITY_FIELDS - set(observability))
-    if missing_observability_fields:
-        errors.append(f"{name} observability missing field: {', '.join(missing_observability_fields)}")
-    if str(observability.get("run_id") or "") != str(report.get("run_id") or ""):
-        errors.append(f"{name} observability.run_id does not match run_id")
-    ledger = observability.get("ledger")
-    if isinstance(ledger, dict):
-        unknown_ledger_fields = sorted(set(ledger) - RUNTIME_LEDGER_SUMMARY_FIELDS)
-        if unknown_ledger_fields:
-            errors.append(f"{name} observability.ledger unknown field: {', '.join(unknown_ledger_fields)}")
-    elif "ledger" in observability:
-        errors.append(f"{name} observability.ledger is invalid")
-    runtime_host = observability.get("runtime_host")
-    if isinstance(runtime_host, dict):
-        unknown_runtime_host_fields = sorted(set(runtime_host) - RUNTIME_HOST_SUMMARY_FIELDS)
-        if unknown_runtime_host_fields:
-            errors.append(f"{name} observability.runtime_host unknown field: {', '.join(unknown_runtime_host_fields)}")
-    elif "runtime_host" in observability:
-        errors.append(f"{name} observability.runtime_host is invalid")
-    aligned = observability.get("aligned")
-    if not isinstance(aligned, dict):
-        errors.append(f"{name} passed report missing observability alignment")
+    errors = _observability_shape_errors(name, report.get("observability"), report.get("run_id"))
+    if errors:
         return errors
-    unknown_aligned_fields = sorted(set(aligned) - RUNTIME_OBSERVABILITY_ALIGNED_FIELDS)
-    if unknown_aligned_fields:
-        errors.append(f"{name} observability.aligned unknown field: {', '.join(unknown_aligned_fields)}")
+    observability = report["observability"]
+    aligned = observability["aligned"]
     required = [
         "has_ledger_events",
         "has_runtime_host_events",
         "ledger_run_id_matches_requested",
         "runtime_session_matches_run_id",
     ]
-    errors.extend([
+    return [
         f"{name} observability alignment missing {key}"
         for key in required
         if aligned.get(key) is not True
-    ])
+    ]
+
+
+def _observability_shape_errors(label: str, observability: Any, expected_run_id: Any = None) -> list[str]:
+    if not isinstance(observability, dict):
+        return [f"{label} passed report missing observability"]
+    errors: list[str] = []
+    unknown_observability_fields = sorted(set(observability) - RUNTIME_OBSERVABILITY_FIELDS)
+    if unknown_observability_fields:
+        errors.append(f"{label} observability unknown field: {', '.join(unknown_observability_fields)}")
+    missing_observability_fields = sorted(RUNTIME_OBSERVABILITY_FIELDS - set(observability))
+    if missing_observability_fields:
+        errors.append(f"{label} observability missing field: {', '.join(missing_observability_fields)}")
+    if expected_run_id is not None and str(observability.get("run_id") or "") != str(expected_run_id or ""):
+        errors.append(f"{label} observability.run_id does not match run_id")
+    ledger = observability.get("ledger")
+    if isinstance(ledger, dict):
+        unknown_ledger_fields = sorted(set(ledger) - RUNTIME_LEDGER_SUMMARY_FIELDS)
+        if unknown_ledger_fields:
+            errors.append(f"{label} observability.ledger unknown field: {', '.join(unknown_ledger_fields)}")
+    elif "ledger" in observability:
+        errors.append(f"{label} observability.ledger is invalid")
+    runtime_host = observability.get("runtime_host")
+    if isinstance(runtime_host, dict):
+        unknown_runtime_host_fields = sorted(set(runtime_host) - RUNTIME_HOST_SUMMARY_FIELDS)
+        if unknown_runtime_host_fields:
+            errors.append(f"{label} observability.runtime_host unknown field: {', '.join(unknown_runtime_host_fields)}")
+    elif "runtime_host" in observability:
+        errors.append(f"{label} observability.runtime_host is invalid")
+    aligned = observability.get("aligned")
+    if not isinstance(aligned, dict):
+        errors.append(f"{label} passed report missing observability alignment")
+        return errors
+    unknown_aligned_fields = sorted(set(aligned) - RUNTIME_OBSERVABILITY_ALIGNED_FIELDS)
+    if unknown_aligned_fields:
+        errors.append(f"{label} observability.aligned unknown field: {', '.join(unknown_aligned_fields)}")
     return errors
 
 
@@ -610,6 +620,7 @@ def _passed_internal_eval_report(*, partial: bool = False) -> dict[str, Any]:
                 "reasons": ["answer is consistent with successful tool result"],
                 "penalties": [],
             },
+            "observability": _internal_eval_observability_fixture(case_id),
         })
     return {
         "status": "ok",
@@ -618,6 +629,40 @@ def _passed_internal_eval_report(*, partial: bool = False) -> dict[str, Any]:
         "failed": 0,
         "skipped": 0,
         "results": results,
+    }
+
+
+def _internal_eval_observability_fixture(case_id: str) -> dict[str, Any]:
+    run_id = f"eval_{case_id}_run"
+    return {
+        "run_id": run_id,
+        "ledger": {
+            "run_id": run_id,
+            "event_count": 4,
+            "task": "internal eval fixture",
+            "owner_layer": "Layer 3 runtime controller",
+            "tools": {"web_search": 2},
+            "failure_count": 0,
+            "failures": [],
+            "decisions": [],
+            "smoke_tests": [],
+            "final_status": "success",
+        },
+        "runtime_host": {
+            "event_count": 2,
+            "event_types": ["session_started", "session_completed"],
+            "session_ids": [run_id],
+            "tools": {},
+            "started_turns": [1],
+            "completed_turns": [1],
+            "final_status": "completed",
+        },
+        "aligned": {
+            "has_ledger_events": True,
+            "has_runtime_host_events": True,
+            "ledger_run_id_matches_requested": True,
+            "runtime_session_matches_run_id": True,
+        },
     }
 
 
@@ -670,6 +715,16 @@ def _self_test() -> None:
     )
     assert internal_final_answer_extra_score["status"] == "needs_work"
     assert any("final_answer unknown field" in blocker for blocker in internal_final_answer_extra_score["blockers"])
+
+    internal_observability_extra_field = _passed_internal_eval_report()
+    internal_observability_extra_field["results"][0]["observability"]["mystery_field"] = True
+    internal_observability_extra_score = score_reports(
+        internal_observability_extra_field,
+        openai_passed,
+        browser_passed,
+    )
+    assert internal_observability_extra_score["status"] == "needs_work"
+    assert any("observability unknown field" in blocker for blocker in internal_observability_extra_score["blockers"])
 
     openai_extra_field = dict(openai_passed)
     openai_extra_field["mystery_field"] = True

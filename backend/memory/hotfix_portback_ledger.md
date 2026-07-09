@@ -3817,3 +3817,42 @@ Status:
 ```text
 internal eval final answer field whitelist applied; source port-back required
 ```
+
+---
+
+### Internal eval observability field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Internal eval result entries rejected unknown top-level and final_answer fields but still accepted unknown nested observability fields. score_functionality.py now uses the same runtime_ledger observability schema checks for internal eval evidence and optional OpenAI E2E evidence before awarding score.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the internal eval observability self-test fixture and remove the _observability_shape_errors call from _internal_eval_result_shape_blockers.
+```
+
+Status:
+
+```text
+internal eval observability field whitelist applied; source port-back required
+```

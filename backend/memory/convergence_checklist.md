@@ -83,6 +83,7 @@ Pass criteria:
 - convergence runner score fixtures are generated from the shared component weights;
 - internal eval report/result field sets are defined in `run_eval_cases.py`; functionality scoring rejects unknown top-level and result-entry fields;
 - internal eval final_answer field sets are derived from `score_final_answer.py` and `run_eval_cases.py`; functionality scoring rejects unknown final_answer fields;
+- internal eval observability fields reuse runtime_ledger schema constants; functionality scoring rejects unknown observability fields;
 - full convergence runner includes baseline validators before strict functionality scoring;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
 - passed optional E2E score reports include run id, successful runtime_ledger evidence, and target-specific success evidence; OpenAI reports also include RuntimeHost observability alignment, and browser_agent reports include non-empty output plus positive step count;
