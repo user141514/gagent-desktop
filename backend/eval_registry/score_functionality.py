@@ -76,6 +76,18 @@ OPTIONAL_E2E_NONPASSED_FIELDS = {
         "ledger_summary",
     },
 }
+LEDGER_SUMMARY_FIELDS = {
+    "run_id",
+    "event_count",
+    "task",
+    "owner_layer",
+    "tools",
+    "failure_count",
+    "failures",
+    "decisions",
+    "smoke_tests",
+    "final_status",
+}
 
 
 def main() -> int:
@@ -289,6 +301,9 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
     if not isinstance(ledger, dict):
         errors.append(f"{name} passed report missing ledger_summary")
         return errors
+    unknown_ledger_fields = sorted(set(ledger) - LEDGER_SUMMARY_FIELDS)
+    if unknown_ledger_fields:
+        errors.append(f"{name} ledger_summary unknown field: {', '.join(unknown_ledger_fields)}")
     if run_id and str(ledger.get("run_id") or "") != run_id:
         errors.append(f"{name} ledger_summary.run_id does not match run_id")
     if not isinstance(ledger.get("event_count"), int) or int(ledger.get("event_count") or 0) <= 0:
@@ -571,6 +586,30 @@ def _self_test() -> None:
     )
     assert extra_browser_score["status"] == "needs_work"
     assert any("unknown field" in blocker for blocker in extra_browser_score["blockers"])
+
+    openai_bad_ledger_summary = {
+        **openai_passed,
+        "ledger_summary": {**openai_passed["ledger_summary"], "mystery_field": True},
+    }
+    bad_openai_ledger_score = score_reports(
+        full_internal_eval,
+        openai_bad_ledger_summary,
+        browser_passed,
+    )
+    assert bad_openai_ledger_score["status"] == "needs_work"
+    assert any("ledger_summary unknown field" in blocker for blocker in bad_openai_ledger_score["blockers"])
+
+    browser_bad_ledger_summary = {
+        **browser_passed,
+        "ledger_summary": {**browser_passed["ledger_summary"], "mystery_field": True},
+    }
+    bad_browser_ledger_score = score_reports(
+        full_internal_eval,
+        openai_passed,
+        browser_bad_ledger_summary,
+    )
+    assert bad_browser_ledger_score["status"] == "needs_work"
+    assert any("ledger_summary unknown field" in blocker for blocker in bad_browser_ledger_score["blockers"])
 
     impossible_internal_total = _passed_internal_eval_report()
     impossible_internal_total["results"][0]["total"] = 150

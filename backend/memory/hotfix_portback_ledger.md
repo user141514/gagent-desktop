@@ -3608,3 +3608,42 @@ Status:
 ```text
 optional E2E non-passed report field whitelist applied; source port-back required
 ```
+
+---
+
+### Optional E2E ledger summary field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Passed OpenAI and browser_agent E2E reports rejected unknown top-level fields but still accepted unknown nested ledger_summary fields. score_functionality.py now whitelists ledger_summary against runtime_ledger.summarize_run() output fields before awarding optional E2E evidence credit.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove LEDGER_SUMMARY_FIELDS, the ledger_summary extra-field check, and the ledger_summary extra-field self-test fixtures.
+```
+
+Status:
+
+```text
+optional E2E ledger summary field whitelist applied; source port-back required
+```
