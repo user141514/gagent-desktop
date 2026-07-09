@@ -77,7 +77,7 @@ Pass criteria:
 - baseline convergence runner validates and prints the advisory functionality score JSON, including refreshed/strict mode flags, expected component names/weights/status fields, total/max_total/status/blockers consistency, and required evidence fields, on success;
 - baseline convergence runner rejects unknown fields in functionality score component objects;
 - baseline convergence runner rejects unknown fields in functionality score evidence, e2e_env, source_git, input_reports, and input report objects;
-- full convergence runner rejects strict functionality scores from dirty Git worktrees;
+- full convergence runner rejects score evidence whose reported Git dirty state differs from the current checkout, and rejects strict functionality scores from dirty Git worktrees;
 - functionality score component weights are defined in `score_functionality.py`; score max_total/status and the convergence runner use that same source;
 - functionality score output schema field sets are defined in `score_functionality.py`; evidence generation and convergence validation reuse those constants;
 - convergence runner score fixtures are generated from the shared component weights;
@@ -88,7 +88,7 @@ Pass criteria:
 - full convergence runner includes baseline validators before strict functionality scoring;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
 - full convergence runner rejects strict score evidence unless opt-in E2E env switches are enabled, `GAGENT_E2E_DEPS` points at this checkout's `backend/temp/e2e_deps`, that dependency directory contains the `agents`, `browser_use`, and `playwright` import markers plus pinned `.dist-info` directories from `backend/requirements-e2e.txt`, each pinned `.dist-info/METADATA` reports the expected Name/Version, and score input reports exist with non-empty contents;
-- full convergence runner rejects score evidence whose Git HEAD or branch differs from the current checkout, and rejects refreshed score evidence built from stale or future-dated input reports;
+- full convergence runner rejects score evidence whose Git HEAD, branch, or dirty state differs from the current checkout, and rejects refreshed score evidence built from stale or future-dated input reports;
 - full convergence runner rejects score evidence whose results directory or Python executable do not match the current repository's eval results path and bundled `python-runtime`;
 - full convergence runner rejects refreshed score evidence whose input report bytes or modified timestamps do not match the actual files on disk;
 - full convergence runner rejects refreshed score output unless `latest_functionality_score.json` matches the validated score stdout exactly;

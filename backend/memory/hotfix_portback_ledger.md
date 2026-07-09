@@ -4285,3 +4285,42 @@ Status:
 ```text
 convergence E2E deps metadata binding applied; source port-back required
 ```
+
+---
+
+### Convergence source dirty binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner rejected strict score evidence when evidence.source_git.dirty was true, but it still trusted the score payload for that dirty value. A score output could therefore claim a clean checkout while the runner's current worktree was dirty. run_convergence_checks.py now reads the current Git status and rejects score evidence whose reported dirty state differs from the current checkout; strict/full convergence then requires the runner-confirmed dirty state to be false.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _current_git_dirty, _validate_source_git_dirty, the validate_current_dirty runner path, and the related self-test fixtures; restore strict dirty validation to checking only evidence.source_git.dirty.
+```
+
+Status:
+
+```text
+convergence source dirty binding applied; source port-back required
+```

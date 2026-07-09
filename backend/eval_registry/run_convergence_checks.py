@@ -65,7 +65,12 @@ def main() -> int:
             return int(result.returncode or 1)
         print(f"[run_convergence_checks] ok: {label}")
         try:
-            success_output = _success_output_for(command, result.stdout, validate_written_artifact=True)
+            success_output = _success_output_for(
+                command,
+                result.stdout,
+                validate_written_artifact=True,
+                validate_current_dirty=True,
+            )
         except ValueError as exc:
             print(f"[run_convergence_checks] failed: {label}", file=sys.stderr)
             print(str(exc), file=sys.stderr)
@@ -92,7 +97,13 @@ def _commands(*, full: bool) -> list[list[str]]:
     ]
 
 
-def _success_output_for(command: list[str], stdout: str, *, validate_written_artifact: bool = False) -> str:
+def _success_output_for(
+    command: list[str],
+    stdout: str,
+    *,
+    validate_written_artifact: bool = False,
+    validate_current_dirty: bool = False,
+) -> str:
     if not _is_score_command(command):
         return ""
     try:
@@ -103,7 +114,7 @@ def _success_output_for(command: list[str], stdout: str, *, validate_written_art
         raise ValueError("score_functionality output is not a JSON object")
     _validate_score_mode(command, score)
     _validate_score_components(score)
-    _validate_score_evidence(command, score)
+    _validate_score_evidence(command, score, validate_current_dirty=validate_current_dirty)
     if validate_written_artifact and "--refresh" in command:
         _validate_score_artifact_matches_stdout(score_functionality.OUTPUT_PATH, score)
     return json.dumps(score, indent=2, ensure_ascii=False)
@@ -171,7 +182,7 @@ def _validate_score_components(score: dict) -> None:
         raise ValueError("score_functionality blockers do not match component blockers")
 
 
-def _validate_score_evidence(command: list[str], score: dict) -> None:
+def _validate_score_evidence(command: list[str], score: dict, *, validate_current_dirty: bool = False) -> None:
     evidence = score.get("evidence")
     if not isinstance(evidence, dict):
         raise ValueError("score_functionality evidence is missing")
@@ -238,8 +249,12 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
         raise ValueError("score_functionality evidence.source_git.branch does not match current branch")
     if not isinstance(source_git.get("dirty"), bool):
         raise ValueError("score_functionality evidence.source_git.dirty is missing")
-    if "--strict" in command and source_git["dirty"]:
-        raise ValueError("score_functionality evidence.source_git.dirty must be false for strict convergence")
+    current_dirty = _current_git_dirty() if validate_current_dirty else source_git["dirty"]
+    _validate_source_git_dirty(
+        source_git["dirty"],
+        current_dirty=current_dirty,
+        strict="--strict" in command,
+    )
 
     results_dir = Path(evidence["results_dir"])
     input_reports = evidence.get("input_reports")
@@ -419,6 +434,22 @@ def _current_git_branch() -> str | None:
     return _git_output("rev-parse", "--abbrev-ref", "HEAD")
 
 
+def _current_git_dirty() -> bool | None:
+    status = _git_output("status", "--porcelain")
+    if status is None:
+        return None
+    return bool(status)
+
+
+def _validate_source_git_dirty(reported_dirty: bool, *, current_dirty: bool | None, strict: bool) -> None:
+    if current_dirty is None:
+        raise ValueError("current git dirty state is unavailable")
+    if reported_dirty != current_dirty:
+        raise ValueError("score_functionality evidence.source_git.dirty does not match current checkout")
+    if strict and current_dirty:
+        raise ValueError("score_functionality evidence.source_git.dirty must be false for strict convergence")
+
+
 def _git_output(*args: str) -> str | None:
     result = subprocess.run(
         ["git", *args],
@@ -543,6 +574,18 @@ def _self_test() -> None:
         assert "dirty" in str(exc)
     else:
         raise AssertionError("strict score output with dirty git unexpectedly passed")
+    try:
+        _validate_source_git_dirty(False, current_dirty=True, strict=False)
+    except ValueError as exc:
+        assert "dirty" in str(exc)
+    else:
+        raise AssertionError("source_git dirty mismatch unexpectedly passed")
+    try:
+        _validate_source_git_dirty(True, current_dirty=True, strict=True)
+    except ValueError as exc:
+        assert "dirty" in str(exc)
+    else:
+        raise AssertionError("strict dirty checkout unexpectedly passed")
     assert _success_output_for(smoke_command, "noisy child output") == ""
     try:
         _success_output_for(score_command, "log before json\n{\"status\":\"needs_work\"}")
