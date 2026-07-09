@@ -51,6 +51,21 @@ def _assert_score_rejects_nested_baidu(cases) -> None:
         raise AssertionError("nested baidu success was not rejected")
 
 
+def _assert_score_rejects_web_search_success_without_source_url(cases) -> None:
+    case = next(item for item in cases if item.id == "web_search_openai_docs")
+    run_id = "smoke_web_search_success_without_source"
+    tool_result = {"status": "success", "results": [{"title": "OpenAI API docs"}]}
+    ledger_events = [
+        {"run_id": run_id, "event_type": "run_started"},
+        {"run_id": run_id, "event_type": "tool_call", "tool": "web_search", "args": {"query": "OpenAI API docs"}},
+        {"run_id": run_id, "event_type": "tool_result", "tool": "web_search", "result": tool_result},
+        {"run_id": run_id, "event_type": "run_finished", "final_status": "success"},
+    ]
+    score = score_case_result(case, tool_result, ledger_events, {"run_id": run_id, "final_status": "success"})
+    if score.get("verdict") != "fail" or not any("non-search-engine source URL" in item for item in score.get("penalties", [])):
+        raise AssertionError("web_search success without a source URL was not rejected")
+
+
 def _call_handler(value):
     if hasattr(value, "__iter__") and not isinstance(value, (str, bytes, dict, list, tuple)):
         return exhaust(value)
@@ -747,6 +762,7 @@ def main() -> int:
         return 1
 
     _assert_score_rejects_nested_baidu(cases)
+    _assert_score_rejects_web_search_success_without_source_url(cases)
     _assert_handler_writes_browser_bridge_ledger()
     _assert_answer_score_rejects_false_success(cases)
     _assert_answer_score_rejects_forbidden_fallback(cases)

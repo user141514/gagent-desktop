@@ -268,14 +268,16 @@ def _exercise_agent_loop_runtime_mapper(case: EvalCase, run_id: str, args: dict[
             "exit_result": exit_reason,
             "final_answer_text": _final_answer_from_exit_reason(exit_reason),
         }
-    return {
-        "status": "success",
+    tool_result = dict(handler.last_tool_result or {})
+    tool_result.setdefault("status", "success")
+    tool_result.update({
         "runtime_event_types": event_types,
         "runtime_started_turns": started_turns,
         "runtime_completed_turns": completed_turns,
         "exit_result": exit_reason,
         "final_answer_text": _final_answer_from_exit_reason(exit_reason),
-    }
+    })
+    return tool_result
 
 
 def _read_runtime_host_events(host) -> list[dict[str, Any]]:

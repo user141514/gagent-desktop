@@ -55,6 +55,9 @@ def score_case_result(
 
     if success:
         urls = _result_urls(tool_result)
+        if case.target_tool == "web_search" and not _has_non_search_source_url(urls):
+            behavior_score -= 30
+            penalties.append("success result lacks non-search-engine source URL")
         if case.expected_result.get("forbid_baidu_success") and any(_is_baidu_url(url) for url in urls):
             behavior_score -= 30
             penalties.append("success result contains baidu.com")
@@ -193,6 +196,17 @@ def _is_baidu_url(url: str) -> bool:
 def _is_search_homepage(url: str) -> bool:
     parsed = urlparse(str(url))
     return parsed.netloc.lower() in SEARCH_HOME_HOSTS and parsed.path in {"", "/"}
+
+
+def _has_non_search_source_url(urls: list[str]) -> bool:
+    for url in urls:
+        parsed = urlparse(str(url))
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            continue
+        if parsed.netloc.lower() in SEARCH_HOME_HOSTS or _is_baidu_url(url):
+            continue
+        return True
+    return False
 
 
 def _is_structured_failure(tool_result: dict) -> bool:

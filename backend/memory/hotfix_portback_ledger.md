@@ -3293,3 +3293,43 @@ Status:
 ```text
 eval top-level scalar loader validation applied; source port-back required
 ```
+
+---
+
+### Eval web_search source URL scoring
+
+Files changed:
+
+```text
+backend/eval_registry/score_eval_result.py
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/tests/smoke_eval_registry.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+web_search success results could score as passing even when they contained no valid non-search-engine source URL. The scorer now rejects empty-source successes, and the agent-loop eval runner preserves the actual last tool result so source URLs are visible to scoring.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove the web_search non-search source URL scoring check, remove the smoke assertion, and restore the agent-loop success wrapper in run_eval_cases.py.
+```
+
+Status:
+
+```text
+eval web_search source URL scoring applied; source port-back required
+```
