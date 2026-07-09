@@ -33,6 +33,16 @@ COMPONENT_EXTRA_FIELDS = {
     "openai_orchestrated_e2e": {"evidence_status"},
     "browser_agent_e2e": {"evidence_status"},
 }
+SCORE_EVIDENCE_FIELDS = {
+    "generated_at_utc",
+    "results_dir",
+    "python_executable",
+    "e2e_env",
+    "source_git",
+    "input_reports",
+}
+SOURCE_GIT_FIELDS = {"available", "head", "branch", "dirty"}
+INPUT_REPORT_FIELDS = {"exists", "bytes", "modified_at_utc"}
 
 
 def main() -> int:
@@ -176,6 +186,9 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     evidence = score.get("evidence")
     if not isinstance(evidence, dict):
         raise ValueError("score_functionality evidence is missing")
+    unknown_evidence_fields = sorted(set(evidence) - SCORE_EVIDENCE_FIELDS)
+    if unknown_evidence_fields:
+        raise ValueError("score_functionality evidence has unknown fields: " + ", ".join(unknown_evidence_fields))
     for key in ["generated_at_utc", "results_dir", "python_executable"]:
         if not isinstance(evidence.get(key), str) or not evidence[key]:
             raise ValueError(f"score_functionality evidence.{key} is missing")
@@ -185,6 +198,9 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     e2e_env = evidence.get("e2e_env")
     if not isinstance(e2e_env, dict):
         raise ValueError("score_functionality evidence.e2e_env is missing")
+    unknown_e2e_env_fields = sorted(set(e2e_env) - set(SCORE_E2E_ENV_KEYS))
+    if unknown_e2e_env_fields:
+        raise ValueError("score_functionality evidence.e2e_env has unknown fields: " + ", ".join(unknown_e2e_env_fields))
     for key in SCORE_E2E_ENV_KEYS:
         if not isinstance(e2e_env.get(key), str):
             raise ValueError(f"score_functionality evidence.e2e_env.{key} is missing")
@@ -192,6 +208,11 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     source_git = evidence.get("source_git")
     if not isinstance(source_git, dict):
         raise ValueError("score_functionality evidence.source_git is missing")
+    unknown_source_git_fields = sorted(set(source_git) - SOURCE_GIT_FIELDS)
+    if unknown_source_git_fields:
+        raise ValueError(
+            "score_functionality evidence.source_git has unknown fields: " + ", ".join(unknown_source_git_fields)
+        )
     if source_git.get("available") is not True:
         raise ValueError("score_functionality evidence.source_git is unavailable")
     if not isinstance(source_git.get("head"), str) or len(source_git["head"]) < 7:
@@ -206,10 +227,19 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     input_reports = evidence.get("input_reports")
     if not isinstance(input_reports, dict):
         raise ValueError("score_functionality evidence.input_reports is missing")
+    unknown_input_reports = sorted(set(input_reports) - set(SCORE_INPUT_REPORTS))
+    if unknown_input_reports:
+        raise ValueError("score_functionality evidence.input_reports has unknown reports: " + ", ".join(unknown_input_reports))
     for name in SCORE_INPUT_REPORTS:
         report = input_reports.get(name)
         if not isinstance(report, dict):
             raise ValueError(f"score_functionality evidence.input_reports.{name} is missing")
+        unknown_report_fields = sorted(set(report) - INPUT_REPORT_FIELDS)
+        if unknown_report_fields:
+            raise ValueError(
+                f"score_functionality evidence.input_reports.{name} has unknown fields: "
+                + ", ".join(unknown_report_fields)
+            )
         if not isinstance(report.get("exists"), bool):
             raise ValueError(f"score_functionality evidence.input_reports.{name}.exists is missing")
         if report["exists"]:
@@ -261,6 +291,29 @@ def _self_test() -> None:
         assert "evidence is missing" in str(exc)
     else:
         raise AssertionError("score output without evidence unexpectedly passed")
+    evidence_drift_cases = []
+    extra_evidence_field = json.loads(_score_output_fixture())
+    extra_evidence_field["evidence"]["mystery_field"] = True
+    evidence_drift_cases.append((extra_evidence_field, "evidence unknown"))
+    extra_e2e_env_field = json.loads(_score_output_fixture())
+    extra_e2e_env_field["evidence"]["e2e_env"]["MYSTERY_ENV"] = "1"
+    evidence_drift_cases.append((extra_e2e_env_field, "e2e_env unknown"))
+    extra_source_git_field = json.loads(_score_output_fixture())
+    extra_source_git_field["evidence"]["source_git"]["mystery_field"] = True
+    evidence_drift_cases.append((extra_source_git_field, "source_git unknown"))
+    extra_input_report = json.loads(_score_output_fixture())
+    extra_input_report["evidence"]["input_reports"]["latest_mystery_report.json"] = {"exists": False}
+    evidence_drift_cases.append((extra_input_report, "input_reports unknown"))
+    extra_input_report_field = json.loads(_score_output_fixture())
+    extra_input_report_field["evidence"]["input_reports"]["latest_eval_report.json"]["mystery_field"] = True
+    evidence_drift_cases.append((extra_input_report_field, "input report field unknown"))
+    for fixture, label in evidence_drift_cases:
+        try:
+            _success_output_for(score_command, json.dumps(fixture))
+        except ValueError as exc:
+            assert "evidence" in str(exc) and "unknown" in str(exc)
+        else:
+            raise AssertionError(f"score output with {label} unexpectedly passed")
     bad_weight = json.loads(_score_output_fixture())
     bad_weight["components"][0]["weight"] = 99
     try:

@@ -3450,3 +3450,42 @@ Status:
 ```text
 functionality score component field whitelist applied; source port-back required
 ```
+
+---
+
+### Functionality score evidence field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The convergence runner validated required evidence fields but allowed unknown fields in evidence, e2e_env, source_git, input_reports, and individual input report objects. These score evidence objects now use explicit field/report whitelists.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove SCORE_EVIDENCE_FIELDS, SOURCE_GIT_FIELDS, INPUT_REPORT_FIELDS, and the evidence drift self-test fixtures.
+```
+
+Status:
+
+```text
+functionality score evidence field whitelist applied; source port-back required
+```
