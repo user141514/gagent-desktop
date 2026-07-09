@@ -98,6 +98,7 @@ Pass criteria:
 - passed optional E2E score reports reject unknown `ledger_summary` fields using `runtime_ledger.RUNTIME_LEDGER_SUMMARY_FIELDS` as the source of truth;
 - passed optional E2E score reports reject ledger_summary.tools that contradict the smoke type;
 - passed optional E2E score reports reject missing task, wrong owner_layer, and OpenAI task evidence without OPENAI_E2E_OK;
+- default latest-report scoring rejects passed optional E2E ledger_summary values that do not match the raw runtime_ledger JSONL for the same run id;
 - passed optional E2E score reports reject unknown OpenAI observability fields using runtime_ledger observability field constants;
 - passed optional browser_agent E2E score reports reject unknown `tool_result` fields using `core.browser_agent.BROWSER_AGENT_RESULT_FIELDS`;
 - passed optional browser_agent E2E score reports reject mismatched ledger_event_count and ledger_summary.event_count;
@@ -108,6 +109,7 @@ Pass criteria:
 - functionality score self-test verifies skipped optional e2e paths cannot pass strict completion;
 - functionality score self-test rejects the ambiguous `--refresh --results-dir` combination;
 - functionality score self-test rejects isolated `--results-dir` scoring unless `--no-write` is set;
+- functionality score self-test verifies raw runtime_ledger binding can reject missing raw events and report/raw summary drift while preserving isolated fixture scoring;
 - functionality score output includes non-secret evidence for input report files, Git HEAD/dirty state, Python executable, results directory, and E2E switches;
 - runtime ledger validator exits 0;
 - runtime ledger smoke exits 0;

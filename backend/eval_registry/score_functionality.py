@@ -26,10 +26,13 @@ from eval_registry.run_eval_cases import (  # noqa: E402
     EVAL_STRING_LIST_FIELDS,
 )
 from runtime_ledger import (  # noqa: E402
+    default_ledger_dir,
     RUNTIME_HOST_SUMMARY_FIELDS,
     RUNTIME_LEDGER_SUMMARY_FIELDS,
     RUNTIME_OBSERVABILITY_ALIGNED_FIELDS,
     RUNTIME_OBSERVABILITY_FIELDS,
+    summarize_run,
+    write_event,
 )
 
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
@@ -148,6 +151,7 @@ def score_latest_reports(results_dir: str | Path | None = None) -> dict[str, Any
         _read_json(base / SCORE_INPUT_REPORTS[0]),
         _read_json(base / SCORE_INPUT_REPORTS[1]),
         _read_json(base / SCORE_INPUT_REPORTS[2]),
+        raw_ledger_dir=default_ledger_dir(ROOT) if results_dir is None else None,
     )
 
 
@@ -155,6 +159,8 @@ def score_reports(
     eval_report: dict[str, Any] | None,
     openai_report: dict[str, Any] | None,
     browser_agent_report: dict[str, Any] | None,
+    *,
+    raw_ledger_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     components = [
         _score_internal_eval(eval_report, SCORE_COMPONENT_WEIGHTS["internal_eval"]),
@@ -163,12 +169,14 @@ def score_reports(
             openai_report,
             SCORE_COMPONENT_WEIGHTS["openai_orchestrated_e2e"],
             "OpenAI orchestrated SDK path is not proven",
+            raw_ledger_dir=raw_ledger_dir,
         ),
         _score_optional_e2e(
             "browser_agent_e2e",
             browser_agent_report,
             SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"],
             "browser_agent real browser/LLM path is not proven",
+            raw_ledger_dir=raw_ledger_dir,
         ),
     ]
     total = sum(int(item["score"]) for item in components)
@@ -329,12 +337,19 @@ def _expected_eval_case_ids() -> list[str]:
     return sorted(path.stem for path in (ROOT / "backend" / "eval_registry" / "cases").glob("*.json"))
 
 
-def _score_optional_e2e(name: str, report: dict[str, Any] | None, weight: int, missing_msg: str) -> dict[str, Any]:
+def _score_optional_e2e(
+    name: str,
+    report: dict[str, Any] | None,
+    weight: int,
+    missing_msg: str,
+    *,
+    raw_ledger_dir: str | Path | None = None,
+) -> dict[str, Any]:
     if not report:
         return _component(name, weight, 0, "missing", [missing_msg])
     status = str(report.get("status") or "unknown")
     if status == "passed":
-        evidence_errors = _passed_optional_e2e_errors(name, report)
+        evidence_errors = _passed_optional_e2e_errors(name, report, raw_ledger_dir=raw_ledger_dir)
         if evidence_errors:
             return _component(name, weight, 0, "invalid_evidence", evidence_errors)
         return _component(name, weight, weight, "passed", [])
@@ -352,7 +367,12 @@ def _score_optional_e2e(name: str, report: dict[str, Any] | None, weight: int, m
     }
 
 
-def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
+def _passed_optional_e2e_errors(
+    name: str,
+    report: dict[str, Any],
+    *,
+    raw_ledger_dir: str | Path | None = None,
+) -> list[str]:
     errors: list[str] = []
     unknown_fields = sorted(set(report) - OPTIONAL_E2E_PASSED_FIELDS.get(name, set(report)))
     if unknown_fields:
@@ -423,6 +443,30 @@ def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
             errors.append(f"{name} passed report missing ledger_event_count")
         elif report.get("ledger_event_count") != ledger.get("event_count"):
             errors.append(f"{name} ledger_event_count does not match ledger_summary.event_count")
+    if raw_ledger_dir is not None:
+        errors.extend(_raw_ledger_summary_errors(name, report, ledger, raw_ledger_dir))
+    return errors
+
+
+def _raw_ledger_summary_errors(
+    name: str,
+    report: dict[str, Any],
+    ledger: dict[str, Any],
+    raw_ledger_dir: str | Path,
+) -> list[str]:
+    run_id = str(report.get("run_id") or "").strip()
+    if not run_id:
+        return []
+    try:
+        raw_summary = summarize_run(run_id, ledger_dir=raw_ledger_dir)
+    except ValueError as exc:
+        return [f"{name} raw runtime_ledger is invalid: {exc}"]
+    if int(raw_summary.get("event_count") or 0) <= 0:
+        return [f"{name} raw runtime_ledger events are missing for run_id"]
+    errors: list[str] = []
+    for field in sorted(RUNTIME_LEDGER_SUMMARY_FIELDS):
+        if ledger.get(field) != raw_summary.get(field):
+            errors.append(f"{name} ledger_summary.{field} does not match raw runtime_ledger")
     return errors
 
 
@@ -641,6 +685,10 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
             "task": "Reply with exactly: OPENAI_E2E_OK. Do not call tools.",
             "owner_layer": OPTIONAL_E2E_OWNER_LAYERS.get(name, ""),
             "tools": {},
+            "failure_count": 0,
+            "failures": [],
+            "decisions": [],
+            "smoke_tests": [],
             "final_status": "success",
         },
     }
@@ -676,6 +724,29 @@ def _passed_e2e_report(name: str) -> dict[str, Any]:
         }
         report["ledger_event_count"] = 4
     return report
+
+
+def _write_passed_e2e_raw_ledger(report: dict[str, Any], ledger_dir: str | Path) -> None:
+    run_id = str(report["run_id"])
+    ledger = report["ledger_summary"]
+    write_event(
+        {
+            "run_id": run_id,
+            "event_type": "run_started",
+            "task": ledger["task"],
+            "owner_layer": ledger["owner_layer"],
+        },
+        ledger_dir=ledger_dir,
+    )
+    if run_id.startswith(OPTIONAL_E2E_RUN_ID_PREFIXES["browser_agent_e2e"]):
+        write_event({"run_id": run_id, "event_type": "tool_call", "tool": "browser_agent"}, ledger_dir=ledger_dir)
+        write_event({"run_id": run_id, "event_type": "tool_result", "tool": "browser_agent"}, ledger_dir=ledger_dir)
+        write_event(
+            {"run_id": run_id, "event_type": "run_finished", "tool": "browser_agent", "final_status": "success"},
+            ledger_dir=ledger_dir,
+        )
+    else:
+        write_event({"run_id": run_id, "event_type": "run_finished", "final_status": "success"}, ledger_dir=ledger_dir)
 
 
 def _passed_internal_eval_report(*, partial: bool = False) -> dict[str, Any]:
@@ -757,6 +828,34 @@ def _self_test() -> None:
     )
     assert complete["status"] == "ok"
     assert _exit_code_for_report(complete, strict=True) == 0
+    with tempfile.TemporaryDirectory() as tmp_ledger_dir:
+        missing_raw_ledger = score_reports(
+            full_internal_eval,
+            openai_passed,
+            browser_passed,
+            raw_ledger_dir=tmp_ledger_dir,
+        )
+        assert missing_raw_ledger["status"] == "needs_work"
+        assert any("raw runtime_ledger" in blocker for blocker in missing_raw_ledger["blockers"])
+        _write_passed_e2e_raw_ledger(openai_passed, tmp_ledger_dir)
+        _write_passed_e2e_raw_ledger(browser_passed, tmp_ledger_dir)
+        raw_bound = score_reports(
+            full_internal_eval,
+            openai_passed,
+            browser_passed,
+            raw_ledger_dir=tmp_ledger_dir,
+        )
+        assert raw_bound["status"] == "ok"
+        browser_task_drift = json.loads(json.dumps(browser_passed))
+        browser_task_drift["ledger_summary"]["task"] = "Different browser task."
+        raw_task_drift = score_reports(
+            full_internal_eval,
+            openai_passed,
+            browser_task_drift,
+            raw_ledger_dir=tmp_ledger_dir,
+        )
+        assert raw_task_drift["status"] == "needs_work"
+        assert any("raw runtime_ledger" in blocker for blocker in raw_task_drift["blockers"])
 
     internal_extra_field = dict(full_internal_eval)
     internal_extra_field["mystery_field"] = True

@@ -4480,3 +4480,42 @@ Status:
 ```text
 optional E2E task owner binding applied; source port-back required
 ```
+
+---
+
+### Optional E2E raw ledger binding
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Passed optional E2E reports had increasingly strict ledger_summary checks, but scoring still trusted the report summary itself. A stale or hand-edited report could therefore remain internally consistent without being backed by backend/runtime_ledger/runs/<run_id>.jsonl. score_functionality.py now validates passed optional E2E summaries against the raw runtime_ledger JSONL when scoring the default latest reports; isolated --results-dir --no-write scoring remains fixture-only by design.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove raw_ledger_dir plumbing, _raw_ledger_summary_errors, _write_passed_e2e_raw_ledger, and the related score_functionality self-test fixtures; restore score_latest_reports to pure report-only scoring.
+```
+
+Status:
+
+```text
+optional E2E raw ledger binding applied; source port-back required
+```
