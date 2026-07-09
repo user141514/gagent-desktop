@@ -112,18 +112,20 @@ def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str
     results = [item for item in report.get("results") or [] if isinstance(item, dict)]
     if not results:
         return _component("internal_eval", weight, 0, "missing", ["latest_eval_report.json has no results"])
-    average = sum(float(item.get("total") or 0) for item in results) / len(results)
-    score = round(weight * average / 100)
-    failed = [str(item.get("case_id") or "") for item in results if item.get("verdict") != "pass"]
+    shape_blockers = _internal_eval_result_shape_blockers(results)
     coverage_blockers = _internal_eval_coverage_blockers(report, results)
-    if coverage_blockers:
+    if shape_blockers or coverage_blockers:
+        failed = [str(item.get("case_id") or "") for item in results if item.get("verdict") != "pass"]
         return {
-            **_component("internal_eval", weight, 0, "invalid_evidence", coverage_blockers),
+            **_component("internal_eval", weight, 0, "invalid_evidence", [*shape_blockers, *coverage_blockers]),
             "case_count": len(results),
             "passed": len(results) - len(failed),
             "failed": len(failed),
-            "average_case_score": round(average, 2),
+            "average_case_score": 0,
         }
+    average = sum(float(item.get("total") or 0) for item in results) / len(results)
+    score = round(weight * average / 100)
+    failed = [str(item.get("case_id") or "") for item in results if item.get("verdict") != "pass"]
     blockers = [f"eval case not passing: {case_id}" for case_id in failed if case_id]
     if average < 100:
         blockers.append(f"internal eval average score below 100: {round(average, 2)}")
@@ -135,6 +137,19 @@ def _score_internal_eval(report: dict[str, Any] | None, weight: int) -> dict[str
         "failed": len(failed),
         "average_case_score": round(average, 2),
     }
+
+
+def _internal_eval_result_shape_blockers(results: list[dict[str, Any]]) -> list[str]:
+    blockers: list[str] = []
+    for index, item in enumerate(results, start=1):
+        case_id = str(item.get("case_id") or f"#{index}")
+        total = item.get("total")
+        if isinstance(total, bool) or not isinstance(total, (int, float)) or not 0 <= float(total) <= 100:
+            blockers.append(f"internal eval result total is invalid for {case_id}")
+        verdict = item.get("verdict")
+        if verdict not in {"pass", "fail", "skip"}:
+            blockers.append(f"internal eval result verdict is invalid for {case_id}")
+    return blockers
 
 
 def _internal_eval_coverage_blockers(report: dict[str, Any], results: list[dict[str, Any]]) -> list[str]:
@@ -464,6 +479,26 @@ def _self_test() -> None:
     )
     assert complete["status"] == "ok"
     assert _exit_code_for_report(complete, strict=True) == 0
+
+    impossible_internal_total = _passed_internal_eval_report()
+    impossible_internal_total["results"][0]["total"] = 150
+    impossible_score = score_reports(
+        impossible_internal_total,
+        openai_passed,
+        browser_passed,
+    )
+    assert impossible_score["status"] == "needs_work"
+    assert any("result total" in blocker for blocker in impossible_score["blockers"])
+
+    invalid_internal_verdict = _passed_internal_eval_report()
+    invalid_internal_verdict["results"][0]["verdict"] = "maybe"
+    invalid_verdict_score = score_reports(
+        invalid_internal_verdict,
+        openai_passed,
+        browser_passed,
+    )
+    assert invalid_verdict_score["status"] == "needs_work"
+    assert any("result verdict" in blocker for blocker in invalid_verdict_score["blockers"])
 
     thin_internal_eval = score_reports(
         {"results": [{"case_id": "a", "total": 100, "verdict": "pass"}]},

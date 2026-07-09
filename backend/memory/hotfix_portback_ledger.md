@@ -3333,3 +3333,42 @@ Status:
 ```text
 eval web_search source URL scoring applied; source port-back required
 ```
+
+---
+
+### Eval report result-shape scoring validation
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Functionality scoring could accept impossible internal eval evidence such as a result total above 100 and clamp it into a passing component score. The scorer now rejects internal eval result totals outside 0..100 and verdicts outside pass/fail/skip before averaging.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _internal_eval_result_shape_blockers and its self-test fixtures from score_functionality.py.
+```
+
+Status:
+
+```text
+eval report result-shape scoring validation applied; source port-back required
+```

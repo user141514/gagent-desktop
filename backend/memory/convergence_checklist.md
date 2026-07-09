@@ -70,6 +70,7 @@ Pass criteria:
 - eval registry smoke exits 0;
 - advisory functionality score reports optional e2e blockers instead of hiding them behind green internal evals;
 - functionality score requires internal eval reports to cover every registry case id exactly once;
+- functionality score rejects internal eval result totals outside 0..100 and verdicts outside pass/fail/skip;
 - functionality score rejects internal eval summary counts/status that do not match result verdicts;
 - functionality score reports partial internal eval blockers when all cases pass but average score is below 100;
 - baseline convergence runner validates and prints the advisory functionality score JSON, including refreshed/strict mode flags, expected component names/weights/status fields, total/max_total/status/blockers consistency, and required evidence fields, on success;
