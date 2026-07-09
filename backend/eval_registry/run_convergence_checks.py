@@ -16,33 +16,14 @@ import score_functionality
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = ROOT / "python-runtime" / ("python.exe" if os.name == "nt" else "bin/python")
-SCORE_INPUT_REPORTS = [
-    "latest_eval_report.json",
-    "latest_openai_e2e_report.json",
-    "latest_browser_agent_e2e_report.json",
-]
-SCORE_E2E_ENV_KEYS = [
-    "GAGENT_E2E_DEPS",
-    "GAGENT_RUN_OPENAI_E2E",
-    "GAGENT_RUN_BROWSER_AGENT_E2E",
-]
 SCORE_COMPONENT_WEIGHTS = score_functionality.SCORE_COMPONENT_WEIGHTS
-BASE_COMPONENT_FIELDS = {"name", "weight", "score", "status", "blockers"}
-COMPONENT_EXTRA_FIELDS = {
-    "internal_eval": {"case_count", "passed", "failed", "average_case_score"},
-    "openai_orchestrated_e2e": {"evidence_status"},
-    "browser_agent_e2e": {"evidence_status"},
-}
-SCORE_EVIDENCE_FIELDS = {
-    "generated_at_utc",
-    "results_dir",
-    "python_executable",
-    "e2e_env",
-    "source_git",
-    "input_reports",
-}
-SOURCE_GIT_FIELDS = {"available", "head", "branch", "dirty"}
-INPUT_REPORT_FIELDS = {"exists", "bytes", "modified_at_utc"}
+SCORE_INPUT_REPORTS = score_functionality.SCORE_INPUT_REPORTS
+SCORE_E2E_ENV_KEYS = score_functionality.SCORE_E2E_ENV_KEYS
+BASE_COMPONENT_FIELDS = score_functionality.BASE_COMPONENT_FIELDS
+COMPONENT_EXTRA_FIELDS = score_functionality.COMPONENT_EXTRA_FIELDS
+SCORE_EVIDENCE_FIELDS = score_functionality.SCORE_EVIDENCE_FIELDS
+SOURCE_GIT_FIELDS = score_functionality.SOURCE_GIT_FIELDS
+INPUT_REPORT_FIELDS = score_functionality.INPUT_REPORT_FIELDS
 
 
 def main() -> int:
@@ -259,6 +240,13 @@ def _self_test() -> None:
     assert _commands(full=False)[5] == score_command
     assert _commands(full=True)[5] == strict_score_command
     assert SCORE_COMPONENT_WEIGHTS is score_functionality.SCORE_COMPONENT_WEIGHTS
+    assert SCORE_INPUT_REPORTS is score_functionality.SCORE_INPUT_REPORTS
+    assert SCORE_E2E_ENV_KEYS is score_functionality.SCORE_E2E_ENV_KEYS
+    assert BASE_COMPONENT_FIELDS is score_functionality.BASE_COMPONENT_FIELDS
+    assert COMPONENT_EXTRA_FIELDS is score_functionality.COMPONENT_EXTRA_FIELDS
+    assert SCORE_EVIDENCE_FIELDS is score_functionality.SCORE_EVIDENCE_FIELDS
+    assert SOURCE_GIT_FIELDS is score_functionality.SOURCE_GIT_FIELDS
+    assert INPUT_REPORT_FIELDS is score_functionality.INPUT_REPORT_FIELDS
     original_weight = SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
     try:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight + 5

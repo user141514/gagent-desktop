@@ -21,6 +21,32 @@ SCORE_COMPONENT_WEIGHTS = {
     "openai_orchestrated_e2e": 15,
     "browser_agent_e2e": 15,
 }
+SCORE_INPUT_REPORTS = [
+    "latest_eval_report.json",
+    "latest_openai_e2e_report.json",
+    "latest_browser_agent_e2e_report.json",
+]
+SCORE_E2E_ENV_KEYS = [
+    "GAGENT_E2E_DEPS",
+    "GAGENT_RUN_OPENAI_E2E",
+    "GAGENT_RUN_BROWSER_AGENT_E2E",
+]
+BASE_COMPONENT_FIELDS = {"name", "weight", "score", "status", "blockers"}
+COMPONENT_EXTRA_FIELDS = {
+    "internal_eval": {"case_count", "passed", "failed", "average_case_score"},
+    "openai_orchestrated_e2e": {"evidence_status"},
+    "browser_agent_e2e": {"evidence_status"},
+}
+SCORE_EVIDENCE_FIELDS = {
+    "generated_at_utc",
+    "results_dir",
+    "python_executable",
+    "e2e_env",
+    "source_git",
+    "input_reports",
+}
+SOURCE_GIT_FIELDS = {"available", "head", "branch", "dirty"}
+INPUT_REPORT_FIELDS = {"exists", "bytes", "modified_at_utc"}
 
 
 def main() -> int:
@@ -64,9 +90,9 @@ def main() -> int:
 def score_latest_reports(results_dir: str | Path | None = None) -> dict[str, Any]:
     base = Path(results_dir) if results_dir is not None else RESULTS_DIR
     return score_reports(
-        _read_json(base / "latest_eval_report.json"),
-        _read_json(base / "latest_openai_e2e_report.json"),
-        _read_json(base / "latest_browser_agent_e2e_report.json"),
+        _read_json(base / SCORE_INPUT_REPORTS[0]),
+        _read_json(base / SCORE_INPUT_REPORTS[1]),
+        _read_json(base / SCORE_INPUT_REPORTS[2]),
     )
 
 
@@ -295,9 +321,8 @@ def _build_evidence(results_dir: str | Path | None = None) -> dict[str, Any]:
         "results_dir": str(base.resolve()),
         "python_executable": str(Path(sys.executable).resolve()),
         "e2e_env": {
-            "GAGENT_E2E_DEPS": os.environ.get("GAGENT_E2E_DEPS", ""),
-            "GAGENT_RUN_OPENAI_E2E": os.environ.get("GAGENT_RUN_OPENAI_E2E", ""),
-            "GAGENT_RUN_BROWSER_AGENT_E2E": os.environ.get("GAGENT_RUN_BROWSER_AGENT_E2E", ""),
+            key: os.environ.get(key, "")
+            for key in SCORE_E2E_ENV_KEYS
         },
         "source_git": _source_git_evidence(),
         "input_reports": _input_report_evidence(base),
@@ -339,11 +364,7 @@ def _git_text(*args: str) -> str | None:
 
 def _input_report_evidence(base: Path) -> dict[str, dict[str, Any]]:
     evidence: dict[str, dict[str, Any]] = {}
-    for name in [
-        "latest_eval_report.json",
-        "latest_openai_e2e_report.json",
-        "latest_browser_agent_e2e_report.json",
-    ]:
+    for name in SCORE_INPUT_REPORTS:
         path = base / name
         try:
             stat = path.stat()

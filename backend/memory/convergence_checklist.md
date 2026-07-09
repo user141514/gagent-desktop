@@ -79,6 +79,7 @@ Pass criteria:
 - baseline convergence runner rejects unknown fields in functionality score evidence, e2e_env, source_git, input_reports, and input report objects;
 - full convergence runner rejects strict functionality scores from dirty Git worktrees;
 - functionality score component weights are defined in `score_functionality.py`; score max_total/status and the convergence runner use that same source;
+- functionality score output schema field sets are defined in `score_functionality.py`; evidence generation and convergence validation reuse those constants;
 - convergence runner score fixtures are generated from the shared component weights;
 - full convergence runner includes baseline validators before strict functionality scoring;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;

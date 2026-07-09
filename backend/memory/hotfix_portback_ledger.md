@@ -3489,3 +3489,44 @@ Status:
 ```text
 functionality score evidence field whitelist applied; source port-back required
 ```
+
+---
+
+### Functionality score schema constant convergence
+
+Files changed:
+
+```text
+backend/eval_registry/score_functionality.py
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The score generator and convergence runner were beginning to carry duplicate schema field lists. score_functionality.py now exports the score-output schema constants, and run_convergence_checks.py reuses those objects directly.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Move the schema constants back to run_convergence_checks.py and remove the constant identity self-test assertions.
+```
+
+Status:
+
+```text
+functionality score schema constant convergence applied; source port-back required
+```

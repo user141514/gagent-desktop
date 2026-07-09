@@ -54,7 +54,7 @@ Skipped optional OpenAI/browser_agent E2E reports count as `needs_work`; full co
 Passed optional E2E reports must include run id and successful runtime_ledger evidence; OpenAI reports must include the expected sentinel plus RuntimeHost observability alignment, and browser_agent reports must include a successful tool result with non-empty output and positive step count.
 `run_convergence_checks.py` validates the score JSON, runner mode flags, expected component names/weights/status fields, component field whitelists, total/max_total/status/blockers consistency, required `evidence` fields, and evidence subobject field whitelists, then prints it on success so baseline runs expose current blockers instead of only saying `ok`; `--full` also runs the baseline validators before strict scoring.
 Strict/full convergence also requires `evidence.source_git.dirty` to be false.
-The expected component weights are exported by `score_functionality.py`; score totals and the convergence runner both use that source of truth instead of keeping second copies.
+The expected component weights and score-output schema field sets are exported by `score_functionality.py`; score totals, evidence generation, and the convergence runner all use that source of truth instead of keeping second copies.
 The runner self-test fixture is also generated from those weights so test samples do not drift from the score contract.
 
 Optional OpenAI orchestrated SDK smoke:
