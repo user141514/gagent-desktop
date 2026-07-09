@@ -47,6 +47,10 @@ SCORE_EVIDENCE_FIELDS = {
 }
 SOURCE_GIT_FIELDS = {"available", "head", "branch", "dirty"}
 INPUT_REPORT_FIELDS = {"exists", "bytes", "modified_at_utc"}
+OPTIONAL_E2E_PASSED_FIELDS = {
+    "openai_orchestrated_e2e": {"status", "run_id", "done", "ledger_summary", "observability"},
+    "browser_agent_e2e": {"status", "run_id", "tool_result", "ledger_summary", "ledger_event_count"},
+}
 
 
 def main() -> int:
@@ -244,6 +248,9 @@ def _score_optional_e2e(name: str, report: dict[str, Any] | None, weight: int, m
 
 def _passed_optional_e2e_errors(name: str, report: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+    unknown_fields = sorted(set(report) - OPTIONAL_E2E_PASSED_FIELDS.get(name, set(report)))
+    if unknown_fields:
+        errors.append(f"{name} passed report has unknown field: {', '.join(unknown_fields)}")
     run_id = str(report.get("run_id") or "").strip()
     if not run_id:
         errors.append(f"{name} passed report missing run_id")
@@ -506,6 +513,26 @@ def _self_test() -> None:
     )
     assert complete["status"] == "ok"
     assert _exit_code_for_report(complete, strict=True) == 0
+
+    openai_extra_field = dict(openai_passed)
+    openai_extra_field["mystery_field"] = True
+    extra_openai_score = score_reports(
+        full_internal_eval,
+        openai_extra_field,
+        browser_passed,
+    )
+    assert extra_openai_score["status"] == "needs_work"
+    assert any("unknown field" in blocker for blocker in extra_openai_score["blockers"])
+
+    browser_extra_field = dict(browser_passed)
+    browser_extra_field["mystery_field"] = True
+    extra_browser_score = score_reports(
+        full_internal_eval,
+        openai_passed,
+        browser_extra_field,
+    )
+    assert extra_browser_score["status"] == "needs_work"
+    assert any("unknown field" in blocker for blocker in extra_browser_score["blockers"])
 
     impossible_internal_total = _passed_internal_eval_report()
     impossible_internal_total["results"][0]["total"] = 150
