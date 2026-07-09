@@ -87,7 +87,7 @@ Pass criteria:
 - internal eval list evidence field sets are defined in `run_eval_cases.py`; functionality scoring rejects non-list values and wrong element types;
 - full convergence runner includes baseline validators before strict functionality scoring;
 - strict functionality score exits 0 only when optional real OpenAI/browser_agent e2e paths are explicitly enabled and pass;
-- full convergence runner rejects strict score evidence unless opt-in E2E env switches are enabled, `GAGENT_E2E_DEPS` points at this checkout's `backend/temp/e2e_deps`, and score input reports exist with non-empty contents;
+- full convergence runner rejects strict score evidence unless opt-in E2E env switches are enabled, `GAGENT_E2E_DEPS` points at this checkout's `backend/temp/e2e_deps`, that dependency directory contains the `agents`, `browser_use`, and `playwright` import markers, and score input reports exist with non-empty contents;
 - full convergence runner rejects score evidence whose Git HEAD or branch differs from the current checkout, and rejects refreshed score evidence built from stale or future-dated input reports;
 - full convergence runner rejects score evidence whose results directory or Python executable do not match the current repository's eval results path and bundled `python-runtime`;
 - full convergence runner rejects refreshed score evidence whose input report bytes or modified timestamps do not match the actual files on disk;

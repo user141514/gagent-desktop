@@ -29,6 +29,7 @@ INPUT_REPORT_FIELDS = score_functionality.INPUT_REPORT_FIELDS
 REFRESH_REPORT_MAX_AGE = timedelta(minutes=30)
 REFRESH_REPORT_FUTURE_SKEW = timedelta(minutes=2)
 INPUT_REPORT_STAT_SKEW = timedelta(seconds=2)
+E2E_DEPS_MARKERS = ("agents", "browser_use", "playwright")
 
 
 def main() -> int:
@@ -203,8 +204,10 @@ def _validate_score_evidence(command: list[str], score: dict) -> None:
     if "--strict" in command:
         if not e2e_env.get("GAGENT_E2E_DEPS", "").strip():
             raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS is required for strict convergence")
-        if _canonical_path(e2e_env["GAGENT_E2E_DEPS"]) != _canonical_path(ROOT / "backend" / "temp" / "e2e_deps"):
+        e2e_deps_path = ROOT / "backend" / "temp" / "e2e_deps"
+        if _canonical_path(e2e_env["GAGENT_E2E_DEPS"]) != _canonical_path(e2e_deps_path):
             raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS does not match expected e2e deps path")
+        _validate_e2e_deps_dir(e2e_deps_path)
         for key in ["GAGENT_RUN_OPENAI_E2E", "GAGENT_RUN_BROWSER_AGENT_E2E"]:
             if e2e_env.get(key) != "1":
                 raise ValueError(f"score_functionality evidence.e2e_env.{key} must be 1 for strict convergence")
@@ -282,6 +285,14 @@ def _validate_score_artifact_matches_stdout(path: Path, expected_score: dict) ->
         raise ValueError("latest_functionality_score.json is not a JSON object")
     if artifact != expected_score:
         raise ValueError("latest_functionality_score.json does not match score_functionality stdout")
+
+
+def _validate_e2e_deps_dir(path: Path) -> None:
+    if not path.is_dir():
+        raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS directory is missing")
+    missing = [marker for marker in E2E_DEPS_MARKERS if not (path / marker).exists()]
+    if missing:
+        raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS missing markers: " + ", ".join(missing))
 
 
 def _parse_utc_timestamp(value: str, label: str) -> datetime:
@@ -408,6 +419,16 @@ def _self_test() -> None:
         assert "GAGENT_E2E_DEPS" in str(exc)
     else:
         raise AssertionError("strict score output with wrong e2e deps path unexpectedly passed")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_deps = Path(tmp_dir)
+        (tmp_deps / "agents").mkdir()
+        (tmp_deps / "browser_use").mkdir()
+        try:
+            _validate_e2e_deps_dir(tmp_deps)
+        except ValueError as exc:
+            assert "playwright" in str(exc)
+        else:
+            raise AssertionError("e2e deps dir without playwright marker unexpectedly passed")
     strict_dirty = json.loads(_score_output_fixture(strict=True, dirty=True))
     try:
         _success_output_for(strict_score_command, json.dumps(strict_dirty))

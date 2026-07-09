@@ -4168,3 +4168,42 @@ Status:
 ```text
 convergence E2E deps path binding applied; source port-back required
 ```
+
+---
+
+### Convergence E2E deps marker binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Strict convergence verified that GAGENT_E2E_DEPS pointed at backend/temp/e2e_deps, but did not prove that this target actually contained the dependency import markers needed by the OpenAI and browser_agent E2E smokes. A full gate could therefore be ambiguous if packages were loaded from another environment. run_convergence_checks.py now requires the strict deps directory to contain agents, browser_use, and playwright markers.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove E2E_DEPS_MARKERS, _validate_e2e_deps_dir, the strict deps marker call, and the related self-test fixture.
+```
+
+Status:
+
+```text
+convergence E2E deps marker binding applied; source port-back required
+```
