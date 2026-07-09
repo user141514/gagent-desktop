@@ -4246,3 +4246,42 @@ Status:
 ```text
 convergence E2E deps version binding applied; source port-back required
 ```
+
+---
+
+### Convergence E2E deps metadata binding
+
+Files changed:
+
+```text
+backend/eval_registry/run_convergence_checks.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Strict convergence verified pinned .dist-info directory names from backend/requirements-e2e.txt, but a directory name alone could be an empty or mismatched placeholder. run_convergence_checks.py now reads each pinned .dist-info/METADATA file and verifies that Name and Version match the requirement entry, closing the gap between directory naming and installed package metadata.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove _validate_dist_info_metadata and _read_metadata_fields, return _expected_e2e_dist_info_dirs to string output if desired, and remove the related self-test fixture.
+```
+
+Status:
+
+```text
+convergence E2E deps metadata binding applied; source port-back required
+```

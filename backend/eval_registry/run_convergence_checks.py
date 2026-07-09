@@ -294,15 +294,47 @@ def _validate_e2e_deps_dir(path: Path) -> None:
     if missing:
         raise ValueError("score_functionality evidence.e2e_env.GAGENT_E2E_DEPS missing markers: " + ", ".join(missing))
     missing_dist_info = [
-        dist_info
-        for dist_info in _expected_e2e_dist_info_dirs()
-        if not (path / dist_info).is_dir()
+        item["dist_info"]
+        for item in _expected_e2e_dist_info_dirs()
+        if not (path / str(item["dist_info"])).is_dir()
     ]
     if missing_dist_info:
         raise ValueError(
             "score_functionality evidence.e2e_env.GAGENT_E2E_DEPS missing pinned dist-info: "
             + ", ".join(missing_dist_info)
         )
+    for item in _expected_e2e_dist_info_dirs():
+        _validate_dist_info_metadata(
+            path / str(item["dist_info"]),
+            expected_name=str(item["name"]),
+            expected_version=str(item["version"]),
+        )
+
+
+def _validate_dist_info_metadata(path: Path, *, expected_name: str, expected_version: str) -> None:
+    metadata = path / "METADATA"
+    try:
+        fields = _read_metadata_fields(metadata)
+    except OSError as exc:
+        raise ValueError(f"{path.name} METADATA is missing") from exc
+    if fields.get("Name") != expected_name:
+        raise ValueError(f"{path.name} METADATA Name does not match {expected_name}")
+    if fields.get("Version") != expected_version:
+        raise ValueError(f"{path.name} METADATA Version does not match {expected_version}")
+
+
+def _read_metadata_fields(path: Path) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not raw_line.strip():
+            break
+        if ":" not in raw_line:
+            continue
+        key, value = raw_line.split(":", 1)
+        key = key.strip()
+        if key in {"Name", "Version"}:
+            fields[key] = value.strip()
+    return fields
 
 
 def _parse_utc_timestamp(value: str, label: str) -> datetime:
@@ -323,9 +355,9 @@ def _canonical_path(value: str | Path) -> str:
     return os.path.normcase(os.path.abspath(str(value)))
 
 
-def _expected_e2e_dist_info_dirs() -> list[str]:
+def _expected_e2e_dist_info_dirs() -> list[dict[str, str]]:
     requirements = ROOT / "backend" / "requirements-e2e.txt"
-    expected: list[str] = []
+    expected: list[dict[str, str]] = []
     for raw_line in requirements.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -336,7 +368,11 @@ def _expected_e2e_dist_info_dirs() -> list[str]:
         if not name or not version:
             raise ValueError(f"invalid e2e requirement: {line}")
         normalized_name = name.replace("-", "_")
-        expected.append(f"{normalized_name}-{version}.dist-info")
+        expected.append({
+            "name": name,
+            "version": version,
+            "dist_info": f"{normalized_name}-{version}.dist-info",
+        })
     return expected
 
 
@@ -466,6 +502,40 @@ def _self_test() -> None:
             assert "openai_agents-0.18.0.dist-info" in str(exc)
         else:
             raise AssertionError("e2e deps dir without pinned dist-info unexpectedly passed")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_deps = Path(tmp_dir)
+        for marker in E2E_DEPS_MARKERS:
+            (tmp_deps / marker).mkdir()
+        for dist_info in _expected_e2e_dist_info_dirs():
+            (tmp_deps / dist_info["dist_info"]).mkdir()
+        try:
+            _validate_e2e_deps_dir(tmp_deps)
+        except ValueError as exc:
+            assert "METADATA" in str(exc)
+        else:
+            raise AssertionError("e2e deps dir without dist-info METADATA unexpectedly passed")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_deps = Path(tmp_dir)
+        for marker in E2E_DEPS_MARKERS:
+            (tmp_deps / marker).mkdir()
+        for item in _expected_e2e_dist_info_dirs():
+            dist_info_dir = tmp_deps / item["dist_info"]
+            dist_info_dir.mkdir()
+            dist_info_dir.joinpath("METADATA").write_text(
+                f"Metadata-Version: 2.4\nName: {item['name']}\nVersion: {item['version']}\n",
+                encoding="utf-8",
+            )
+        first_item = _expected_e2e_dist_info_dirs()[0]
+        (tmp_deps / first_item["dist_info"] / "METADATA").write_text(
+            f"Metadata-Version: 2.4\nName: {first_item['name']}\nVersion: 0.0.0\n",
+            encoding="utf-8",
+        )
+        try:
+            _validate_e2e_deps_dir(tmp_deps)
+        except ValueError as exc:
+            assert "Version" in str(exc)
+        else:
+            raise AssertionError("e2e deps dir with wrong METADATA version unexpectedly passed")
     strict_dirty = json.loads(_score_output_fixture(strict=True, dirty=True))
     try:
         _success_output_for(strict_score_command, json.dumps(strict_dirty))
