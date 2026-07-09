@@ -7,6 +7,7 @@ from eval_registry.registry import EvalCase
 
 
 FAILURE_STATUSES = {"error", "failed", "blocked", "timeout"}
+FINAL_ANSWER_SCORE_FIELDS = frozenset({"case_id", "total", "verdict", "reasons", "penalties"})
 FAILURE_WORDS = (
     "failed",
     "failure",

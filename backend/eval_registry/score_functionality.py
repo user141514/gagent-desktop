@@ -18,7 +18,7 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from core.browser_agent import BROWSER_AGENT_RESULT_FIELDS  # noqa: E402
-from eval_registry.run_eval_cases import EVAL_REPORT_FIELDS, EVAL_RESULT_FIELDS  # noqa: E402
+from eval_registry.run_eval_cases import EVAL_FINAL_ANSWER_FIELDS, EVAL_REPORT_FIELDS, EVAL_RESULT_FIELDS  # noqa: E402
 from runtime_ledger import (  # noqa: E402
     RUNTIME_HOST_SUMMARY_FIELDS,
     RUNTIME_LEDGER_SUMMARY_FIELDS,
@@ -229,6 +229,17 @@ def _internal_eval_result_shape_blockers(results: list[Any]) -> list[str]:
         unknown_fields = sorted(set(item) - EVAL_RESULT_FIELDS)
         if unknown_fields:
             blockers.append(f"internal eval result unknown field for {case_id}: {', '.join(unknown_fields)}")
+        final_answer = item.get("final_answer")
+        if "final_answer" in item:
+            if not isinstance(final_answer, dict):
+                blockers.append(f"internal eval final_answer is invalid for {case_id}")
+            else:
+                unknown_final_answer_fields = sorted(set(final_answer) - EVAL_FINAL_ANSWER_FIELDS)
+                if unknown_final_answer_fields:
+                    blockers.append(
+                        f"internal eval final_answer unknown field for {case_id}: "
+                        + ", ".join(unknown_final_answer_fields)
+                    )
         total = item.get("total")
         if isinstance(total, bool) or not isinstance(total, (int, float)) or not 0 <= float(total) <= 100:
             blockers.append(f"internal eval result total is invalid for {case_id}")
@@ -592,6 +603,13 @@ def _passed_internal_eval_report(*, partial: bool = False) -> dict[str, Any]:
             "case_id": case_id,
             "total": 80 if partial and index == 0 else 100,
             "verdict": "pass",
+            "final_answer": {
+                "text": "web_search succeeded. Source: https://openai.com/docs",
+                "total": 100,
+                "verdict": "pass",
+                "reasons": ["answer is consistent with successful tool result"],
+                "penalties": [],
+            },
         })
     return {
         "status": "ok",
@@ -642,6 +660,16 @@ def _self_test() -> None:
     )
     assert internal_result_extra_score["status"] == "needs_work"
     assert any("internal eval result unknown field" in blocker for blocker in internal_result_extra_score["blockers"])
+
+    internal_final_answer_extra_field = _passed_internal_eval_report()
+    internal_final_answer_extra_field["results"][0]["final_answer"]["mystery_field"] = True
+    internal_final_answer_extra_score = score_reports(
+        internal_final_answer_extra_field,
+        openai_passed,
+        browser_passed,
+    )
+    assert internal_final_answer_extra_score["status"] == "needs_work"
+    assert any("final_answer unknown field" in blocker for blocker in internal_final_answer_extra_score["blockers"])
 
     openai_extra_field = dict(openai_passed)
     openai_extra_field["mystery_field"] = True

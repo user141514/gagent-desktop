@@ -3776,3 +3776,44 @@ Status:
 ```text
 internal eval report field whitelist applied; source port-back required
 ```
+
+---
+
+### Internal eval final answer field whitelist
+
+Files changed:
+
+```text
+backend/eval_registry/score_final_answer.py
+backend/eval_registry/run_eval_cases.py
+backend/eval_registry/score_functionality.py
+backend/eval_registry/README.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+Internal eval result entries rejected unknown top-level fields but still accepted unknown nested final_answer fields. score_final_answer.py now exports FINAL_ANSWER_SCORE_FIELDS, run_eval_cases.py derives EVAL_FINAL_ANSWER_FIELDS for the report object, and score_functionality.py rejects unknown final_answer evidence fields before awarding internal eval score.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/score_functionality.py --self-test
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+GAGENT_E2E_DEPS=backend/temp/e2e_deps GAGENT_RUN_OPENAI_E2E=1 GAGENT_RUN_BROWSER_AGENT_E2E=1 npm.cmd run test:convergence:full
+```
+
+Rollback:
+
+```text
+Remove FINAL_ANSWER_SCORE_FIELDS/EVAL_FINAL_ANSWER_FIELDS and remove the final_answer unknown-field check/self-test fixture from score_functionality.py.
+```
+
+Status:
+
+```text
+internal eval final answer field whitelist applied; source port-back required
+```

@@ -16,13 +16,14 @@ if str(BACKEND) not in sys.path:
 from core import ga  # noqa: E402
 from core.agent_loop import BaseHandler, StepOutcome, agent_runner_loop, exhaust  # noqa: E402
 from eval_registry.registry import EvalCase, load_eval_cases  # noqa: E402
-from eval_registry.score_final_answer import make_default_final_answer, score_final_answer  # noqa: E402
+from eval_registry.score_final_answer import FINAL_ANSWER_SCORE_FIELDS, make_default_final_answer, score_final_answer  # noqa: E402
 from eval_registry.score_eval_result import score_case_result  # noqa: E402
 from runtime_ledger import LedgerEvent, read_run_events, summarize_observability, summarize_run, write_event  # noqa: E402
 
 
 RESULTS_DIR = ROOT / "backend" / "eval_registry" / "results"
 EVAL_REPORT_FIELDS = frozenset({"status", "case_count", "passed", "failed", "skipped", "results"})
+EVAL_FINAL_ANSWER_FIELDS = frozenset({"text", "total", "verdict", "reasons", "penalties"})
 EVAL_RESULT_FIELDS = frozenset({
     "answer_or_tool_behavior",
     "attempt_engines",
@@ -49,6 +50,9 @@ EVAL_RESULT_FIELDS = frozenset({
     "total",
     "verdict",
 })
+
+if EVAL_FINAL_ANSWER_FIELDS != (FINAL_ANSWER_SCORE_FIELDS - {"case_id"}) | {"text"}:
+    raise RuntimeError("EVAL_FINAL_ANSWER_FIELDS drifted from score_final_answer output fields")
 
 
 class _DummyParent:
@@ -503,6 +507,7 @@ def _run_browser_agent_handler_case(case: EvalCase) -> dict[str, Any]:
 def _attach_final_answer_score(case: EvalCase, tool_result: dict, score: dict[str, Any]) -> dict[str, Any]:
     answer_text = str(tool_result.get("final_answer_text") or "").strip() or make_default_final_answer(case, tool_result)
     answer_score = score_final_answer(case, answer_text, tool_result)
+    _assert_final_answer_score_fields(answer_score)
     score["final_answer"] = {
         "text": answer_text,
         "total": answer_score["total"],
@@ -514,6 +519,12 @@ def _attach_final_answer_score(case: EvalCase, tool_result: dict, score: dict[st
         score["verdict"] = "fail"
         score.setdefault("penalties", []).append("final answer score failed")
     return score
+
+
+def _assert_final_answer_score_fields(answer_score: dict[str, Any]) -> None:
+    unknown_fields = sorted(set(answer_score) - FINAL_ANSWER_SCORE_FIELDS)
+    if unknown_fields:
+        raise RuntimeError("score_final_answer output has unknown fields: " + ", ".join(unknown_fields))
 
 
 def _call_browser_agent_stub(args: dict[str, Any]) -> dict[str, Any]:
