@@ -517,7 +517,7 @@ class _DuckDuckGoResultParser(HTMLParser):
             self._in_snippet = False
 
 
-def _duckduckgo_html_search(query, max_results=8, timeout=18):
+def _duckduckgo_html_search(query, max_results=8, timeout=18, deadline=None):
     try:
         limit = max(1, min(int(max_results or 8), 20))
     except (TypeError, ValueError):
@@ -528,15 +528,14 @@ def _duckduckgo_html_search(query, max_results=8, timeout=18):
         request_timeout = 18
     search_url = _DUCKDUCKGO_HTML_SEARCH_URL + "?q=" + quote_plus(str(query or "").strip())
     try:
-        response = requests.get(
-            _DUCKDUCKGO_HTML_SEARCH_URL,
-            params={"q": query},
-            headers={"User-Agent": "GenericAgent-Workbench/1.0"},
-            timeout=request_timeout,
+        response_text, transport = _fetch_web_search_text(
+            search_url,
+            request_timeout,
+            headers={"User-Agent": "Mozilla/5.0 GenericAgent-WebSearch/1.0"},
+            deadline=deadline,
         )
-        response.raise_for_status()
         parser = _DuckDuckGoResultParser(limit)
-        parser.feed(response.text)
+        parser.feed(response_text)
         results = parser.results[:limit]
         if not results:
             return {
@@ -544,6 +543,7 @@ def _duckduckgo_html_search(query, max_results=8, timeout=18):
                 "query": query,
                 "engine": "duckduckgo",
                 "search_url": search_url,
+                "transport": transport,
                 "msg": "No HTTP search results parsed.",
             }
         return {
@@ -551,6 +551,7 @@ def _duckduckgo_html_search(query, max_results=8, timeout=18):
             "query": query,
             "engine": "duckduckgo",
             "search_url": search_url,
+            "transport": transport,
             "result_count": len(results),
             "results": results,
         }
@@ -582,17 +583,91 @@ def _web_search_transport_order():
     return ["powershell", "python"] if os.name == "nt" else ["python"]
 
 
-def _requests_web_request_text(url, timeout):
-    response = requests.get(
-        url,
-        headers={"User-Agent": "Mozilla/5.0 GenericAgent-WebSearch/1.0"},
-        timeout=timeout,
-    )
+def _normalize_http_proxy_url(value):
+    proxy = str(value or "").strip()
+    if not proxy:
+        return ""
+    if "://" not in proxy:
+        proxy = "http://" + proxy
+    return proxy if urlparse(proxy).scheme in {"http", "https"} else ""
+
+
+def _parse_windows_proxy_server(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return {}
+    if "=" not in raw:
+        proxy = _normalize_http_proxy_url(raw)
+        return {"http": proxy, "https": proxy} if proxy else {}
+
+    proxies = {}
+    for item in raw.split(";"):
+        key, separator, proxy_value = item.partition("=")
+        if not separator:
+            continue
+        key = key.strip().lower()
+        proxy = _normalize_http_proxy_url(proxy_value)
+        if key in {"http", "https"} and proxy:
+            proxies[key] = proxy
+    return proxies
+
+
+def _windows_proxy_fallbacks(proxies, environ=None):
+    env = os.environ if environ is None else environ
+    fallback = dict(proxies or {})
+    if env.get("ALL_PROXY") or env.get("all_proxy"):
+        return {}
+    if env.get("HTTP_PROXY") or env.get("http_proxy"):
+        fallback.pop("http", None)
+    if env.get("HTTPS_PROXY") or env.get("https_proxy"):
+        fallback.pop("https", None)
+    return fallback
+
+
+def _windows_user_proxy_config():
+    if os.name != "nt":
+        return {}
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings") as key:
+            enabled, _ = winreg.QueryValueEx(key, "ProxyEnable")
+            server, _ = winreg.QueryValueEx(key, "ProxyServer")
+        if not int(enabled or 0):
+            return {}
+        return _windows_proxy_fallbacks(_parse_windows_proxy_server(server))
+    except (OSError, TypeError, ValueError):
+        return {}
+
+
+def _requests_web_request_text(url, timeout, headers=None):
+    request_headers = {"User-Agent": "Mozilla/5.0 GenericAgent-WebSearch/1.0"}
+    request_headers.update(dict(headers or {}))
+    kwargs = {
+        "headers": request_headers,
+        "timeout": timeout,
+    }
+    proxies = _windows_user_proxy_config()
+    if proxies:
+        kwargs["proxies"] = proxies
+    response = requests.get(url, **kwargs)
     response.raise_for_status()
     return response.text
 
 
-def _powershell_web_request_text(url, timeout):
+def _powershell_executable():
+    override = os.environ.get("GENERIC_AGENT_POWERSHELL_EXE", "").strip()
+    system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    candidates = [
+        override,
+        os.path.join(system_root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+        shutil.which("powershell.exe"),
+        shutil.which("powershell"),
+    ]
+    return next((candidate for candidate in candidates if candidate and os.path.isfile(candidate)), "powershell")
+
+
+def _powershell_web_request_text(url, timeout, headers=None):
     if os.name != "nt":
         raise RuntimeError("PowerShell web transport is only enabled on Windows")
     script = (
@@ -600,41 +675,113 @@ def _powershell_web_request_text(url, timeout):
         "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);"
         "$url=$env:GENERIC_AGENT_WEB_SEARCH_URL;"
         "$timeoutSec=$env:GENERIC_AGENT_WEB_SEARCH_TIMEOUT;"
-        "$headers=@{'User-Agent'='Mozilla/5.0 GenericAgent-WebSearch/1.0'};"
+        "$headers=@{};"
+        "$headersJson=$env:GENERIC_AGENT_WEB_SEARCH_HEADERS;"
+        "if($headersJson){$headerObject=ConvertFrom-Json $headersJson;foreach($property in $headerObject.PSObject.Properties){$headers[$property.Name]=[string]$property.Value}};"
+        "if(-not $headers.ContainsKey('User-Agent')){$headers['User-Agent']='Mozilla/5.0 GenericAgent-WebSearch/1.0'};"
         "$r=Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec ([int]$timeoutSec) -Headers $headers;"
         "[Console]::Write($r.Content)"
     )
     env = os.environ.copy()
     env["GENERIC_AGENT_WEB_SEARCH_URL"] = str(url)
     env["GENERIC_AGENT_WEB_SEARCH_TIMEOUT"] = str(timeout)
+    env["GENERIC_AGENT_WEB_SEARCH_HEADERS"] = json.dumps(dict(headers or {}), ensure_ascii=False)
     proc = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
+        [_powershell_executable(), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         encoding="utf-8",
         errors="replace",
         env=env,
-        timeout=max(int(timeout or 18) + 5, 8),
+        timeout=max(float(timeout or 18), 1),
     )
     if proc.returncode != 0:
         raise RuntimeError((proc.stderr or proc.stdout or "PowerShell Invoke-WebRequest failed").strip())
     return proc.stdout
 
 
-def _fetch_web_search_text(url, timeout):
+def _bounded_web_search_timeout(timeout):
+    try:
+        return max(3, min(int(timeout or 18), 60))
+    except (TypeError, ValueError):
+        return 18
+
+
+def _web_search_budget_deadline(timeout):
+    request_timeout = _bounded_web_search_timeout(timeout)
+    total_budget = max(12, min(request_timeout * 2, 75))
+    return time.monotonic() + total_budget
+
+
+def _remaining_web_search_timeout(timeout, deadline=None):
+    request_timeout = _bounded_web_search_timeout(timeout)
+    if deadline is None:
+        return request_timeout
+    remaining = float(deadline) - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("web_search overall timeout budget exhausted")
+    return max(1, min(request_timeout, int(remaining + 0.999)))
+
+
+def _fetch_web_search_text(url, timeout, headers=None, deadline=None):
     errors = []
+    effective_deadline = deadline if deadline is not None else time.monotonic() + _bounded_web_search_timeout(timeout)
     for transport in _web_search_transport_order():
-        try:
-            if transport == "powershell":
-                return _powershell_web_request_text(url, timeout), transport
-            if transport == "python":
-                return _requests_web_request_text(url, timeout), transport
-        except Exception as e:
-            errors.append(f"{transport}: {e}")
+        attempts = 2 if transport == "powershell" else 1
+        for attempt in range(attempts):
+            attempt_timeout = _remaining_web_search_timeout(timeout, effective_deadline)
+            try:
+                if transport == "powershell":
+                    response_text = (
+                        _powershell_web_request_text(url, attempt_timeout, headers=headers)
+                        if headers
+                        else _powershell_web_request_text(url, attempt_timeout)
+                    )
+                elif transport == "python":
+                    response_text = (
+                        _requests_web_request_text(url, attempt_timeout, headers=headers)
+                        if headers
+                        else _requests_web_request_text(url, attempt_timeout)
+                    )
+                else:
+                    continue
+                if str(response_text or "").strip():
+                    return response_text, transport
+                errors.append(f"{transport}: empty response (attempt {attempt + 1})")
+            except Exception as e:
+                errors.append(f"{transport}: {e}")
+                break
     raise RuntimeError("All HTTP transports failed: " + "; ".join(errors))
 
 
-def _generic_http_search(query, engine="bing", max_results=8, timeout=18):
+def _parse_bing_rss_results(response_text, query, limit):
+    import xml.etree.ElementTree as ElementTree
+
+    try:
+        root = ElementTree.fromstring(str(response_text or ""))
+    except ElementTree.ParseError:
+        return []
+    results = []
+    seen = set()
+    for item in root.findall(".//item"):
+        title = _clean_search_text(item.findtext("title"))
+        url = _clean_search_text(item.findtext("link"))
+        snippet = _clean_search_text(re.sub(r"<[^>]+>", " ", html.unescape(item.findtext("description") or "")))
+        if not title or not url.startswith(("http://", "https://")):
+            continue
+        if _is_forbidden_search_result_url(url) or not _search_result_matches_query(query, title, url, snippet):
+            continue
+        key = url.split("#", 1)[0]
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append({"rank": len(results) + 1, "title": title, "url": url, "snippet": snippet})
+        if len(results) >= limit:
+            break
+    return results
+
+
+def _generic_http_search(query, engine="bing", max_results=8, timeout=18, deadline=None):
     engine_key = str(engine or "bing").strip().lower()
     endpoints = {
         "bing": (_BING_HTML_SEARCH_URL, {"q": query}),
@@ -644,14 +791,14 @@ def _generic_http_search(query, engine="bing", max_results=8, timeout=18):
     if engine_key == "ddg":
         engine_key = "duckduckgo"
     if engine_key == "duckduckgo":
-        return _duckduckgo_html_search(query, max_results=max_results, timeout=timeout)
+        return _duckduckgo_html_search(query, max_results=max_results, timeout=timeout, deadline=deadline)
     search_url, params = endpoints.get(engine_key, endpoints["bing"])
     engine_key = engine_key if engine_key in endpoints else "bing"
     rendered_url = _render_url(search_url, params)
     try:
         limit = max(1, min(int(max_results or 8), 20))
-        request_timeout = max(3, min(int(timeout or 18), 60))
-        response_text, transport = _fetch_web_search_text(rendered_url, request_timeout)
+        request_timeout = _remaining_web_search_timeout(timeout, deadline)
+        response_text, transport = _fetch_web_search_text(rendered_url, request_timeout, deadline=deadline)
         results, seen = [], set()
         for href, raw_title in re.findall(r"<a[^>]+href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", response_text, re.I | re.S):
             title = _clean_search_text(re.sub(r"<[^>]+>", " ", raw_title))
@@ -672,6 +819,24 @@ def _generic_http_search(query, engine="bing", max_results=8, timeout=18):
             results.append({"rank": len(results) + 1, "title": title, "url": url, "snippet": ""})
             if len(results) >= limit:
                 break
+        if not results and engine_key == "bing":
+            rss_url = _render_url(search_url, {"q": query, "format": "rss"})
+            try:
+                rss_text, rss_transport = _fetch_web_search_text(rss_url, request_timeout, deadline=deadline)
+                rss_results = _parse_bing_rss_results(rss_text, query, limit)
+                if rss_results:
+                    return {
+                        "status": "success",
+                        "query": query,
+                        "engine": engine_key,
+                        "search_url": rss_url,
+                        "transport": rss_transport,
+                        "result_format": "rss",
+                        "result_count": len(rss_results),
+                        "results": rss_results,
+                    }
+            except Exception:
+                pass
         if not results:
             return {"status": "error", "query": query, "engine": engine_key, "search_url": rendered_url, "transport": transport, "msg": "No HTTP search results parsed."}
         return {"status": "success", "query": query, "engine": engine_key, "search_url": rendered_url, "transport": transport, "result_count": len(results), "results": results}
@@ -679,7 +844,7 @@ def _generic_http_search(query, engine="bing", max_results=8, timeout=18):
         return {"status": "error", "query": query, "engine": engine_key, "search_url": rendered_url, "msg": format_error(e)}
 
 
-def _http_search_with_fallback(query, max_results=8, timeout=18):
+def _http_search_with_fallback(query, max_results=8, timeout=18, deadline=None):
     raw = os.environ.get("GENERIC_AGENT_WEB_SEARCH_ORDER", "")
     requested = [p.strip().lower() for p in re.split(r"[,;\s]+", raw) if p.strip()]
     order = []
@@ -690,9 +855,21 @@ def _http_search_with_fallback(query, max_results=8, timeout=18):
             order.append(engine)
     if not order:
         order = list(_HTTP_SEARCH_DEFAULT_ORDER)
+    effective_deadline = deadline if deadline is not None else _web_search_budget_deadline(timeout)
     attempts = []
     for engine in order:
-        result = _generic_http_search(query, engine=engine, max_results=max_results, timeout=timeout)
+        try:
+            engine_timeout = _remaining_web_search_timeout(timeout, effective_deadline)
+        except TimeoutError as error:
+            attempts.append({"engine": engine, "msg": str(error)})
+            break
+        result = _generic_http_search(
+            query,
+            engine=engine,
+            max_results=max_results,
+            timeout=engine_timeout,
+            deadline=effective_deadline,
+        )
         if isinstance(result, dict) and result.get("status") == "success" and result.get("results"):
             result["fallback_order"] = order
             return result
@@ -700,15 +877,33 @@ def _http_search_with_fallback(query, max_results=8, timeout=18):
     return {"status": "error", "query": query, "engine": "http_fallback", "msg": "All configured HTTP search engines failed.", "attempts": attempts, "fallback_order": order}
 
 
-def _auto_web_search(query, max_results=8, timeout=18):
+def _auto_web_search(query, max_results=8, timeout=18, deadline=None):
+    effective_deadline = deadline if deadline is not None else _web_search_budget_deadline(timeout)
     if not _looks_like_github_search_query(query):
-        return _http_search_with_fallback(query, max_results=max_results, timeout=timeout)
+        return _http_search_with_fallback(query, max_results=max_results, timeout=timeout, deadline=effective_deadline)
 
-    github_result = enrich_web_tool_result("web_search", _github_api_search(query, max_results=max_results, timeout=timeout))
+    try:
+        github_timeout = _remaining_web_search_timeout(timeout, effective_deadline)
+    except TimeoutError as error:
+        return {"status": "error", "query": query, "engine": "auto", "msg": str(error)}
+    github_result = enrich_web_tool_result(
+        "web_search",
+        _github_api_search(
+            query,
+            max_results=max_results,
+            timeout=github_timeout,
+            deadline=effective_deadline,
+        ),
+    )
     if isinstance(github_result, dict) and github_result.get("status") == "success" and github_result.get("results"):
         return github_result
 
-    http_result = _http_search_with_fallback(query, max_results=max_results, timeout=timeout)
+    http_result = _http_search_with_fallback(
+        query,
+        max_results=max_results,
+        timeout=timeout,
+        deadline=effective_deadline,
+    )
     if isinstance(http_result, dict) and http_result.get("status") == "success" and http_result.get("results"):
         http_result = dict(http_result)
         http_result["attempts"] = [{"engine": "github", "msg": github_result.get("msg") if isinstance(github_result, dict) else str(github_result)}] + list(http_result.get("attempts") or [])
@@ -730,27 +925,34 @@ def _github_search_headers():
     return headers
 
 
-def _github_api_search(query, max_results=8, timeout=18):
+def _github_repository_query(query):
+    cleaned = re.sub(r"\bgit\s*hub\b", " ", str(query or ""), flags=re.I)
+    cleaned = re.sub(r"\b(?:code|repos?|repository|repositories)\b", " ", cleaned, flags=re.I)
+    cleaned = _clean_search_text(cleaned)
+    return cleaned or str(query or "").strip()
+
+
+def _github_api_search(query, max_results=8, timeout=18, deadline=None):
     try:
         limit = int(max_results or 8)
     except (TypeError, ValueError):
         limit = 8
     limit = max(1, min(limit, 20))
-    try:
-        request_timeout = int(timeout or 18)
-    except (TypeError, ValueError):
-        request_timeout = 18
-    request_timeout = max(3, min(request_timeout, 60))
+    request_timeout = _bounded_web_search_timeout(timeout)
 
     try:
-        response = requests.get(
-            _GITHUB_SEARCH_API,
-            params={"q": query, "per_page": limit},
+        request_timeout = _remaining_web_search_timeout(request_timeout, deadline)
+        api_query = _github_repository_query(query)
+        search_url = _render_url(_GITHUB_SEARCH_API, {"q": api_query, "per_page": limit})
+        response_text, transport = _fetch_web_search_text(
+            search_url,
+            request_timeout,
             headers=_github_search_headers(),
-            timeout=request_timeout,
+            deadline=deadline,
         )
-        response.raise_for_status()
-        payload = response.json()
+        payload = json.loads(response_text)
+        if not isinstance(payload, dict):
+            raise ValueError("GitHub search response is not a JSON object")
         results = []
         for item in list(payload.get("items") or [])[:limit]:
             url = item.get("html_url") or ""
@@ -765,11 +967,21 @@ def _github_api_search(query, max_results=8, timeout=18):
                 "language": item.get("language"),
                 "updated_at": item.get("updated_at"),
             })
+        if not results:
+            return {
+                "status": "error",
+                "query": query,
+                "engine": "github",
+                "search_url": search_url,
+                "transport": transport,
+                "msg": "No GitHub repository results found.",
+            }
         return {
             "status": "success",
             "query": query,
             "engine": "github",
-            "search_url": _GITHUB_SEARCH_API,
+            "search_url": search_url,
+            "transport": transport,
             "result_count": len(results),
             "total_count": int(payload.get("total_count") or len(results)),
             "results": results,
@@ -795,16 +1007,59 @@ def web_search(query, engine="bing", max_results=8, timeout=18):
         return {"status": "error", "msg": "query is empty"}
     try:
         engine_key = str(engine or "bing").strip().lower()
+        request_timeout = _bounded_web_search_timeout(timeout)
+        deadline = _web_search_budget_deadline(request_timeout)
         if engine_key in _GITHUB_ENGINE_ALIASES:
-            return enrich_web_tool_result("web_search", _github_api_search(query, max_results=max_results, timeout=timeout))
+            return enrich_web_tool_result(
+                "web_search",
+                _github_api_search(
+                    query,
+                    max_results=max_results,
+                    timeout=request_timeout,
+                    deadline=deadline,
+                ),
+            )
         if engine_key in {"", "auto", "web", "http"}:
-            return enrich_web_tool_result("web_search", _auto_web_search(query, max_results=max_results, timeout=timeout))
+            return enrich_web_tool_result(
+                "web_search",
+                _auto_web_search(
+                    query,
+                    max_results=max_results,
+                    timeout=request_timeout,
+                    deadline=deadline,
+                ),
+            )
         if engine_key == "bing":
-            return enrich_web_tool_result("web_search", _http_search_with_fallback(query, max_results=max_results, timeout=timeout))
+            return enrich_web_tool_result(
+                "web_search",
+                _http_search_with_fallback(
+                    query,
+                    max_results=max_results,
+                    timeout=request_timeout,
+                    deadline=deadline,
+                ),
+            )
         if engine_key in {"duckduckgo", "ddg"}:
-            return enrich_web_tool_result("web_search", _duckduckgo_html_search(query, max_results=max_results, timeout=timeout))
+            return enrich_web_tool_result(
+                "web_search",
+                _duckduckgo_html_search(
+                    query,
+                    max_results=max_results,
+                    timeout=request_timeout,
+                    deadline=deadline,
+                ),
+            )
         if engine_key in {"bing", "google", "scholar"}:
-            return enrich_web_tool_result("web_search", _generic_http_search(query, engine=engine_key, max_results=max_results, timeout=timeout))
+            return enrich_web_tool_result(
+                "web_search",
+                _generic_http_search(
+                    query,
+                    engine=engine_key,
+                    max_results=max_results,
+                    timeout=request_timeout,
+                    deadline=deadline,
+                ),
+            )
         return enrich_web_tool_result("web_search", {
             "status": "error",
             "query": query,

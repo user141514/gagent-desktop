@@ -4599,3 +4599,49 @@ Status:
 ```text
 optional E2E raw ledger file evidence applied; source port-back required
 ```
+
+---
+
+### Web search Windows transport convergence
+
+Files changed:
+
+```text
+backend/core/ga.py
+scripts/test-web-tool-routing.py
+backend/tool_registry/tests/smoke_web_tools.py
+backend/tool_registry/tools/web_search.yml
+backend/assets/tools_schema.json
+backend/assets/tools_schema_cn.json
+backend/memory/web_search_tool_sop.md
+backend/memory/convergence_checklist.md
+backend/memory/hotfix_portback_ledger.md
+```
+
+Reason:
+
+```text
+The browser could use the Windows current-user proxy while web_search GitHub and DuckDuckGo paths bypassed the PowerShell-first transport and called Python requests directly. GitHub requests timed out on the reproduced machine while Invoke-WebRequest succeeded. All web_search HTTP endpoints now share the same transport, Python fallback fills missing environment proxy schemes from the current-user static proxy, empty PowerShell responses are retried, and Bing HTML parse failures can use Bing RSS without changing capability class. A shared bounded deadline prevents transport and engine fallbacks from multiplying one timeout into several minutes. Regression tests clear GitHub tokens before capturing request headers so assertion failures cannot leak credentials.
+```
+
+Verification:
+
+```text
+PYTHONUTF8=1 ./python-runtime/python.exe scripts/test-web-tool-routing.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/tests/smoke_web_tools.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/tool_registry/validate_tool_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/tests/smoke_eval_registry.py
+PYTHONUTF8=1 ./python-runtime/python.exe backend/eval_registry/run_convergence_checks.py
+```
+
+Rollback:
+
+```text
+Revert the listed files. The global npm package is a junction to this source checkout, so no dist/assets patch or separate installed-package hotfix is required.
+```
+
+Status:
+
+```text
+web_search Windows transport convergence applied; source repository is the installed package target
+```

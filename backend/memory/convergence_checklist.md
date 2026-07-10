@@ -118,6 +118,9 @@ Pass criteria:
 - no search-engine homepage may be returned as a successful web_search source;
 - eval registry scoring rejects successful web_search results that lack a valid non-search-engine source URL;
 - web_search failure must not recommend web_scan as ordinary fallback.
+- every Windows web_search HTTP backend uses the shared PowerShell-first transport, with current-user proxy support for Python fallback;
+- empty PowerShell search responses are retried, and unparseable Bing HTML may fall back only to Bing RSS, never to a browser tool;
+- web_search transport and engine fallbacks share a bounded overall deadline, and partial proxy environment variables retain Windows static-proxy fallback for missing schemes;
 - final-answer scoring rejects forbidden fallback recommendations from eval case `expected_tools.forbidden`.
 - agent-loop eval success scores the actual loop final answer and actual last tool result, not only synthesized harness wrappers.
 - OpenAI orchestrated e2e smoke may skip by default, but must fail when explicitly enabled and the real SDK/config/runtime path cannot complete.

@@ -153,7 +153,7 @@
     "type": "function",
     "function": {
       "name": "web_search",
-      "description": "执行确定性的 HTTP 网页搜索，不打开浏览器窗口，也不调用 LLM 浏览器代理。普通网页搜索默认使用 Bing HTTP，并以 Google / DuckDuckGo 作为后备；Windows 下优先使用 PowerShell Invoke-WebRequest，再退到 Python requests。engine=github 直接调用 GitHub 公共仓库搜索 API。普通搜索失败不得切换到 web_scan / web_execute_js / browser_agent；只有任务本身需要真实页面渲染或交互时才使用浏览器工具。禁止把百度作为搜索后端。" ,
+      "description": "执行确定性的 HTTP 网页搜索，不打开浏览器窗口，也不调用 LLM 浏览器代理。普通网页搜索默认使用 Bing HTTP，并以 Google / DuckDuckGo 作为后备。Windows 下所有 HTTP 后端（包括 GitHub 和 DuckDuckGo）都优先使用 PowerShell Invoke-WebRequest，再退到 Python requests；Python 后备只用当前用户静态代理补齐环境变量缺少的代理协议。PowerShell 空响应会重试，Bing HTML 无法解析时改用 Bing RSS，所有尝试共享有上限的总 deadline。普通搜索失败不得切换到 web_scan / web_execute_js / browser_agent。禁止把百度作为搜索后端。" ,
       "parameters": {
         "type": "object",
         "properties": {
@@ -181,7 +181,7 @@
           },
           "timeout": {
             "type": "integer",
-            "description": "等待 HTTP 请求返回的最大秒数。",
+            "description": "单次 HTTP 尝试的最大等待秒数；所有后备尝试还共享一个有上限的总 deadline。",
             "default": 18
           }
         },

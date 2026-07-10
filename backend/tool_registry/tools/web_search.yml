@@ -8,7 +8,10 @@ does:
   - try GitHub API first for auto queries that explicitly mention GitHub
   - return source candidates with title, url, snippet, rank, and metadata
   - try same-capability HTTP fallback engines when ordinary search fails
-  - use PowerShell Invoke-WebRequest before Python requests on Windows
+  - use PowerShell Invoke-WebRequest before Python requests for every HTTP backend on Windows, including GitHub and DuckDuckGo
+  - fill missing Python proxy schemes from the Windows current-user static proxy without overriding proxy environment variables
+  - retry an empty PowerShell response and use Bing RSS when Bing HTML cannot be parsed
+  - share one bounded overall deadline across transports, engines, GitHub API, and Bing RSS fallback
 does_not_do:
   - open a browser window
   - inspect current rendered tab state
@@ -26,6 +29,7 @@ outputs:
   - engine
   - search_url
   - transport
+  - result_format
   - result_count
   - results
   - attempts
@@ -38,6 +42,8 @@ fallback_policy:
   - for auto queries that mention GitHub, try GitHub API before generic HTTP engines
   - try configured HTTP engines in order
   - keep GitHub API failure within HTTP search paths first
+  - keep transport retries and Bing RSS fallback inside the web_search capability
+  - stop fallback attempts when the overall web_search deadline is exhausted
   - never switch to web_scan for ordinary search failure
   - never switch to browser_agent for ordinary search failure
   - report network/proxy blockers instead of changing capability class

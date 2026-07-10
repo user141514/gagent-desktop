@@ -28,7 +28,8 @@ The order can be overridden with:
 GENERIC_AGENT_WEB_SEARCH_ORDER=bing,google,duckduckgo
 ```
 
-On Windows, HTTP fetch transport prefers:
+On Windows, every web-search HTTP endpoint, including GitHub API and
+DuckDuckGo, uses this transport order:
 
 ```text
 PowerShell Invoke-WebRequest -> Python requests
@@ -40,10 +41,29 @@ The transport order can be overridden with:
 GENERIC_AGENT_WEB_SEARCH_TRANSPORT=powershell,python
 ```
 
+PowerShell is resolved from the Windows system directory before `PATH`. The
+Python fallback fills only proxy schemes that are missing from environment
+variables by reading the current user's static Windows Internet Settings
+proxy. PAC/WPAD remains handled by PowerShell/system networking; the Python
+fallback does not parse PAC scripts. An empty PowerShell response is retried
+once before the next transport is attempted.
+
+All transport, engine, GitHub API, and Bing RSS attempts share one overall
+deadline. The total budget is bounded to `max(12, min(timeout * 2, 75))`
+seconds, while any individual request remains capped by `timeout`. Exhausting
+the budget returns a structured failure instead of continuing a long serial
+fallback chain.
+
+If Bing returns HTML that cannot be parsed into usable source links,
+`web_search` tries Bing's RSS HTTP representation before moving to another
+engine. This remains a `web_search` transport/representation fallback and does
+not open or inspect a browser.
+
 Rules:
 
 - Do not use Baidu as a search backend.
 - For `engine='auto'` queries that explicitly mention GitHub, try GitHub API before generic HTTP engines.
+- Normalize generic phrases such as `GitHub code` out of GitHub repository API queries.
 - Do not return `baidu.com` or its subdomains as successful source results.
 - Do not use the current browser tab as a search source unless the user explicitly asks for rendered-page behavior.
 - Do not use `web_scan` as a fallback for ordinary search failure.

@@ -45,12 +45,12 @@
   }},
   {"type": "function", "function": {
     "name": "web_search",
-    "description": "Run deterministic HTTP web search without opening a browser window or using an LLM browser agent. General web search defaults to Bing HTTP with Google/DuckDuckGo fallback and, on Windows, prefers PowerShell Invoke-WebRequest before Python requests. engine=github uses the public GitHub repository search API. Do not switch to web_scan/web_execute_js/browser_agent for ordinary search failure; use browser tools only when the task itself requires current rendered page state or interaction. Do not use Baidu as a search backend." ,
+    "description": "Run deterministic HTTP web search without opening a browser window or using an LLM browser agent. General web search defaults to Bing HTTP with Google/DuckDuckGo fallback. On Windows, every HTTP backend, including GitHub and DuckDuckGo, prefers PowerShell Invoke-WebRequest before Python requests; the Python fallback fills missing proxy schemes from the current-user static proxy. Empty PowerShell responses are retried, unparseable Bing HTML falls back to Bing RSS, and all attempts share a bounded overall deadline. Do not switch to web_scan/web_execute_js/browser_agent for ordinary search failure. Do not use Baidu as a search backend." ,
     "parameters": {"type": "object", "properties": {
       "query": {"type": "string", "description": "Search query. Keep it concise and source-oriented."},
       "engine": {"type": "string", "enum": ["auto", "bing", "google", "duckduckgo", "github", "scholar"], "description": "Search backend. auto/bing use the default HTTP fallback order and do not open a browser. google/duckduckgo are HTTP fallbacks. github uses the public GitHub repository search API.", "default": "bing"},
       "max_results": {"type": "integer", "description": "Maximum extracted result links. Keep small unless broader source scouting is needed.", "default": 8},
-      "timeout": {"type": "integer", "description": "Maximum seconds to wait for the HTTP request.", "default": 18}},
+      "timeout": {"type": "integer", "description": "Maximum seconds for one HTTP attempt. All fallback attempts also share a bounded overall deadline.", "default": 18}},
       "required": ["query"]}
   }},
   {"type": "function", "function": {

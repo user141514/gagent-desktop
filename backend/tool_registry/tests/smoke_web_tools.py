@@ -129,7 +129,7 @@ def smoke_web_search_auto_github_prefers_api():
     original_http = ga._http_search_with_fallback
     calls = []
 
-    def fake_github(query, max_results=8, timeout=18):
+    def fake_github(query, max_results=8, timeout=18, deadline=None):
         calls.append("github")
         return {
             "status": "success",
@@ -139,7 +139,7 @@ def smoke_web_search_auto_github_prefers_api():
             "results": [{"rank": 1, "title": "owner/yobot", "url": "https://github.com/owner/yobot"}],
         }
 
-    def fake_http(query, max_results=8, timeout=18):
+    def fake_http(query, max_results=8, timeout=18, deadline=None):
         calls.append("http")
         return {"status": "error", "query": query, "engine": "http_fallback", "msg": "http should not be first"}
 
