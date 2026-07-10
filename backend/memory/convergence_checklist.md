@@ -91,6 +91,7 @@ Pass criteria:
 - full convergence runner rejects score evidence whose Git HEAD, branch, or dirty state differs from the current checkout, and rejects refreshed score evidence built from stale or future-dated input reports;
 - full convergence runner rejects score evidence whose results directory or Python executable do not match the current repository's eval results path and bundled `python-runtime`;
 - full convergence runner rejects refreshed score evidence whose input report bytes or modified timestamps do not match the actual files on disk;
+- full convergence runner rejects refreshed score evidence whose passed optional E2E raw ledger file bytes or modified timestamps do not match the actual runtime_ledger JSONL files on disk;
 - full convergence runner rejects refreshed score output unless `latest_functionality_score.json` matches the validated score stdout exactly;
 - passed optional E2E score reports include smoke-typed run id prefixes, non-empty task, matching owner_layer, successful runtime_ledger evidence, and target-specific success evidence; OpenAI reports also include the OPENAI_E2E_OK task/result sentinel, RuntimeHost observability alignment, and empty ledger_summary.tools, while browser_agent reports include non-empty output, positive step count, positive browser_agent tool evidence, and ledger_event_count matching ledger_summary.event_count;
 - passed optional E2E score reports reject unknown top-level fields;
@@ -110,7 +111,7 @@ Pass criteria:
 - functionality score self-test rejects the ambiguous `--refresh --results-dir` combination;
 - functionality score self-test rejects isolated `--results-dir` scoring unless `--no-write` is set;
 - functionality score self-test verifies raw runtime_ledger binding can reject missing raw events, report/raw summary drift, and wrong raw event sequence while preserving isolated fixture scoring;
-- functionality score output includes non-secret evidence for input report files, Git HEAD/dirty state, Python executable, results directory, and E2E switches;
+- functionality score output includes non-secret evidence for input report files, optional E2E raw ledger files, Git HEAD/dirty state, Python executable, results directory, and E2E switches;
 - runtime ledger validator exits 0;
 - runtime ledger smoke exits 0;
 - smoke output may classify real network/search-backend failures as structured non-logic failures, but must not classify polluted results as success;

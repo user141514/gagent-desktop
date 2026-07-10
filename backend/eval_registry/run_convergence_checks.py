@@ -20,12 +20,14 @@ ROOT = Path(__file__).resolve().parents[2]
 PYTHON = ROOT / "python-runtime" / ("python.exe" if os.name == "nt" else "bin/python")
 SCORE_COMPONENT_WEIGHTS = score_functionality.SCORE_COMPONENT_WEIGHTS
 SCORE_INPUT_REPORTS = score_functionality.SCORE_INPUT_REPORTS
+SCORE_RAW_LEDGER_REPORTS = score_functionality.SCORE_RAW_LEDGER_REPORTS
 SCORE_E2E_ENV_KEYS = score_functionality.SCORE_E2E_ENV_KEYS
 BASE_COMPONENT_FIELDS = score_functionality.BASE_COMPONENT_FIELDS
 COMPONENT_EXTRA_FIELDS = score_functionality.COMPONENT_EXTRA_FIELDS
 SCORE_EVIDENCE_FIELDS = score_functionality.SCORE_EVIDENCE_FIELDS
 SOURCE_GIT_FIELDS = score_functionality.SOURCE_GIT_FIELDS
 INPUT_REPORT_FIELDS = score_functionality.INPUT_REPORT_FIELDS
+RAW_LEDGER_FILE_FIELDS = score_functionality.RAW_LEDGER_FILE_FIELDS
 REFRESH_REPORT_MAX_AGE = timedelta(minutes=30)
 REFRESH_REPORT_FUTURE_SKEW = timedelta(minutes=2)
 INPUT_REPORT_STAT_SKEW = timedelta(seconds=2)
@@ -290,6 +292,54 @@ def _validate_score_evidence(command: list[str], score: dict, *, validate_curren
             _validate_refresh_report_timing(name, generated_at, modified_at)
             _validate_input_report_file_stat(name, results_dir, report, modified_at)
 
+    raw_ledger_files = evidence.get("raw_ledger_files")
+    if not isinstance(raw_ledger_files, dict):
+        raise ValueError("score_functionality evidence.raw_ledger_files is missing")
+    unknown_raw_ledger_files = sorted(set(raw_ledger_files) - set(SCORE_RAW_LEDGER_REPORTS))
+    if unknown_raw_ledger_files:
+        raise ValueError(
+            "score_functionality evidence.raw_ledger_files has unknown reports: "
+            + ", ".join(unknown_raw_ledger_files)
+        )
+    for component_name in SCORE_RAW_LEDGER_REPORTS:
+        raw_file = raw_ledger_files.get(component_name)
+        if not isinstance(raw_file, dict):
+            raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name} is missing")
+        unknown_raw_file_fields = sorted(set(raw_file) - RAW_LEDGER_FILE_FIELDS)
+        if unknown_raw_file_fields:
+            raise ValueError(
+                f"score_functionality evidence.raw_ledger_files.{component_name} has unknown fields: "
+                + ", ".join(unknown_raw_file_fields)
+            )
+        run_id = raw_file.get("run_id")
+        if not isinstance(run_id, str):
+            raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name}.run_id is missing")
+        if not isinstance(raw_file.get("exists"), bool):
+            raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name}.exists is missing")
+        if _component_status(score, component_name) == "passed":
+            if not run_id:
+                raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name}.run_id is missing")
+            if not raw_file["exists"]:
+                raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name} is missing")
+        if not raw_file["exists"]:
+            continue
+        if not run_id:
+            raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name}.run_id is missing")
+        if not isinstance(raw_file.get("bytes"), int) or raw_file["bytes"] <= 0:
+            raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name}.bytes is invalid")
+        raw_modified_at_utc = raw_file.get("modified_at_utc")
+        if not isinstance(raw_modified_at_utc, str) or not raw_modified_at_utc.endswith("Z"):
+            raise ValueError(
+                f"score_functionality evidence.raw_ledger_files.{component_name}.modified_at_utc is invalid"
+            )
+        raw_modified_at = _parse_utc_timestamp(
+            raw_modified_at_utc,
+            f"score_functionality evidence.raw_ledger_files.{component_name}.modified_at_utc",
+        )
+        if "--refresh" in command:
+            _validate_refresh_report_timing(f"raw_ledger_files.{component_name}", generated_at, raw_modified_at)
+            _validate_raw_ledger_file_stat(component_name, run_id, raw_file, raw_modified_at)
+
 
 def _validate_score_artifact_matches_stdout(path: Path, expected_score: dict) -> None:
     try:
@@ -413,6 +463,27 @@ def _validate_input_report_file_stat(name: str, results_dir: Path, report: dict,
         )
 
 
+def _validate_raw_ledger_file_stat(component_name: str, run_id: str, raw_file: dict, modified_at: datetime) -> None:
+    path = _raw_ledger_file_path(run_id)
+    try:
+        stat = path.stat()
+    except OSError as exc:
+        raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name} file is missing on disk") from exc
+    if stat.st_size != raw_file.get("bytes"):
+        raise ValueError(f"score_functionality evidence.raw_ledger_files.{component_name}.bytes does not match disk file")
+    actual_modified_at = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
+    if abs(actual_modified_at - modified_at) > INPUT_REPORT_STAT_SKEW:
+        raise ValueError(
+            f"score_functionality evidence.raw_ledger_files.{component_name}.modified_at_utc does not match disk file"
+        )
+
+
+def _raw_ledger_file_path(run_id: str) -> Path:
+    if not run_id or "\\" in run_id or "/" in run_id:
+        raise ValueError("score_functionality evidence.raw_ledger_files.run_id is invalid")
+    return ROOT / "backend" / "runtime_ledger" / "runs" / f"{run_id[:160]}.jsonl"
+
+
 def _current_git_head() -> str | None:
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -425,6 +496,14 @@ def _current_git_head() -> str | None:
     if result.returncode != 0:
         return None
     return result.stdout.strip() or None
+
+
+def _component_status(score: dict, component_name: str) -> str:
+    components = score.get("components") or []
+    for component in components:
+        if isinstance(component, dict) and component.get("name") == component_name:
+            return str(component.get("status") or "")
+    return ""
 
 
 def _current_git_branch() -> str | None:
@@ -474,12 +553,14 @@ def _self_test() -> None:
     assert _commands(full=True)[5] == strict_score_command
     assert SCORE_COMPONENT_WEIGHTS is score_functionality.SCORE_COMPONENT_WEIGHTS
     assert SCORE_INPUT_REPORTS is score_functionality.SCORE_INPUT_REPORTS
+    assert SCORE_RAW_LEDGER_REPORTS is score_functionality.SCORE_RAW_LEDGER_REPORTS
     assert SCORE_E2E_ENV_KEYS is score_functionality.SCORE_E2E_ENV_KEYS
     assert BASE_COMPONENT_FIELDS is score_functionality.BASE_COMPONENT_FIELDS
     assert COMPONENT_EXTRA_FIELDS is score_functionality.COMPONENT_EXTRA_FIELDS
     assert SCORE_EVIDENCE_FIELDS is score_functionality.SCORE_EVIDENCE_FIELDS
     assert SOURCE_GIT_FIELDS is score_functionality.SOURCE_GIT_FIELDS
     assert INPUT_REPORT_FIELDS is score_functionality.INPUT_REPORT_FIELDS
+    assert RAW_LEDGER_FILE_FIELDS is score_functionality.RAW_LEDGER_FILE_FIELDS
     original_weight = SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"]
     try:
         SCORE_COMPONENT_WEIGHTS["browser_agent_e2e"] = original_weight + 5
@@ -601,6 +682,14 @@ def _self_test() -> None:
         assert "evidence is missing" in str(exc)
     else:
         raise AssertionError("score output without evidence unexpectedly passed")
+    missing_raw_ledger_files = json.loads(_score_output_fixture())
+    missing_raw_ledger_files["evidence"].pop("raw_ledger_files", None)
+    try:
+        _success_output_for(score_command, json.dumps(missing_raw_ledger_files))
+    except ValueError as exc:
+        assert "raw_ledger_files" in str(exc)
+    else:
+        raise AssertionError("score output without raw_ledger_files evidence unexpectedly passed")
     with tempfile.TemporaryDirectory() as tmp_dir:
         score_artifact = Path(tmp_dir) / "latest_functionality_score.json"
         expected_score = json.loads(_score_output_fixture())
@@ -645,6 +734,12 @@ def _self_test() -> None:
     extra_input_report_field = json.loads(_score_output_fixture())
     extra_input_report_field["evidence"]["input_reports"]["latest_eval_report.json"]["mystery_field"] = True
     evidence_drift_cases.append((extra_input_report_field, "input report field unknown"))
+    extra_raw_ledger_file = json.loads(_score_output_fixture())
+    extra_raw_ledger_file["evidence"]["raw_ledger_files"]["mystery_report"] = {"exists": False}
+    evidence_drift_cases.append((extra_raw_ledger_file, "raw_ledger_files unknown"))
+    extra_raw_ledger_file_field = json.loads(_score_output_fixture())
+    extra_raw_ledger_file_field["evidence"]["raw_ledger_files"]["openai_orchestrated_e2e"]["mystery_field"] = True
+    evidence_drift_cases.append((extra_raw_ledger_file_field, "raw ledger file field unknown"))
     missing_input_report = json.loads(_score_output_fixture())
     missing_input_report["evidence"]["input_reports"]["latest_eval_report.json"] = {"exists": False}
     for fixture, label in evidence_drift_cases:
@@ -660,6 +755,20 @@ def _self_test() -> None:
         assert "input_reports.latest_eval_report.json" in str(exc)
     else:
         raise AssertionError("score output with missing input report unexpectedly passed")
+    passed_without_raw_ledger = json.loads(_score_output_fixture())
+    passed_without_raw_ledger["components"][1]["score"] = SCORE_COMPONENT_WEIGHTS["openai_orchestrated_e2e"]
+    passed_without_raw_ledger["components"][1]["status"] = "passed"
+    passed_without_raw_ledger["total"] += SCORE_COMPONENT_WEIGHTS["openai_orchestrated_e2e"]
+    passed_without_raw_ledger["evidence"]["raw_ledger_files"]["openai_orchestrated_e2e"] = {
+        "run_id": "openai_e2e_fixture",
+        "exists": False,
+    }
+    try:
+        _success_output_for(score_command, json.dumps(passed_without_raw_ledger))
+    except ValueError as exc:
+        assert "raw_ledger_files.openai_orchestrated_e2e" in str(exc)
+    else:
+        raise AssertionError("score output with passed e2e but missing raw ledger unexpectedly passed")
     wrong_input_report_bytes = json.loads(_score_output_fixture())
     wrong_input_report_bytes["evidence"]["input_reports"]["latest_eval_report.json"]["bytes"] += 1
     try:
@@ -874,6 +983,7 @@ def _score_output_fixture(
                     "dirty": dirty,
                 },
                 "input_reports": input_report_evidence,
+                "raw_ledger_files": _raw_ledger_file_fixture_evidence(),
             },
         }
     )
@@ -898,6 +1008,13 @@ def _input_report_fixture_evidence(results_dir: Path) -> dict[str, dict[str, obj
             "modified_at_utc": _format_utc(datetime.fromtimestamp(stat.st_mtime, timezone.utc)),
         }
     return evidence
+
+
+def _raw_ledger_file_fixture_evidence() -> dict[str, dict[str, object]]:
+    return {
+        component_name: {"run_id": "", "exists": False}
+        for component_name in SCORE_RAW_LEDGER_REPORTS
+    }
 
 
 def _fixture_generated_at_utc(input_reports: dict[str, dict[str, object]]) -> str:

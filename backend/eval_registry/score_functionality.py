@@ -49,6 +49,10 @@ SCORE_INPUT_REPORTS = [
     "latest_openai_e2e_report.json",
     "latest_browser_agent_e2e_report.json",
 ]
+SCORE_RAW_LEDGER_REPORTS = {
+    "openai_orchestrated_e2e": "latest_openai_e2e_report.json",
+    "browser_agent_e2e": "latest_browser_agent_e2e_report.json",
+}
 SCORE_E2E_ENV_KEYS = [
     "GAGENT_E2E_DEPS",
     "GAGENT_RUN_OPENAI_E2E",
@@ -67,9 +71,11 @@ SCORE_EVIDENCE_FIELDS = {
     "e2e_env",
     "source_git",
     "input_reports",
+    "raw_ledger_files",
 }
 SOURCE_GIT_FIELDS = {"available", "head", "branch", "dirty"}
 INPUT_REPORT_FIELDS = {"exists", "bytes", "modified_at_utc"}
+RAW_LEDGER_FILE_FIELDS = {"run_id", "exists", "bytes", "modified_at_utc"}
 OPTIONAL_E2E_PASSED_FIELDS = {
     "openai_orchestrated_e2e": {"status", "run_id", "done", "ledger_summary", "observability"},
     "browser_agent_e2e": {"status", "run_id", "tool_result", "ledger_summary", "ledger_event_count"},
@@ -586,6 +592,7 @@ def _build_evidence(results_dir: str | Path | None = None) -> dict[str, Any]:
         },
         "source_git": _source_git_evidence(),
         "input_reports": _input_report_evidence(base),
+        "raw_ledger_files": _raw_ledger_file_evidence(base),
     }
 
 
@@ -637,6 +644,35 @@ def _input_report_evidence(base: Path) -> dict[str, dict[str, Any]]:
                 "modified_at_utc": _utc_from_timestamp(stat.st_mtime),
             }
     return evidence
+
+
+def _raw_ledger_file_evidence(base: Path) -> dict[str, dict[str, Any]]:
+    evidence: dict[str, dict[str, Any]] = {}
+    ledger_dir = default_ledger_dir(ROOT)
+    for component, report_name in SCORE_RAW_LEDGER_REPORTS.items():
+        report = _read_json(base / report_name) or {}
+        run_id = str(report.get("run_id") or "").strip() if report.get("status") == "passed" else ""
+        if not run_id:
+            evidence[component] = {"run_id": run_id, "exists": False}
+            continue
+        path = _raw_ledger_path(run_id, ledger_dir)
+        try:
+            stat = path.stat()
+        except OSError:
+            evidence[component] = {"run_id": run_id, "exists": False}
+        else:
+            evidence[component] = {
+                "run_id": run_id,
+                "exists": True,
+                "bytes": stat.st_size,
+                "modified_at_utc": _utc_from_timestamp(stat.st_mtime),
+            }
+    return evidence
+
+
+def _raw_ledger_path(run_id: str, ledger_dir: str | Path) -> Path:
+    safe_run_id = str(run_id).replace("\\", "_").replace("/", "_")[:160]
+    return Path(ledger_dir) / f"{safe_run_id}.jsonl"
 
 
 def _utc_now() -> str:
@@ -1374,6 +1410,7 @@ def _self_test() -> None:
         assert advisory_report["evidence"]["input_reports"]["latest_eval_report.json"]["exists"] is True
         assert advisory_report["evidence"]["input_reports"]["latest_openai_e2e_report.json"]["exists"] is True
         assert advisory_report["evidence"]["input_reports"]["latest_browser_agent_e2e_report.json"]["exists"] is True
+        assert "raw_ledger_files" in advisory_report["evidence"]
 
         strict = subprocess.run(
             [
